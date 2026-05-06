@@ -1,0 +1,223 @@
+HLSL:
+Vertex Shader:
+cbuffer user_input: register(b1) {
+float4 rect_px;
+float v_offset;
+float u_offset;
+float image_aspect;
+float flip_v01;
+float blur_px;
+float zoom;
+};
+
+#define MATRIX_TEXTURE_PROVIDED
+
+struct vs_in {
+    float2 pos: POS;
+    float2 uv: UV;
+    float2 uv2: UV1;
+    float4 color: COLOR;
+    int matrix_index: MATRIX_INDEX;
+};
+
+
+cbuffer params: register(b0) {
+    float4x4 mvp;
+    float4 resolution_time;
+    int matrix_image_size;
+};
+#define FLIP_IF_GL(y) do { } while (0);
+
+Texture2D<float4> matrices: register(t0);
+sampler matrices_smp: register(s0);
+
+#ifdef MATRIX_TEXTURE_PROVIDED
+int3 create_pixel_coord(int index) {
+    int x = index % matrix_image_size;
+    int y = index / matrix_image_size;
+    return int3(x, y, 0);
+}
+float4x4 final_mvp(vs_in inp) {
+    float4 _0 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 0));
+    float4 _1 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 1));
+    float4 _2 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 2));
+    float4 _3 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 3));
+    float4x4 model_matrix = float4x4(_0, _1, _2, _3);
+    #ifdef AO_WEB
+    model_matrix = transpose(model_matrix);
+    #endif
+    return mul(mvp, model_matrix);
+}
+#endif
+
+float4 bc7_correct_alpha(float4 color) {
+    // map 254 to 255. this is because bc7 is lossy in the alpha channel and an opaque pixel often outputs as 254 alpha.
+    if (color.a > 0.995f && color.a <= 1.0f) color.a = 1.0f;
+    return color;
+}
+
+struct vs_out {
+    float4 color: COLOR0;
+    float2 uv: UV;
+    float2 screen_uv: TEXCOORD0;
+    float4 pos: SV_Position;
+};
+vs_out vs_main(vs_in inp) {
+    vs_out outp;
+    outp.pos = mul(mvp, float4(inp.pos.xy, 0, 1.0f));
+    outp.uv = inp.uv;
+    outp.screen_uv = (outp.pos.xy / outp.pos.w + float2(1,1)) * 0.5f;
+    outp.color = inp.color;
+    return outp;
+}
+
+
+
+Fragment Shader:
+cbuffer user_input: register(b1) {
+float4 rect_px;
+float v_offset;
+float u_offset;
+float image_aspect;
+float flip_v01;
+float blur_px;
+float zoom;
+};
+
+Texture2D<float4> albedo: register(t0);
+sampler albedo_smp: register(s0);
+Texture2D<float4> image: register(t1);
+sampler image_smp: register(s1);
+
+#define MATRIX_TEXTURE_PROVIDED
+
+struct vs_in {
+    float2 pos: POS;
+    float2 uv: UV;
+    float2 uv2: UV1;
+    float4 color: COLOR;
+    int matrix_index: MATRIX_INDEX;
+};
+
+
+cbuffer params: register(b0) {
+    float4x4 mvp;
+    float4 resolution_time;
+    int matrix_image_size;
+};
+#define FLIP_IF_GL(y) do { } while (0);
+
+Texture2D<float4> matrices: register(t0);
+sampler matrices_smp: register(s0);
+
+#ifdef MATRIX_TEXTURE_PROVIDED
+int3 create_pixel_coord(int index) {
+    int x = index % matrix_image_size;
+    int y = index / matrix_image_size;
+    return int3(x, y, 0);
+}
+float4x4 final_mvp(vs_in inp) {
+    float4 _0 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 0));
+    float4 _1 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 1));
+    float4 _2 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 2));
+    float4 _3 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 3));
+    float4x4 model_matrix = float4x4(_0, _1, _2, _3);
+    #ifdef AO_WEB
+    model_matrix = transpose(model_matrix);
+    #endif
+    return mul(mvp, model_matrix);
+}
+#endif
+
+float4 bc7_correct_alpha(float4 color) {
+    // map 254 to 255. this is because bc7 is lossy in the alpha channel and an opaque pixel often outputs as 254 alpha.
+    if (color.a > 0.995f && color.a <= 1.0f) color.a = 1.0f;
+    return color;
+}
+
+float4 ps_main(float4 vtxColor: COLOR0, float2 uv: UV, float2 screen_uv: TEXCOORD0): SV_Target0
+{
+    float4 base = vtxColor * albedo.Sample(albedo_smp, uv);
+
+    // Build local 0..1 quad UVs from the exact screen rect we render into (in PIXELS)
+    float2 svpos_px = screen_uv * resolution_time.xy;
+    float2 rectMin = rect_px.xy;
+    float2 rectMax = rect_px.zw;
+    float2 rectSize = max(rectMax - rectMin, 1e-6.xx);
+    float2 uv_local = saturate((svpos_px - rectMin) / rectSize);
+
+    // image/target aspects (target computed in pixels to avoid screen aspect bias)
+    uint iw, ih; image.GetDimensions(iw, ih);
+    float ia_auto = (float)iw / max(1.0f, (float)ih); // image w/h
+    float ia = (image_aspect > 0.0f) ? image_aspect : ia_auto; // prefer override
+    float ta = rectSize.x / rectSize.y;               // target w/h (pixels)
+
+    // KEEP_WIDTH: map full width, crop vertically (no stretch)
+    float sy = min(ia / ta, 1.0f);
+    float oy = saturate((1.0f - sy) * (v_offset));   // v_offset=0.5 centers; 0 bottom; 1 top
+    float2 uv_img = float2(uv_local.x, uv_local.y * sy + oy);
+    // Apply isotropic zoom around image center in image UV space
+    float z = zoom;
+    if (z <= 0.0f) z = 1.0f;
+    uv_img = (uv_img - 0.5f) / z + 0.5f;
+    // Horizontal pan to choose slice after zoom
+    float panX = (saturate(u_offset) - 0.5f) * (1.0f - 1.0f / z);
+    uv_img.x += panX;
+    uv_img.y = lerp(uv_img.y, 1.0f - uv_img.y, saturate(flip_v01));
+
+    // in-bounds mask so we don't clamp/stretch outside
+    float2 inMin = step(0.0f, uv_img);
+    float2 inMax = step(uv_img, 1.0f);
+    float  mask  = inMin.x * inMin.y * inMax.x * inMax.y;
+
+    // Optional blur in source texture pixel space
+    float blur = max(blur_px, 0.0f);
+    float4 tex;
+    if (blur < 0.5f)
+    {
+        tex = image.Sample(image_smp, saturate(uv_img));
+    }
+    else
+    {
+        // High-quality single-pass isotropic blur using Poisson-disk taps.
+        float2 u = saturate(uv_img);
+        float2 texel = 1.0f / float2(max(1.0f, (float)iw), max(1.0f, (float)ih));
+        float s = max(blur, 0.0f);
+        float2 stepVec = texel * s;
+
+        // 12-tap Poisson offsets (unit circle)
+        const float2 OFFS[12] = {
+            float2(-0.326212f, -0.40581f),
+            float2(-0.840144f, -0.07358f),
+            float2(-0.695914f,  0.457137f),
+            float2(-0.203345f,  0.620716f),
+            float2( 0.96234f,  -0.194983f),
+            float2( 0.473434f, -0.480026f),
+            float2( 0.519456f,  0.767022f),
+            float2( 0.185461f, -0.893124f),
+            float2( 0.507431f,  0.064425f),
+            float2( 0.89642f,   0.412458f),
+            float2(-0.32194f,  -0.932615f),
+            float2(-0.791559f, -0.59771f)
+        };
+
+        float4 acc = image.Sample(image_smp, u);
+        float  wsum = 1.0f;
+        [unroll]
+        for (int i = 0; i < 12; ++i)
+        {
+            float2 o = OFFS[i] * stepVec;
+            float4 c1 = image.Sample(image_smp, saturate(u + o));
+            acc += c1;
+            wsum += 1.0f;
+        }
+        tex = acc / max(wsum, 1.0f);
+    }
+
+    // composite inside the quad only (contain fit), keep base elsewhere
+    float3 outRgb = lerp(base.rgb, tex.rgb, mask * tex.a);
+    return float4(outRgb * base.a, base.a);
+}
+
+
+

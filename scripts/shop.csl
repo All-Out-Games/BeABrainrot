@@ -1,0 +1,272 @@
+// Generic raw-UI shop. Loosely ports MergeBrainrotRework/scripts/ui/SparkBuyableShop.cs.
+//
+// Add items via:
+//   sec := register_shop_section("Tools", .TINY);
+//   item := add_shop_item(sec);
+//   item.id = "rpg"; item.title = "RPG"; item.desc = "..."; item.price = 299;
+//   item.bg_kind = .GRADIENT_RED_GREEN;
+//
+// Override on_shop_item_clicked() if you want a different purchase flow.
+
+// ===== Materials =====
+
+SHOP_MAT_RED_GREEN:           Material;
+SHOP_MAT_RED_BLUE:            Material;
+SHOP_MAT_YELLOW_ORANGE:       Material;
+SHOP_MAT_GREEN_LIGHT_GREEN:   Material;
+SHOP_MAT_GREEN_LIGHT_BLUE:    Material;
+
+make_shop_gradient :: proc(shader: Shader_Asset, top: v4, bot: v4) -> Material {
+    m := Material.create(shader);
+    if m == null return null;
+    m.set_float4("top_color",    top);
+    m.set_float4("bottom_color", bot);
+    return m;
+}
+
+register_shop_materials :: proc() {
+    shader := get_asset(Shader_Asset, "shaders/vertical_gradient.aosl");
+    if shader == null return;
+    SHOP_MAT_RED_GREEN         = make_shop_gradient(shader, v4{1.00, 0.20, 0.20, 1}, v4{0.20, 1.00, 0.20, 1});
+    SHOP_MAT_RED_BLUE          = make_shop_gradient(shader, v4{1.00, 0.20, 0.20, 1}, v4{0.20, 0.40, 1.00, 1});
+    SHOP_MAT_YELLOW_ORANGE     = make_shop_gradient(shader, v4{1.00, 1.00, 0.00, 1}, v4{1.00, 0.50, 0.00, 1});
+    SHOP_MAT_GREEN_LIGHT_GREEN = make_shop_gradient(shader, v4{0.808, 0.831, 0.416, 1}, v4{0.027, 0.333, 0.231, 1});
+    SHOP_MAT_GREEN_LIGHT_BLUE  = make_shop_gradient(shader, v4{0.808, 0.831, 0.416, 1}, v4{0.000, 0.584, 1.000, 1});
+}
+
+Shop_BG_Kind :: enum {
+    FLAT_DARK;
+    GRADIENT_RED_GREEN;
+    GRADIENT_RED_BLUE;
+    GRADIENT_YELLOW_ORANGE;
+    GRADIENT_GREEN_LIGHT_GREEN;
+    GRADIENT_GREEN_LIGHT_BLUE;
+}
+
+get_shop_bg_material :: proc(kind: Shop_BG_Kind) -> Material {
+    if kind == Shop_BG_Kind.GRADIENT_RED_GREEN          return SHOP_MAT_RED_GREEN;
+    if kind == Shop_BG_Kind.GRADIENT_RED_BLUE           return SHOP_MAT_RED_BLUE;
+    if kind == Shop_BG_Kind.GRADIENT_YELLOW_ORANGE      return SHOP_MAT_YELLOW_ORANGE;
+    if kind == Shop_BG_Kind.GRADIENT_GREEN_LIGHT_GREEN  return SHOP_MAT_GREEN_LIGHT_GREEN;
+    if kind == Shop_BG_Kind.GRADIENT_GREEN_LIGHT_BLUE   return SHOP_MAT_GREEN_LIGHT_BLUE;
+    return null;
+}
+
+// ===== Item registry =====
+
+Shop_Item_Kind :: enum {
+    TINY;     // 3-up cards (title, desc, image, price)
+    SMALL;    // 2-up cards (title, badge, big image, price)
+    BANNER;   // full-width featured banner
+    FULL;     // full-width pass / single big card
+}
+
+Shop_Item :: class {
+    id:        string;
+    title:     string;
+    desc:      string;
+    badge:     string;
+    trailing:  string;
+    price:     s64;        // sparks cost; -1 = free
+    old_price: s64;        // 0 = no old price
+    icon_path: string;
+    bg_kind:   Shop_BG_Kind;
+}
+
+Shop_Section :: class {
+    title: string;
+    kind:  Shop_Item_Kind;
+    items: [..]Shop_Item;
+}
+
+ALL_SHOP_SECTIONS: [..]Shop_Section;
+
+register_shop_section :: proc(title: string, kind: Shop_Item_Kind) -> Shop_Section {
+    s := new(Shop_Section);
+    s.title = title;
+    s.kind  = kind;
+    append(ref ALL_SHOP_SECTIONS, s);
+    return s;
+}
+
+add_shop_item :: proc(section: Shop_Section) -> Shop_Item {
+    i := new(Shop_Item);
+    append(ref section.items, i);
+    return i;
+}
+
+register_default_shop_items :: proc() {
+    tools := register_shop_section("Tools", Shop_Item_Kind.TINY);
+
+    rpg := add_shop_item(tools);
+    rpg.id      = "rpg";
+    rpg.title   = "RPG";
+    rpg.desc    = "Explode your\nenemies!";
+    rpg.price   = 299;
+    rpg.bg_kind = Shop_BG_Kind.GRADIENT_RED_GREEN;
+
+    fc := add_shop_item(tools);
+    fc.id       = "flying_carpet";
+    fc.title    = "Flying Carpet!";
+    fc.desc     = "Be x2\ntimes faster!";
+    fc.price    = 249;
+    fc.bg_kind  = Shop_BG_Kind.GRADIENT_RED_GREEN;
+
+    ic := add_shop_item(tools);
+    ic.id       = "invisibility_cape";
+    ic.title    = "Invisibility Cape!";
+    ic.desc     = "Be invisible\nto other players!";
+    ic.price    = 799;
+    ic.bg_kind  = Shop_BG_Kind.GRADIENT_RED_GREEN;
+}
+
+// ===== Click flow =====
+
+on_shop_item_clicked :: proc(player: Player, item: Shop_Item) {
+    if item == null return;
+    if item.price < 0 {
+        Notifier.notify(player, "Claimed %!", {item.title});
+        return;
+    }
+    if Economy.can_withdraw_currency(player, SPARKS_CURRENCY, item.price) {
+        Economy.withdraw_currency(player, SPARKS_CURRENCY, item.price);
+        Notifier.notify(player, "Purchased % for % Sparks", {item.title, item.price});
+    } else {
+        Notifier.notify(player, "Not enough Sparks!");
+    }
+}
+
+// ===== UI =====
+
+SHOP_PANEL_GROW    :: 420.0;
+SHOP_PANEL_GROW_X  :: 600.0;
+SHOP_HEADER_HEIGHT :: 90.0;
+SHOP_TINY_HEIGHT   :: 250.0;
+
+draw_shop_modal :: proc(player: Player) {
+    if player == null return;
+    if !player.show_shop_modal return;
+
+    UI.push_screen_draw_context();
+    defer UI.pop_draw_context();
+
+    // Backdrop dims and blocks input
+    UI.quad(UI.get_screen_rect(), core_globals.white_sprite, v4{0, 0, 0, 0.75});
+    UI.button(UI.get_screen_rect(), {}, {}, "");  // swallow clicks behind modal
+
+    panel := UI.get_safe_screen_rect().center_rect().grow(SHOP_PANEL_GROW, SHOP_PANEL_GROW_X, SHOP_PANEL_GROW, SHOP_PANEL_GROW_X);
+    UI.quad(panel, core_globals.white_sprite, v4{0.10, 0.10, 0.13, 1});
+
+    // Header
+    header := panel.cut_top(SHOP_HEADER_HEIGHT);
+    UI.quad(header, core_globals.white_sprite, v4{1.00, 0.87, 0.34, 1});
+    title_ts := UI.default_text_settings();
+    title_ts.size = 56;
+    title_ts.color = v4{1, 1, 1, 1};
+    UI.text(header, title_ts, "Shop");
+
+    // Close button (top-right of panel, before we ate the header)
+    close_rect := header.bottom_right_rect().grow(28, 28, 28, 28).offset(-12, 12);
+    close_bs: Button_Settings;
+    close_ts := UI.default_text_settings();
+    close_ts.size = 36;
+    close_ts.color = v4{1, 1, 1, 1};
+    if UI.button(close_rect, close_bs, close_ts, "X").clicked {
+        player.show_shop_modal = false;
+        return;
+    }
+
+    // Body — scrollable
+    body := panel.inset(18, 18, 18, 18);
+    sv_settings: Scroll_View_Settings;
+    sv_settings.vertical = true;
+    sv := UI.push_scroll_view(body, "shop_scroll", sv_settings);
+    defer UI.pop_scroll_view();
+
+    content := sv.content_rect;
+    for s: ALL_SHOP_SECTIONS {
+        if s == null continue;
+        draw_shop_section_header(content.cut_top(46), s.title);
+        content.cut_top(8);
+        if s.kind == Shop_Item_Kind.TINY {
+            draw_tiny_row(content.cut_top(SHOP_TINY_HEIGHT), s, player);
+        }
+        content.cut_top(18);
+    }
+}
+
+draw_shop_section_header :: proc(rect: Rect, title: string) {
+    ts := UI.default_text_settings();
+    ts.size = 36;
+    ts.color = v4{1, 1, 1, 1};
+    UI.text(rect, ts, title);
+}
+
+draw_tiny_row :: proc(area: Rect, section: Shop_Section, player: Player) {
+    n := section.items.count;
+    if n <= 0 return;
+    cols: s64 = 3;
+    if n < cols cols = n;
+    gap: float = 12.0;
+    cell_w := (area.width() - gap * (cols - 1).(float)) / cols.(float);
+
+    cursor := area;
+    i: s64 = 0;
+    while i < cols && i < n {
+        cell := cursor.cut_left(cell_w);
+        cursor.cut_left(gap);
+        if draw_tiny_card(cell, section.items[i], i) {
+            on_shop_item_clicked(player, section.items[i]);
+        }
+        i += 1;
+    }
+}
+
+draw_tiny_card :: proc(rect: Rect, item: Shop_Item, slot: s64) -> bool {
+    if item == null return false;
+    card := rect.inset(6, 6, 6, 6);
+
+    // Background — gradient material if available, else flat dark.
+    inner := card.inset(4, 4, 4, 4);
+    mat := get_shop_bg_material(item.bg_kind);
+    if mat != null {
+        mat.set_float4("rect_px", v4{inner.min.x, inner.min.y, inner.max.x, inner.max.y});
+        UI.push_material(mat);
+        UI.quad(inner, core_globals.white_sprite, v4{1, 1, 1, 1});
+        UI.pop_material();
+    } else {
+        UI.quad(inner, core_globals.white_sprite, v4{0.18, 0.20, 0.26, 1});
+    }
+
+    pad := inner.inset(10, 10, 10, 10);
+
+    // Title
+    title_ts := UI.default_text_settings();
+    title_ts.size = 30;
+    title_ts.color = v4{1, 1, 1, 1};
+    UI.text(pad.cut_top(36), title_ts, item.title);
+
+    // Price band at bottom
+    price_rect := pad.cut_bottom(60);
+    price_ts := UI.default_text_settings();
+    price_ts.size = 30;
+    price_ts.color = v4{1, 0.92, 0.20, 1};
+    price_label := "Free";
+    if item.price >= 0 price_label = format_string("% Sparks", {item.price});
+    UI.text(price_rect, price_ts, price_label);
+
+    // Description fills the remaining middle
+    desc_ts := UI.default_text_settings();
+    desc_ts.size = 22;
+    desc_ts.color = v4{1, 1, 1, 1};
+    UI.text(pad, desc_ts, item.desc);
+
+    // Click capture (drawn last so visuals come through)
+    bs: Button_Settings;
+    ts: Text_Settings;
+    return UI.button(card, bs, ts, format_string("shop_card_%0_%", {item.id, slot})).clicked;
+}
+
+shop_cmd :: proc(player: Player) {
+    player.show_shop_modal = !player.show_shop_modal;
+} @chat_command

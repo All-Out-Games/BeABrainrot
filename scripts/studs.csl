@@ -1,0 +1,60 @@
+STUDS_MATERIAL: Material;
+
+get_studs_material :: proc() -> Material {
+    if STUDS_MATERIAL == null {
+        shader := get_asset(Shader_Asset, "shaders/studs.aosl");
+        if shader == null return null;
+        STUDS_MATERIAL = Material.create(shader);
+        STUDS_MATERIAL.set_float("stud_density",     20.0);
+        STUDS_MATERIAL.set_float("stud_size",        0.30);
+        STUDS_MATERIAL.set_float("light_strength",   0.18);
+        STUDS_MATERIAL.set_float("crevice_strength", 0.0);
+    }
+    return STUDS_MATERIAL;
+}
+
+Studs_Surface :: class : Component {
+    sprites: [..]Sprite_Renderer @ao_serialize;
+    stud_density: float @ao_serialize;
+    stud_size: float @ao_serialize;
+
+    ao_start :: method() {
+        mat := get_studs_material();
+        if mat == null return;
+
+        if stud_density > 0 mat.set_float("stud_density", stud_density);
+        if stud_size    > 0 mat.set_float("stud_size", stud_size);
+
+        for s: sprites {
+            if s == null continue;
+            s.set_material(mat, false);
+        }
+    }
+}
+
+// Drop this on any entity that has a Sprite_Renderer and it auto-applies a
+// shared studs material (density 5, size 0.4). No fields to wire up.
+STUDS_AUTO_MATERIAL: Material;
+
+get_studs_auto_material :: proc() -> Material {
+    if STUDS_AUTO_MATERIAL == null {
+        shader := get_asset(Shader_Asset, "shaders/studs.aosl");
+        if shader == null return null;
+        STUDS_AUTO_MATERIAL = Material.create(shader);
+        STUDS_AUTO_MATERIAL.set_float("stud_density",     5.0);
+        STUDS_AUTO_MATERIAL.set_float("stud_size",        0.4);
+        STUDS_AUTO_MATERIAL.set_float("light_strength",   0.18);
+        STUDS_AUTO_MATERIAL.set_float("crevice_strength", 0.0);
+    }
+    return STUDS_AUTO_MATERIAL;
+}
+
+Studs_Auto :: class : Component {
+    ao_start :: method() {
+        sprite := entity.get_component(Sprite_Renderer);
+        if sprite == null return;
+        mat := get_studs_auto_material();
+        if mat == null return;
+        sprite.set_material(mat, false);
+    }
+}

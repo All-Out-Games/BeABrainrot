@@ -1,0 +1,54 @@
+!!inputs {
+    texture albedo ALBEDO
+    float4 top_color    // RGBA 0..1, color at visual top
+    float4 bottom_color // RGBA 0..1, color at visual bottom
+    float4 rect_px      // screen-space pixel rect (minX,minY,maxX,maxY)
+}
+
+!!pipeline {
+    Pixel_Format: RGBA8_SRGB
+    Blend_Enabled: true
+    Depth_Enabled: true
+    Blend_Src: ONE
+    Blend_Dst: ONE_MINUS_SRC_ALPHA
+    Blend_Op: ADD
+    Alpha_Blend_Src: ONE
+    Alpha_Blend_Dst: ONE
+    Alpha_Blend_Op: ADD
+    Blend_Color: (1, 1, 1, 1)
+}
+
+!!vs
+struct vs_out {
+    float4 color: COLOR0;
+    float2 uv: UV;
+    float2 shadow_uv: TEXCOORD0; // 0..1 across screen
+    float4 pos: SV_Position;
+};
+vs_out vs_main(vs_in inp) {
+    vs_out outp;
+    outp.pos = mul(mvp, float4(inp.pos.xy, 0, 1.0f));
+    outp.uv = inp.uv;
+    outp.color = inp.color;
+    // Match bleach_to_white: compute screen uv in VS
+    outp.shadow_uv = (outp.pos.xy + float2(1,1)) / 2;
+    return outp;
+}
+
+!!ps
+float4 ps_main(float4 vtxColor: COLOR0, float2 uv: UV, float2 shadow_uv: TEXCOORD0): SV_Target0 {
+    float4 base = vtxColor * albedo.Sample(albedo_smp, uv);
+
+    // Exact rect-anchored gradient: top_color at rect_min.y, bottom_color at rect_max.y
+    float2 svpos_px = shadow_uv * resolution_time.xy;
+    float2 rectMin = rect_px.xy;
+    float2 rectMax = rect_px.zw;
+    float  rectH   = max(1.0f, rectMax.y - rectMin.y);
+    float  t       = saturate((svpos_px.y - rectMin.y) / rectH);
+    t = 1.0f - t; // flip so top_color maps to visual top and bottom_color to bottom
+    float4 grad    = lerp(top_color, bottom_color, t);
+    float a = base.a * grad.a;
+    return float4(grad.rgb * a, a);
+}
+
+

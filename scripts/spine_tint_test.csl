@@ -1,0 +1,41 @@
+// Test component: cycles a Spine_Animator's color_multiplier between
+// white -> red -> transparent -> white so we can confirm the field is
+// actually writable from CSL and applied at render time.
+//
+// Usage:
+//   1. Add this component to any entity that has a Spine_Animator.
+//   2. Drag the Spine_Animator into the `target` field (or leave empty
+//      and it'll grab the one on the same entity).
+//   3. Hit play. The spine should cycle colors every ~3 seconds.
+
+Spine_Tint_Test :: class : Component {
+    target: Spine_Animator @ao_serialize;
+
+    t: float;
+
+    ao_start :: method() {
+        if target == null {
+            target = entity.get_component(Spine_Animator);
+        }
+    }
+
+    ao_update :: method(dt: float) {
+        if target == null return;
+
+        t += dt;
+
+        // 3-second cycle: 0..1 white, 1..2 red, 2..3 faded
+        phase := t - (t / 3.0).(s64).(float) * 3.0;
+
+        c: v4;
+        if phase < 1.0 {
+            c = v4{1, 1, 1, 1};            // white / normal
+        } else if phase < 2.0 {
+            c = v4{1, 0.3, 0.3, 1};        // red tint
+        } else {
+            c = v4{1, 1, 1, 0.3};          // faded
+        }
+
+        target.color_multiplier = c;
+    }
+}

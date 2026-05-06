@@ -1,0 +1,236 @@
+SPARKS_CURRENCY :: "Sparks";
+
+BASE_SPEED :: 18;
+
+// --- Real movement tuning ---
+// agent.movement_speed at the default stat (BASE_SPEED). Engine default is 300 (per AGENTS.md).
+BASE_AGENT_SPEED :: 300.0;
+// Each +1 stat above BASE_SPEED adds this many units/sec to agent.movement_speed.
+AGENT_SPEED_PER_STAT :: 15.0;
+// Hard cap. Stat upgrades remain uncapped; only the actual movement is capped.
+MAX_AGENT_SPEED :: 1200.0;
+
+// --- Price curve (from game reference) ---
+// Cost grows as a cumulative product whose multiplier itself grows with speed:
+//   m(S) = SPEED_PRICE_MULT_START + (S - BASE_SPEED) * SPEED_PRICE_MULT_GROW
+// cost_plus_1(S) = 100 * prod(m(18), m(19), ..., m(S-1))
+SPEED_PRICE_BASE       :: 100.0;
+SPEED_PRICE_MULT_START :: 1.165;
+SPEED_PRICE_MULT_GROW  :: 0.0002;
+
+speed_price_mult_at :: proc(s: s64) -> float {
+    return SPEED_PRICE_MULT_START + (s - BASE_SPEED).(float) * SPEED_PRICE_MULT_GROW;
+}
+
+speed_price_single_at :: proc(s: s64) -> float {
+    cost := SPEED_PRICE_BASE;
+    for i: BASE_SPEED..s - 1 {
+        cost *= speed_price_mult_at(i);
+    }
+    return cost;
+}
+
+compute_agent_movement_speed :: proc(stat_speed: s64) -> float {
+    over := (stat_speed - BASE_SPEED).(float);
+    if over < 0 over = 0;
+    target := BASE_AGENT_SPEED + over * AGENT_SPEED_PER_STAT;
+    if target > MAX_AGENT_SPEED target = MAX_AGENT_SPEED;
+    return target;
+}
+
+speed_upgrade_cash_cost :: proc(current_speed: s64, amount: s64) -> float {
+    if amount <= 0 return 0;
+    cost := speed_price_single_at(current_speed);
+    total := cost;
+    for i: current_speed..current_speed + amount - 2 {
+        cost *= speed_price_mult_at(i);
+        total += cost;
+    }
+    return total;
+}
+
+speed_upgrade_sparks_cost :: proc(current_speed: s64) -> s64 {
+    if current_speed < 33  return 9;
+    if current_speed < 53  return 19;
+    if current_speed < 73  return 29;
+    if current_speed < 93  return 49;
+    if current_speed < 113 return 69;
+    if current_speed < 133 return 99;
+    if current_speed < 153 return 139;
+    if current_speed < 173 return 179;
+    return 229;
+}
+
+try_buy_speed_upgrade_cash :: proc(player: Player, amount: s64) -> bool {
+    cash_cost := speed_upgrade_cash_cost(player.speed, amount);
+    if player.cash < cash_cost {
+        Notifier.notify(player, "Not enough Cash!");
+        return false;
+    }
+    withdraw_cash(player, cash_cost);
+    add_speed(player, amount);
+    return true;
+}
+
+try_buy_speed_upgrade_sparks :: proc(player: Player, amount: s64) -> bool {
+    sparks_cost := speed_upgrade_sparks_cost(player.speed);
+    if !Economy.can_withdraw_currency(player, SPARKS_CURRENCY, sparks_cost) {
+        Notifier.notify(player, "Not enough Sparks!");
+        return false;
+    }
+    Economy.withdraw_currency(player, SPARKS_CURRENCY, sparks_cost);
+    add_speed(player, amount);
+    return true;
+}
+
+Speed_Upgrade_Row_Handles :: struct {
+    cash: UIK.Interact_Handle;
+    sparks: UIK.Interact_Handle;
+}
+
+Speed_Upgrade_Handles :: struct {
+    exit: UIK.Interact_Handle;
+    row_1: Speed_Upgrade_Row_Handles;
+    row_5: Speed_Upgrade_Row_Handles;
+    row_10: Speed_Upgrade_Row_Handles;
+}
+
+draw_speed_upgrade_row :: proc(player: Player, amount: s64, id_suffix: string) -> Speed_Upgrade_Row_Handles {
+    row := UIK.layout_row();
+    row.width = UIK.flex(1);
+    row.height = UIK.flex(1);
+    row.padding = v4{16, 12, 16, 12};
+    row.gap = 16;
+    row.cross_align = .CENTER;
+    UIK.panel_begin(row);
+
+    // Left: amount tag
+    tag := UIK.layout_centered(UIK.pixels(90), UIK.pixels(90));
+    UIK.panel_begin(tag);
+    UIK.text(format_string("+%", {amount}), UIK.text_title());
+    UIK.panel_end();
+
+    // Middle: label + speed transition
+    middle := UIK.layout_column();
+    middle.width = UIK.flex(1);
+    middle.height = UIK.flex(1);
+    middle.main_align = .CENTER;
+    middle.cross_align = .CENTER;
+    middle.gap = 6;
+    UIK.panel_begin(middle);
+    UIK.text(format_string("+% Speed", {amount}), UIK.text_title());
+    UIK.text(format_string("% -> %", {player.speed, player.speed + amount}), UIK.text_body());
+    UIK.panel_end();
+
+    // Right: cash button + sparks button
+    right := UIK.layout_column();
+    right.width = UIK.pixels(220);
+    right.height = UIK.flex(1);
+    right.main_align = .CENTER;
+    right.gap = 8;
+    UIK.panel_begin(right);
+
+    cash_cost := speed_upgrade_cash_cost(player.speed, amount);
+    sparks_cost := speed_upgrade_sparks_cost(player.speed);
+
+    handles: Speed_Upgrade_Row_Handles;
+
+    cash_desc := UIK.widget_desc_button_auto_default(.BUTTON_BASIC_GREEN);
+    cash_desc.panel.width = UIK.flex(1);
+    cash_desc.panel.height = UIK.pixels(55);
+    handles.cash = UIK.button(format_string("speed_buy_cash_%", {id_suffix}), format_cash(cash_cost), cash_desc);
+
+    sparks_desc := UIK.widget_desc_button_auto_default(.BUTTON_BASIC_YELLOW1);
+    sparks_desc.panel.width = UIK.flex(1);
+    sparks_desc.panel.height = UIK.pixels(55);
+    handles.sparks = UIK.button(format_string("speed_buy_sparks_%", {id_suffix}), format_string("% Sparks", {sparks_cost}), sparks_desc);
+
+    UIK.panel_end(); // right
+    UIK.panel_end(); // row
+
+    return handles;
+}
+
+draw_speed_upgrade_ui :: proc(player: Player) {
+    if !player.show_speed_upgrades return;
+
+    UIK.begin(UIK.modal(UIK.rect_window(), 15));
+
+    shell := UIK.panel_modal(.BLUE_WITH_FOOTER);
+    shell.gap = 4;
+    UIK.panel_begin(shell);
+
+    handles: Speed_Upgrade_Handles;
+    handles.exit = UIK.title_area(UIK.title_area_desc("SPEED UPGRADES"));
+
+    body := UIK.layout_column();
+    body.width = UIK.flex(1);
+    body.height = UIK.flex(1);
+    body.padding = v4{16, 8, 16, 8};
+    body.gap = 8;
+    UIK.panel_begin(body);
+
+    handles.row_1  = draw_speed_upgrade_row(player, 1,  "1");
+    UIK.divider(2.0, {1, 1, 1, 0.35});
+    handles.row_5  = draw_speed_upgrade_row(player, 5,  "5");
+    UIK.divider(2.0, {1, 1, 1, 0.35});
+    handles.row_10 = draw_speed_upgrade_row(player, 10, "10");
+
+    UIK.panel_end(); // body
+    UIK.panel_end(); // shell
+    UIK.end();
+
+    if UIK.clicked(handles.exit)          player.show_speed_upgrades = false;
+    if UIK.clicked(handles.row_1.cash)    try_buy_speed_upgrade_cash(player, 1);
+    if UIK.clicked(handles.row_1.sparks)  try_buy_speed_upgrade_sparks(player, 1);
+    if UIK.clicked(handles.row_5.cash)    try_buy_speed_upgrade_cash(player, 5);
+    if UIK.clicked(handles.row_5.sparks)  try_buy_speed_upgrade_sparks(player, 5);
+    if UIK.clicked(handles.row_10.cash)   try_buy_speed_upgrade_cash(player, 10);
+    if UIK.clicked(handles.row_10.sparks) try_buy_speed_upgrade_sparks(player, 10);
+}
+
+draw_speed_upgrade_toggle_button :: proc(player: Player) {
+    UIK.begin(UIK.window(UIK.rect_sidebar_right()));
+
+    col := UIK.layout_column();
+    col.width = UIK.flex(1);
+    col.height = UIK.flex(1);
+    col.padding = v4{8, 8, 8, 8};
+    col.main_align = .CENTER;
+    col.gap = 8;
+    UIK.panel_begin(col);
+
+    speed_desc := UIK.widget_desc_button_default(.BUTTON_BASIC_BLUE);
+    speed_desc.panel.width = UIK.flex(1);
+    speed_desc.panel.height = UIK.pixels(90);
+    speed_h := UIK.button("speed_shop_toggle", "SPEED", speed_desc);
+
+    rebirth_desc := UIK.widget_desc_button_default(.BUTTON_BASIC_RED);
+    rebirth_desc.panel.width = UIK.flex(1);
+    rebirth_desc.panel.height = UIK.pixels(90);
+    rebirth_h := UIK.button("rebirth_toggle", "REBIRTH", rebirth_desc);
+
+    equip_desc := UIK.widget_desc_button_default(.BUTTON_BASIC_GREEN);
+    equip_desc.panel.width = UIK.flex(1);
+    equip_desc.panel.height = UIK.pixels(90);
+    equip_label := "EQUIP BEST";
+    cooldown_left := player.equip_best_next_at - get_time();
+    if cooldown_left > 0 {
+        equip_desc.disabled = true;
+        equip_label = format_string("EQUIP BEST (%s)", {format_float(cooldown_left, decimals=1)});
+    }
+    equip_h := UIK.button("equip_best", equip_label, equip_desc);
+
+    shop_desc := UIK.widget_desc_button_default(.BUTTON_BASIC_YELLOW1);
+    shop_desc.panel.width = UIK.flex(1);
+    shop_desc.panel.height = UIK.pixels(90);
+    shop_h := UIK.button("shop_toggle", "SHOP", shop_desc);
+
+    UIK.panel_end();
+    UIK.end();
+
+    if UIK.clicked(speed_h)   player.show_speed_upgrades = !player.show_speed_upgrades;
+    if UIK.clicked(rebirth_h) player.show_rebirth_modal  = !player.show_rebirth_modal;
+    if UIK.clicked(equip_h)   auto_equip_best(player);
+    if UIK.clicked(shop_h)    player.show_shop_v2        = !player.show_shop_v2;
+}

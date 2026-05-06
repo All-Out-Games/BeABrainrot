@@ -1,0 +1,389 @@
+import "core:ao"
+import "effects"
+
+ao_before_scene_load :: proc() {
+    Scene.set_auto_save_player_inventory(true);
+    register_brainrot_definitions();
+    register_default_rebirth_levels();
+}
+
+CASH_SAVE_KEY  :: "cash";
+SPEED_SAVE_KEY :: "speed";
+
+CASH_POPUP_DURATION :: 1.4;
+CASH_POPUP_RISE     :: 70.0;
+CASH_COUNTER_RATE   :: 9.0;
+
+Cash_Popup :: struct {
+    amount: float;
+    age: float;
+    is_loss: bool;
+}
+
+push_cash_popup :: proc(player: Player, amount: float, is_loss: bool) {
+    if amount <= 0 return;
+    p: Cash_Popup;
+    p.amount = amount;
+    p.age = 0;
+    p.is_loss = is_loss;
+    append(ref player.cash_popups, p);
+}
+
+deposit_cash :: proc(player: Player, amount: float) {
+    if amount <= 0 return;
+    final := amount * get_rebirth_multiplier(player, "money");
+    player.cash += final;
+    Save.set_f64(player, CASH_SAVE_KEY, player.cash.(f64));
+    push_cash_popup(player, final, false);
+}
+
+withdraw_cash :: proc(player: Player, amount: float) -> bool {
+    if player.cash < amount return false;
+    player.cash -= amount;
+    Save.set_f64(player, CASH_SAVE_KEY, player.cash.(f64));
+    push_cash_popup(player, amount, true);
+    return true;
+}
+
+set_speed :: proc(player: Player, value: s64) {
+    clamped := value;
+    if clamped < BASE_SPEED clamped = BASE_SPEED;
+    player.speed = clamped;
+    Save.set_int(player, SPEED_SAVE_KEY, clamped);
+}
+
+add_speed :: proc(player: Player, amount: s64) {
+    set_speed(player, player.speed + amount);
+}
+
+tick_cash_animations :: proc(player: Player, dt: float) {
+    diff := player.cash - player.displayed_cash;
+    step := dt * CASH_COUNTER_RATE;
+    if step > 1.0 step = 1.0;
+    if abs(diff) > 0.01 {
+        player.displayed_cash += diff * step;
+    } else {
+        player.displayed_cash = player.cash;
+    }
+
+    i := player.cash_popups.count - 1;
+    while i >= 0 {
+        player.cash_popups[i].age += dt;
+        if player.cash_popups[i].age >= CASH_POPUP_DURATION {
+            unordered_remove_by_index(ref player.cash_popups, i);
+        }
+        i -= 1;
+    }
+}
+
+ao_start :: proc() {
+    sparks_icon := get_asset(Texture_Asset, "$AO/ui/kit/Icons/coin/coin_icon_b.png");
+    Economy.register_currency(SPARKS_CURRENCY, sparks_icon);
+    register_mutation_materials();
+    register_shop_materials();
+    register_default_shop_items();
+}
+
+give_cash :: proc(player: Player, amount: float = 1000) {
+    deposit_cash(player, amount);
+    Notifier.notify(player, "+% cash", {format_cash(amount)});
+} @chat_command
+
+remove_cash :: proc(player: Player, amount: float = 1000) {
+    take := amount;
+    if take > player.cash take = player.cash;
+    player.cash -= take;
+    Save.set_f64(player, CASH_SAVE_KEY, player.cash.(f64));
+    push_cash_popup(player, take, true);
+    Notifier.notify(player, "-% cash", {format_cash(take)});
+} @chat_command
+
+set_speed_cmd :: proc(player: Player, value: s64 = 18) {
+    set_speed(player, value);
+    Notifier.notify(player, "Speed set to %", {player.speed});
+} @chat_command
+
+set_floor_cmd :: proc(player: Player, floor: s64 = 0) {
+    if floor < 0 floor = 0;
+    player.current_floor = floor;
+    fm := get_floor_manager();
+    if fm != null fm.apply_visibility(player);
+    Notifier.notify(player, "Current floor: %", {floor});
+} @chat_command
+
+srb :: proc(player: Player) {
+    // rng_root_seed() is constant per game instance, so it returns the same
+    // brainrot every call. Seed from wall-clock time instead.
+    rng: u64 = rng_seed(Time.nanoseconds_since_epoch());
+    configs := get_brainrot_configs();
+    if configs.count <= 0 {
+        Notifier.notify(player, "No brainrot configs registered.");
+        return;
+    }
+
+    idx := rng_range_int(ref rng, 0, configs.count - 1);
+    config := configs[idx];
+
+    mut: Mutation = Mutation.NONE;
+    mut_idx := rng_range_int(ref rng, 0, 4);
+    if mut_idx == 1 mut = Mutation.GOLD;
+    if mut_idx == 2 mut = Mutation.DIAMOND;
+    if mut_idx == 3 mut = Mutation.RAINBOW;
+    if mut_idx == 4 mut = Mutation.CANDY;
+
+    pos := player.entity.world_position;
+    le := spawn_brainrot(config.id, pos);
+    if le == null {
+        Notifier.notify(player, "Spawn failed (check Brainrot.prefab).");
+        return;
+    }
+    le.mutation = mut;
+    le.level = rng_range_int(ref rng, 1, 19);
+    le.update_visuals();
+
+    if mut == Mutation.NONE {
+        Notifier.notify(player, "Spawned % (Lv %)", {config.display_name, le.level});
+    } else {
+        Notifier.notify(player, "Spawned % % (Lv %)", {get_mutation_name(mut), config.display_name, le.level});
+    }
+} @chat_command
+
+drop_carry :: proc(player: Player) {
+    if player == null return;
+    if !#alive(player.entity) return;
+    remove_effect(player.entity, Carry_Brainrot_Effect_2, true);
+} @chat_command
+
+dbg_le :: proc(player: Player) {
+    if player == null return;
+    player.debug_show_le = !player.debug_show_le;
+} @chat_command
+
+shop2 :: proc(player: Player) {
+    if player == null return;
+    player.show_shop_v2 = !player.show_shop_v2;
+} @chat_command
+
+shop3 :: proc(player: Player) {
+    if player == null return;
+    player.show_shop_v3 = !player.show_shop_v3;
+} @chat_command
+
+srbm :: proc(player: Player) {
+    rng: u64 = rng_seed(Time.nanoseconds_since_epoch());
+    configs := get_brainrot_configs();
+    if configs.count <= 0 {
+        Notifier.notify(player, "No brainrot configs registered.");
+        return;
+    }
+
+    idx := rng_range_int(ref rng, 0, configs.count - 1);
+    config := configs[idx];
+
+    // Always roll a real mutation (no NONE).
+    mut: Mutation = Mutation.GOLD;
+    mut_idx := rng_range_int(ref rng, 1, 4);
+    if mut_idx == 1 mut = Mutation.GOLD;
+    if mut_idx == 2 mut = Mutation.DIAMOND;
+    if mut_idx == 3 mut = Mutation.RAINBOW;
+    if mut_idx == 4 mut = Mutation.CANDY;
+
+    pos := player.entity.world_position;
+    le := spawn_brainrot(config.id, pos);
+    if le == null {
+        Notifier.notify(player, "Spawn failed (check Brainrot.prefab).");
+        return;
+    }
+    le.mutation = mut;
+    le.level = rng_range_int(ref rng, 1, 19);
+    le.update_visuals();
+
+    Notifier.notify(player, "Spawned % % (Lv %)", {get_mutation_name(mut), config.display_name, le.level});
+} @chat_command
+
+ao_update :: proc(dt: float) {
+    // Called once per frame
+}
+
+draw_player_hud :: proc(player: Player) {
+    UIK.begin(UIK.window(UIK.rect_stats()));
+
+    col := UIK.layout_column();
+    col.width = UIK.flex(1);
+    col.height = UIK.flex(1);
+    col.padding = v4{12, 12, 12, 12};
+    col.main_align = .END;
+    col.cross_align = .START;
+    col.gap = 4;
+    UIK.panel_begin(col);
+
+    speed_desc := UIK.text_title();
+    UIK.text_set_halign(&speed_desc, .LEFT);
+    UIK.text(format_string("Speed: %", {player.speed}), speed_desc);
+
+    cash_desc := UIK.text_title();
+    UIK.text_set_halign(&cash_desc, .LEFT);
+    UIK.text_set_color(&cash_desc, {0.2, 0.9, 0.2, 1});
+    UIK.text(format_cash(player.displayed_cash), cash_desc);
+
+    for i: 0..player.cash_popups.count - 1 {
+        p := player.cash_popups[i];
+        t := p.age / CASH_POPUP_DURATION;
+        if t > 1.0 t = 1.0;
+        alpha := 1.0 - t;
+        offset_y := t * CASH_POPUP_RISE;
+
+        UIK.overlay_begin(.BOTTOM_LEFT, {20, 70 + offset_y});
+        pop_desc := UIK.text_title();
+        if p.is_loss {
+            UIK.text_set_color(&pop_desc, {1.0, 0.3, 0.3, alpha});
+            UIK.text(format_string("-%", {format_cash(p.amount)}), pop_desc);
+        } else {
+            UIK.text_set_color(&pop_desc, {0.3, 1.0, 0.3, alpha});
+            UIK.text(format_string("+%", {format_cash(p.amount)}), pop_desc);
+        }
+        UIK.overlay_end();
+    }
+
+    UIK.panel_end();
+    UIK.end();
+}
+
+ao_late_update :: proc(dt: float) {
+    // Called once per frame after physics has been resolved
+}
+
+
+
+Player :: class : Player_Base {
+    speed: s64;
+    show_speed_upgrades: bool;
+    cash: float;
+    displayed_cash: float;
+    cash_popups: [..]Cash_Popup;
+    selected_brainrot_item: Brainrot_Item;
+    show_sell_modal: bool;
+    rebirth_level: s64;
+    show_rebirth_modal: bool;
+    equip_best_next_at: float;
+    show_shop_modal: bool;
+    current_floor: s64;
+    is_in_current_room: Room;
+    my_room: Room;
+    pedestals_unlocked: s64;
+    debug_show_le: bool;
+    show_shop_v2: bool;
+    show_shop_v3: bool;
+
+    ao_start :: method() {
+        speed = Save.get_int(this, SPEED_SAVE_KEY, BASE_SPEED);
+        if speed < BASE_SPEED speed = BASE_SPEED;
+        cash = Save.get_f64(this, CASH_SAVE_KEY, 0).(float);
+        displayed_cash = cash;
+        rebirth_level = Save.get_int(this, REBIRTH_SAVE_KEY, 0);
+        pedestals_unlocked = Save.get_int(this, PEDESTALS_SAVE_KEY, DEFAULT_PEDESTALS_UNLOCKED);
+
+        room := find_free_room();
+        if room != null room.claim_room(this);
+
+        snap_player_to_navmesh(this);
+    }
+
+    ao_update :: method(dt: float) {
+        if agent != null {
+            target := compute_agent_movement_speed(speed);
+            if is_carrying(this) target *= CARRY_SPEED_MULT;
+            agent.movement_speed = target;
+        }
+        if animator != null {
+            animator.layer = current_floor.(s32);
+        }
+        tick_cash_animations(this, dt);
+
+        // If we don't own a room (joined when full, or our previous room got
+        // wiped), keep retrying — a room may free up later as players leave.
+        if my_room == null {
+            free_room := find_free_room();
+            if free_room != null free_room.claim_room(this);
+        }
+
+        // On upper floors, walls of the current room become solid.
+        if current_floor > 0 && is_in_current_room != null && #alive(is_in_current_room.entity) {
+            is_in_current_room.clamp_player_inside(this);
+        }
+    }
+
+    ao_late_update :: method(dt: float) {
+        if is_local_or_server() {
+            draw_player_hud(this);
+            draw_speed_upgrade_toggle_button(this);
+            draw_speed_upgrade_ui(this);
+            draw_upgrade_hud(this);
+
+            options := Inventory_Draw_Options.default();
+            options.hotbar_item_count = 6;
+            options.enable_selection = true;
+            options.scroll_item_selection = true;
+            options.enable_use_from_hotbar = true;
+            result := Items.draw_hotbar(this, default_inventory, options);
+
+            prev_selected := selected_brainrot_item;
+            selected_brainrot_item = null;
+
+            slot := default_inventory.get_item(result.selected_item_index);
+            if #alive(slot) && slot.#type == Brainrot_Item {
+                selected_brainrot_item = slot.(Brainrot_Item);
+            }
+
+            if selected_brainrot_item != prev_selected {
+                if selected_brainrot_item == null {
+                    log_info("Hand: <empty> (slot index=%)", {result.selected_item_index});
+                } else {
+                    defn := selected_brainrot_item.get_definition();
+                    name := "?";
+                    if defn != null name = defn.get_name();
+                    log_info("Hand: % (Lv %, slot=%)", {name, selected_brainrot_item.level, result.selected_item_index});
+                }
+            }
+
+            draw_selected_brainrot_above_player(this);
+            draw_navigation_topbar(this);
+            draw_sell_modal(this);
+            draw_rebirth_modal(this);
+            draw_shop_modal(this);
+            draw_shop_v2(this);
+            draw_shop_v3(this);
+            draw_debug_living_entity(this);
+        }
+        if is_local() {
+            draw_floor_shadow(this);
+        }
+    }
+
+    ao_end :: method() {
+        if my_room != null my_room.release_room();
+    }
+
+    ao_can_use_ability :: method(ability: Ability_Base) -> bool {
+        // Called to determine if the player is allowed to use the given ability
+        return true;
+    }
+
+    ao_can_use_interactable :: method(interactable: Interactable) -> bool {
+        // Called to determine if the player is allowed to use the given interactable
+        return true;
+    }
+
+    ao_on_interactable_used :: method(interactable: Interactable) {
+        // Called when the player uses the given interactable
+    }
+
+    ao_on_holding_interactable :: method(interactable: Interactable) {
+        // Called once per frame while the player is holding on the interactable
+    }
+
+    ao_on_state_sync :: method() {
+        // Called on the client after applying a state sync from the server
+        // Use this to override things for the local player only like name colors or lighting for example
+    }
+}

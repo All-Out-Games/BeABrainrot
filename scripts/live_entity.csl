@@ -1,0 +1,457 @@
+PRICE_PER_LEVEL_MULT :: 1.5;
+GPS_PER_LEVEL_MULT   :: 1.25;
+SCALE_PER_LEVEL      :: 0.05;
+LIVING_ENTITY_MIN_SCALE :: 0.3;  // scale at level 1 (with base_scale = 1)
+LIVING_ENTITY_MAX_SCALE :: 2.0;  // hard cap at any level
+SPRITE_PPU           :: 240.0;
+LABEL_TOP_PADDING    :: 0.15;
+LABEL_LINE_HEIGHT    :: 0.27;
+CARRY_Y_OFFSET       :: 1.5;
+DROP_RANGE_SQ        :: 1.0;
+JUMP_DURATION        :: 0.35;
+JUMP_HEIGHT          :: 0.4;
+
+Rarity :: enum {
+    COMMON;
+    RARE;
+    EPIC;
+    LEGENDARY;
+    MYTHIC;
+    CELESTIAL;
+    SECRET;
+    DIVINE;
+    OG;
+}
+
+Mutation :: enum {
+    NONE;
+    GOLD;
+    DIAMOND;
+    RAINBOW;
+    CANDY;
+}
+
+Brainrot_State :: enum {
+    NOT_CLAIMED;
+    CLAIMED;
+    CLAIMED_IN_BASE;
+}
+
+// The carry effect is the source of truth — no separate field on Player.
+get_carried_brainrot :: proc(player: Player) -> LivingEntity {
+    if player == null return null;
+    if !#alive(player.entity) return null;
+    e, ok := get_effect(player.entity, Carry_Brainrot_Effect_2);
+    if !ok return null;
+    if e == null return null;
+    if !#alive(e.carried) return null;
+    return e.carried;
+}
+
+is_carrying :: proc(player: Player) -> bool {
+    return get_carried_brainrot(player) != null;
+}
+
+brainrot_state_name :: proc(s: Brainrot_State) -> string {
+    if s == Brainrot_State.NOT_CLAIMED     return "NOT_CLAIMED";
+    if s == Brainrot_State.CLAIMED         return "CLAIMED";
+    if s == Brainrot_State.CLAIMED_IN_BASE return "CLAIMED_IN_BASE";
+    return "?";
+}
+
+draw_debug_living_entity :: proc(player: Player) {
+    if player == null return;
+    if !player.debug_show_le return;
+    if !#alive(player.entity) return;
+
+    closest: LivingEntity;
+    closest_dist_sq: float = 99999999.0;
+    pos := player.entity.world_position;
+    for le: component_iterator(LivingEntity) {
+        if le == null continue;
+        if !#alive(le.entity) continue;
+        diff := le.entity.world_position - pos;
+        d := length_squared(diff);
+        if d < closest_dist_sq {
+            closest_dist_sq = d;
+            closest = le;
+        }
+    }
+    if closest == null return;
+
+    can_use_now := closest.can_use(player);
+    carried_alive  := #alive(closest.carried_by);
+    owner_alive    := #alive(closest.owner);
+    pcarry_alive   := is_carrying(player);
+
+    rect := UI.get_safe_screen_rect().right_rect().grow_left(450).inset(40, 30, 0, 0);
+    UIK.begin(UIK.window(rect));
+
+    col := UIK.layout_column();
+    col.width  = UIK.flex(1);
+    col.height = UIK.flex(1);
+    col.padding = v4{10, 10, 10, 10};
+    col.gap = 2;
+    col.main_align  = .START;
+    col.cross_align = .START;
+    UIK.panel_begin(col);
+
+    line :: proc(s: string) {
+        d := UIK.text_body();
+        UIK.text_set_halign(&d, .LEFT);
+        UIK.text(s, d);
+    }
+
+    UIK.text(format_string("=== Closest LE: % ===", {closest.display_name}), UIK.text_title());
+    line(format_string("state: %",         {brainrot_state_name(closest.state)}));
+    line(format_string("level/mut: % / %", {closest.level, closest.mutation.(s64)}));
+    line(format_string("radius: %",        {closest.radius}));
+    line(format_string("owner alive: %",   {owner_alive}));
+    line(format_string("carried_by alive: %", {carried_alive}));
+    line(format_string("player.carry alive: %", {pcarry_alive}));
+    line(format_string("player.my_room: %",     {player.my_room != null}));
+    line(format_string("can_use(player): %",    {can_use_now}));
+    line(format_string("dist: %", {format_float(length_squared({closest.entity.world_position.x - pos.x, closest.entity.world_position.y - pos.y}), decimals=2)}));
+
+    UIK.panel_end();
+    UIK.end();
+}
+
+get_mutation_gps_multiplier :: proc(m: Mutation) -> float {
+    if m == Mutation.GOLD return 1.25;
+    if m == Mutation.DIAMOND return 1.5;
+    if m == Mutation.RAINBOW return 3.0;
+    if m == Mutation.CANDY return 4.0;
+    return 1.0;
+}
+
+get_rarity_color :: proc(r: Rarity) -> v4 {
+    if r == Rarity.RARE      return v4{0.3, 0.7, 1.0, 1};
+    if r == Rarity.EPIC      return v4{0.7, 0.3, 1.0, 1};
+    if r == Rarity.LEGENDARY return v4{1.0, 0.6, 0.1, 1};
+    if r == Rarity.MYTHIC    return v4{1.0, 0.3, 0.3, 1};
+    if r == Rarity.CELESTIAL return v4{0.3, 1.0, 1.0, 1};
+    if r == Rarity.SECRET    return v4{1.0, 0.2, 0.8, 1};
+    if r == Rarity.DIVINE    return v4{1.0, 0.9, 0.3, 1};
+    if r == Rarity.OG        return v4{1.0, 0.0, 0.0, 1};
+    return v4{1, 1, 1, 1};
+}
+
+get_rarity_name :: proc(r: Rarity) -> string {
+    if r == Rarity.RARE      return "Rare";
+    if r == Rarity.EPIC      return "Epic";
+    if r == Rarity.LEGENDARY return "Legendary";
+    if r == Rarity.MYTHIC    return "Mythic";
+    if r == Rarity.CELESTIAL return "Celestial";
+    if r == Rarity.SECRET    return "Secret";
+    if r == Rarity.DIVINE    return "Divine";
+    if r == Rarity.OG        return "OG";
+    return "Common";
+}
+
+get_mutation_name :: proc(m: Mutation) -> string {
+    if m == Mutation.GOLD    return "Gold";
+    if m == Mutation.DIAMOND return "Diamond";
+    if m == Mutation.RAINBOW return "Rainbow";
+    if m == Mutation.CANDY   return "Candy";
+    return "";
+}
+
+get_mutation_color :: proc(m: Mutation) -> v4 {
+    if m == Mutation.GOLD    return v4{1.0, 0.85, 0.1, 1};
+    if m == Mutation.DIAMOND return v4{0.7, 0.95, 1.0, 1};
+    if m == Mutation.RAINBOW return v4{1.0, 0.5, 1.0, 1};
+    if m == Mutation.CANDY   return v4{1.0, 0.6, 0.8, 1};
+    return v4{1, 1, 1, 1};
+}
+
+CARRY_SPEED_MULT :: 0.5;
+
+// Apply a Matrix4 transform to a 2D point. Treats the matrix as column-major
+// (elements[col][row]) which is the standard graphics convention.
+// If positions come out wrong, swap the row/col indices.
+transform_point_2d :: proc(m: Matrix4, p: v2) -> v2 {
+    rx := p.x * m.elements[0][0] + p.y * m.elements[1][0] + m.elements[3][0];
+    ry := p.x * m.elements[0][1] + p.y * m.elements[1][1] + m.elements[3][1];
+    return v2{rx, ry};
+}
+
+get_sprite_top_center :: proc(sprite: Sprite_Renderer, fallback_anchor: Entity) -> v2 {
+    if sprite != null && #alive(sprite.entity) {
+        tex := sprite.get_texture();
+        if tex != null {
+            // Mirrors C# Brainrot.GetSpriteTopPosition:
+            //   halfSize = SpriteRenderer.GetWorldSize() * 0.5
+            //   offset   = -pivot * halfSize
+            //   topLocal = (0, halfSize.y) + offset
+            //   return TransformPoint(modelMatrix, topLocal)
+            size := sprite.get_world_size();
+            half := v2{size.x * 0.5, size.y * 0.5};
+            pivot := tex.get_pivot();
+            offset := v2{-pivot.x * half.x, -pivot.y * half.y};
+            top_local := offset + v2{0, half.y};
+            return transform_point_2d(sprite.entity.model_matrix, top_local);
+        }
+        size := sprite.get_world_size();
+        return sprite.entity.calculate_visual_position() + v2{0, size.y * 0.5};
+    }
+    if fallback_anchor != null && #alive(fallback_anchor) {
+        return fallback_anchor.calculate_visual_position();
+    }
+    return v2{0, 0};
+}
+
+LivingEntity :: class : Interactable {
+    config_id: string @ao_serialize;
+    display_name: string @ao_serialize;
+    level: s64 @ao_serialize;
+    rarity: Rarity @ao_serialize;
+    mutation: Mutation @ao_serialize;
+    base_price: float @ao_serialize;
+    base_gps: float @ao_serialize;
+    base_scale: float @ao_serialize;
+    sprite: Sprite_Renderer @ao_serialize;
+    floor_renderer: Floor_Renderer @ao_serialize;
+
+    pedestal: Pedestal;
+    carried_by: Player;
+    state: Brainrot_State;
+    owner: Player;
+
+    jump_t:        float;  // remaining jump time; 0 = idle
+    jump_rest_pos: v2;     // entity local position to return to after jump
+
+    ao_start :: method() {
+        this.set_listener(this);
+        this.required_hold_time = 0.4;
+        this.set_text("Pickup");
+        if level < 1 level = 1;
+        if base_scale <= 0 base_scale = 1.0;
+        update_visuals();
+
+        // DEBUG: dump texture metadata so we can confirm get_pivot / get_pixels_per_unit work.
+        if sprite != null {
+            tex := sprite.get_texture();
+            if tex != null {
+                ws := sprite.get_world_size();
+                log_info("LivingEntity[%]: tex w=% h=% pivot=(%, %) ppu=% world_size=(%, %)",
+                    {config_id,
+                     tex.get_width(),
+                     tex.get_height(),
+                     format_float(tex.get_pivot().x, decimals=3),
+                     format_float(tex.get_pivot().y, decimals=3),
+                     format_float(tex.get_pixels_per_unit(), decimals=3),
+                     format_float(ws.x, decimals=3),
+                     format_float(ws.y, decimals=3)});
+            } else {
+                log_info("LivingEntity[%]: sprite has no texture yet", {config_id});
+            }
+        } else {
+            log_info("LivingEntity[%]: sprite ref is null", {config_id});
+        }
+    }
+
+    ao_update :: method(dt: float) {
+        if state != Brainrot_State.NOT_CLAIMED && !#alive(owner) {
+            state = Brainrot_State.NOT_CLAIMED;
+            owner = null;
+        }
+
+        if jump_t > 0 {
+            progress := 1.0 - (jump_t / JUMP_DURATION);
+            if progress < 0.0 progress = 0.0;
+            if progress > 1.0 progress = 1.0;
+            height := sin(progress * PI) * JUMP_HEIGHT;
+            entity.set_local_position(jump_rest_pos + v2{0, height});
+            jump_t -= dt;
+            if jump_t <= 0 {
+                jump_t = 0;
+                entity.set_local_position(jump_rest_pos);
+            }
+        }
+    }
+
+    start_jump :: method() {
+        if jump_t <= 0 {
+            jump_rest_pos = entity.local_position;
+        }
+        jump_t = JUMP_DURATION;
+    }
+
+    get_upgrade_price :: method() -> float {
+        e := (level - 1).(float);
+        return base_price * pow(PRICE_PER_LEVEL_MULT, e);
+    }
+
+    get_gps :: method() -> float {
+        e := (level - 1).(float);
+        g := base_gps * pow(GPS_PER_LEVEL_MULT, e);
+        g *= get_mutation_gps_multiplier(mutation);
+        return g;
+    }
+
+    can_use :: method(player: Player) -> bool {
+        if #alive(carried_by) return false;
+        if state == Brainrot_State.CLAIMED return false;
+
+        // Floor gate — match the brainrot's floor, falling back to its pedestal's.
+        has_floor: bool;
+        my_floor:  s64;
+        if floor_renderer != null {
+            has_floor = true;
+            my_floor  = floor_renderer.floor;
+        } else if pedestal != null && pedestal.floor_renderer != null {
+            has_floor = true;
+            my_floor  = pedestal.floor_renderer.floor;
+        }
+        if has_floor && player.current_floor != my_floor return false;
+
+        if state == Brainrot_State.NOT_CLAIMED {
+            // Picking up via carry needs empty hands AND a room to bring it back to.
+            if is_carrying(player) return false;
+            if player.my_room == null return false;
+            return true;
+        }
+        // CLAIMED_IN_BASE — owner can pull it into inventory even while carrying.
+        if !#alive(owner) return true;
+        return owner == player;
+    }
+
+    on_interact :: method(player: Player) {
+        if #alive(carried_by) return;
+        if state == Brainrot_State.CLAIMED return;
+
+        if state == Brainrot_State.CLAIMED_IN_BASE {
+            if #alive(owner) && owner != player return;
+            // Already in your base → cash out + add to inventory (no carry effect).
+            add_brainrot_to_inventory(player, this);
+            return;
+        }
+
+        // NOT_CLAIMED → pick it up via the carry effect.
+        if is_carrying(player) return;
+
+        if pedestal != null {
+            pedestal.placed_brainrot = null;
+            pedestal.accumulated_gold = 0;
+            pedestal = null;
+        }
+
+        effect := new(Carry_Brainrot_Effect_2);
+        effect.carried = this;
+        player.entity.add_passive_effect(effect);
+    }
+
+    try_upgrade :: method(player: Player) -> bool {
+        price := get_upgrade_price();
+        if !withdraw_cash(player, price) {
+            Notifier.notify(player, "Not enough cash!");
+            return false;
+        }
+        level += 1;
+        update_visuals();
+        // Persist the new level so it survives rejoin (cash is saved by
+        // withdraw_cash above; without this the upgrade is paid but lost).
+        if pedestal != null && pedestal.room != null {
+            save_room_brainrots(player, pedestal.room);
+        }
+        return true;
+    }
+
+    update_visuals :: method() {
+        mult := 1.0 + (level - 1).(float) * SCALE_PER_LEVEL;
+        s := LIVING_ENTITY_MIN_SCALE * base_scale * mult;
+        if s > LIVING_ENTITY_MAX_SCALE s = LIVING_ENTITY_MAX_SCALE;
+        entity.set_local_scale({s, s});
+
+        if sprite != null {
+            mat := get_mutation_material(mutation);
+            if mat != null {
+                sprite.set_material(mat, false);
+            }
+        }
+    }
+
+    ao_late_update :: method(dt: float) {
+        local, has_local := Game.get_local_player();
+        if !has_local return;
+
+        // Only show head labels for brainrots in the room the viewer is
+        // currently standing in. Wild (un-pedestal'd) brainrots aren't tied
+        // to a room, so they always render.
+        if pedestal != null && pedestal.room != null && local.is_in_current_room != pedestal.room return;
+
+        // Don't draw labels if the local viewer isn't on the same floor.
+        // Prefer this entity's floor_renderer; fall back to the pedestal's so
+        // unassigned brainrots still hide labels off-floor.
+        has_floor: bool;
+        my_floor:  s64;
+        if floor_renderer != null {
+            has_floor = true;
+            my_floor  = floor_renderer.floor;
+        } else if pedestal != null && pedestal.floor_renderer != null {
+            has_floor = true;
+            my_floor  = pedestal.floor_renderer.floor;
+        }
+        if has_floor && local.current_floor != my_floor return;
+
+        anchor := entity;
+        if sprite != null && #alive(sprite.entity) anchor = sprite.entity;
+
+        base_pos := get_sprite_top_center(sprite, anchor);
+
+        // Camera-rect culling — skip the whole label stack when off-screen.
+        if local.camera.size > 0 {
+            cam_pos := local.camera.position;
+            cull_radius := local.camera.size * 1.5;
+            diff := base_pos - cam_pos;
+            if length_squared(diff) > cull_radius * cull_radius return;
+        }
+
+        line_h := LABEL_LINE_HEIGHT;
+
+        UI.push_world_draw_context();
+        defer UI.pop_draw_context();
+        UI.begin_world_space_ui(anchor);
+        defer UI.end_world_space_ui();
+        label_layer: s32 = 1;
+        if has_floor label_layer = (my_floor + 1).(s32);
+        UI.push_layer(label_layer);
+
+        base_pos += v2{0, LABEL_TOP_PADDING};
+        draw_head_labels(base_pos, line_h);
+    }
+
+    draw_head_labels :: method(base_pos: v2, line_h: float) {
+        // Stack up: GPS (bottom) -> rarity -> level -> name -> mutation (top).
+        cursor_y: float = 0;
+
+        draw_brainrot_label(base_pos + v2{0, cursor_y}, format_string("%/s", {format_cash(get_gps())}), v4{1, 0.87, 0.13, 1});
+        cursor_y += line_h;
+
+        draw_brainrot_label(base_pos + v2{0, cursor_y}, get_rarity_name(rarity), get_rarity_color(rarity));
+        cursor_y += line_h;
+
+        draw_brainrot_label(base_pos + v2{0, cursor_y}, format_string("Lv %", {level}), v4{0.85, 0.95, 1.0, 1});
+        cursor_y += line_h;
+
+        draw_brainrot_label(base_pos + v2{0, cursor_y}, display_name, v4{1, 1, 1, 1}, 0.26, 0.25, 2.0);
+        cursor_y += line_h;
+
+        if mutation != Mutation.NONE {
+            draw_brainrot_label(base_pos + v2{0, cursor_y}, get_mutation_name(mutation), get_mutation_color(mutation));
+        }
+    }
+}
+
+draw_brainrot_label :: proc(pos: v2, text: string, color: v4, size: float = 0.22, grow_h: float = 0.2, grow_w: float = 1.5) {
+    ts := UI.default_text_settings();
+    ts.size = size;
+    ts.color = color;
+    ts.word_wrap = false;
+    ts.overflow_wrap = false;
+    ts.do_outline = true;
+    ts.outline_thickness = 4.0;
+    ts.outline_color = v4{0, 0, 0, 1};
+    UI.text(Rect{pos, pos}.grow(grow_h, grow_w, grow_h, grow_w), ts, text);
+}

@@ -1,0 +1,100 @@
+// Mutation materials. Ports the shader/material setup from
+// MergeBrainrotRework/scripts/GameManager.cs CreateShaders().
+//
+// gold/diamond/candy share `color_shimmer.aosl` with different palette uniforms.
+// rainbow uses its own `rainbow.aosl`.
+
+GOLD_MATERIAL:    Material;
+DIAMOND_MATERIAL: Material;
+RAINBOW_MATERIAL: Material;
+CANDY_MATERIAL:   Material;
+
+register_mutation_materials :: proc() {
+    noise_tex := get_asset(Texture_Asset, "noise.png");
+
+    shimmer := get_asset(Shader_Asset, "shaders/color_shimmer.aosl");
+    if shimmer != null {
+        // Gold
+        m := Material.create(shimmer);
+        if m != null {
+            if noise_tex != null m.set_texture("noise_texture", noise_tex);
+            m.set_float3("paletteShadow", v3{0.32, 0.21, 0.05});
+            m.set_float3("paletteMid",    v3{0.937, 0.749, 0.016});
+            m.set_float3("paletteHi",     v3{1.00, 0.92, 0.25});
+            m.set_float ("paletteBlackPoint", 0.10);
+            m.set_float ("paletteWhitePoint", 0.90);
+            m.set_float ("paletteGamma",      0.90);
+            m.set_float ("tintStrength",      1.00);
+            m.set_float ("shadowBoost",       0.40);
+            m.set_float ("outlineLow",        0.06);
+            m.set_float ("outlineHigh",       0.12);
+            m.set_float ("outlineDarken",     0.65);
+            m.set_float ("outlineLumaMin",    0.00);
+            m.set_float ("outlineLumaMax",    0.18);
+            GOLD_MATERIAL = m;
+        }
+
+        // Diamond — cool blue palette, deeper saturation
+        m = Material.create(shimmer);
+        if m != null {
+            if noise_tex != null m.set_texture("noise_texture", noise_tex);
+            m.set_float3("paletteShadow", v3{0.03, 0.09, 0.45});
+            m.set_float3("paletteMid",    v3{0.30, 0.82, 1.00});
+            m.set_float3("paletteHi",     v3{0.75, 0.98, 1.00});
+            m.set_float ("paletteBlackPoint", 0.08);
+            m.set_float ("paletteWhitePoint", 0.95);
+            m.set_float ("paletteGamma",      0.80);
+            m.set_float ("tintStrength",      1.00);
+            m.set_float ("shadowBoost",       0.70);
+            m.set_float ("outlineLow",        0.06);
+            m.set_float ("outlineHigh",       0.12);
+            m.set_float ("outlineDarken",     0.65);
+            m.set_float ("outlineLumaMin",    0.00);
+            m.set_float ("outlineLumaMax",    0.20);
+            DIAMOND_MATERIAL = m;
+        }
+
+        // Candy — pink/pastel palette
+        m = Material.create(shimmer);
+        if m != null {
+            if noise_tex != null m.set_texture("noise_texture", noise_tex);
+            m.set_float3("paletteShadow", v3{0.55, 0.10, 0.30});
+            m.set_float3("paletteMid",    v3{1.00, 0.55, 0.80});
+            m.set_float3("paletteHi",     v3{1.00, 0.90, 0.95});
+            m.set_float ("paletteBlackPoint", 0.10);
+            m.set_float ("paletteWhitePoint", 0.92);
+            m.set_float ("paletteGamma",      0.85);
+            m.set_float ("tintStrength",      1.00);
+            m.set_float ("shadowBoost",       0.55);
+            m.set_float ("outlineLow",        0.06);
+            m.set_float ("outlineHigh",       0.12);
+            m.set_float ("outlineDarken",     0.60);
+            m.set_float ("outlineLumaMin",    0.00);
+            m.set_float ("outlineLumaMax",    0.20);
+            CANDY_MATERIAL = m;
+        }
+    }
+
+    rainbow := get_asset(Shader_Asset, "shaders/rainbow.aosl");
+    if rainbow != null {
+        m := Material.create(rainbow);
+        if m != null {
+            m.set_float("rainbowScale",   1.20);
+            m.set_float("hueSpeed",       0.20);
+            m.set_float("hueSaturation",  1.00);
+            m.set_float("hueValue",       1.00);
+            m.set_float("tintStrength",   0.65);
+            m.set_float("outlineLow",     0.04);
+            m.set_float("outlineHigh",    0.16);
+            RAINBOW_MATERIAL = m;
+        }
+    }
+}
+
+get_mutation_material :: proc(m: Mutation) -> Material {
+    if m == Mutation.GOLD    return GOLD_MATERIAL;
+    if m == Mutation.DIAMOND return DIAMOND_MATERIAL;
+    if m == Mutation.RAINBOW return RAINBOW_MATERIAL;
+    if m == Mutation.CANDY   return CANDY_MATERIAL;
+    return null;
+}

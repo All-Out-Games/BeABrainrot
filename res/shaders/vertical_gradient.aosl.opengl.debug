@@ -1,0 +1,71 @@
+GLSL
+Vertex Shader:
+#version 300 es
+precision highp float;
+precision highp int;
+
+struct type_params
+{
+    mat4 mvp;
+    vec4 resolution_time;
+    int matrix_image_size;
+};
+
+uniform type_params params;
+
+layout(location = 0) in vec2 in_var_POS;
+layout(location = 1) in vec2 in_var_UV;
+layout(location = 3) in vec4 in_var_COLOR;
+out vec4 var_COLOR0;
+out vec2 var_UV;
+out vec2 var_TEXCOORD0;
+
+void main()
+{
+    vec4 _40 = vec4(in_var_POS, 0.0, 1.0) * params.mvp;
+    var_COLOR0 = in_var_COLOR;
+    var_UV = in_var_UV;
+    var_TEXCOORD0 = (_40.xy + vec2(1.0)) * vec2(0.5);
+    gl_Position = _40;
+}
+
+
+
+Fragment Shader:
+#version 300 es
+precision highp float;
+precision highp int;
+
+struct type_user_input
+{
+    vec4 top_color;
+    vec4 bottom_color;
+    vec4 rect_px;
+};
+
+uniform type_user_input user_input;
+
+struct type_params
+{
+    mat4 mvp;
+    vec4 resolution_time;
+    int matrix_image_size;
+};
+
+uniform type_params params;
+
+uniform highp sampler2D albedo;
+
+in vec4 var_COLOR0;
+in vec2 var_UV;
+in vec2 var_TEXCOORD0;
+layout(location = 0) out vec4 out_var_SV_Target0;
+
+void main()
+{
+    float _55 = user_input.rect_px.w - user_input.rect_px.y;
+    vec4 _67 = mix(user_input.top_color, user_input.bottom_color, vec4(1.0 - clamp(((var_TEXCOORD0 * params.resolution_time.xy).y - user_input.rect_px.y) / (isnan(_55) ? 1.0 : (isnan(1.0) ? _55 : max(1.0, _55))), 0.0, 1.0)));
+    float _70 = (var_COLOR0 * texture(albedo, var_UV)).w * _67.w;
+    out_var_SV_Target0 = vec4(_67.xyz * _70, _70);
+}
+

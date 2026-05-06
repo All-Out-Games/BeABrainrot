@@ -1,0 +1,51 @@
+// Tag a sprite/spine entity as belonging to a floor. The Floor_Manager
+// (in floor_manager.csl) iterates these and fades them per-client based on
+// the local player's current_floor.
+//
+// Visibility rule: visible if `floor <= viewer.current_floor`.
+// Floor-1 viewer sees floor 0 + 1, but not floor 2.
+
+Floor_Renderer :: class : Component {
+    floor:   s64                  @ao_serialize;
+    sprites: [..]Sprite_Renderer  @ao_serialize;
+    spines:  [..]Spine_Animator   @ao_serialize;
+
+    ao_start :: method() {
+        apply_layer();
+    }
+
+    // Push our floor value onto each sprite/spine's draw layer. Call after
+    // mutating `floor` at runtime (e.g. when a placed brainrot inherits a
+    // pedestal's floor).
+    apply_layer :: method() {
+        layer := floor.(s32);
+        for s: sprites {
+            if s == null continue;
+            s.layer = layer;
+        }
+        for sa: spines {
+            if sa == null continue;
+            sa.layer = layer;
+        }
+    }
+
+    apply_for_viewer_floor :: method(viewer_floor: s64) {
+        visible := floor <= viewer_floor;
+        alpha: float = 0.0;
+        if visible alpha = 1.0;
+
+        for s: sprites {
+            if s == null continue;
+            c := s.color;
+            c.w = alpha;
+            s.color = c;
+        }
+
+        for sa: spines {
+            if sa == null continue;
+            t := sa.color_multiplier;
+            t.w = alpha;
+            sa.color_multiplier = t;
+        }
+    }
+}

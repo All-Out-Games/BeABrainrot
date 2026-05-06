@@ -1,0 +1,127 @@
+!!inputs {
+    texture albedo ALBEDO
+    texture image
+    float4 rect_px // screen-space rect of the quad: (minX,minY,maxX,maxY) in pixels
+    float v_offset // 0..1 vertical slice offset (0.5 center)
+    float u_offset // 0..1 horizontal slice offset (0.5 center)
+    float image_aspect // optional override: image width/height; 0 = auto from texture
+    float flip_v01 // 1 = flip vertically, 0 = no flip
+    float blur_px // radius in SOURCE texture pixels (0 = off)
+    float zoom // 1 = no zoom; >1 zooms in; <1 zooms out
+}
+
+!!pipeline {
+    Pixel_Format: RGBA8_SRGB
+    Blend_Enabled: true
+    Depth_Enabled: true
+    Blend_Src: ONE
+    Blend_Dst: ONE_MINUS_SRC_ALPHA
+    Blend_Op: ADD
+    Alpha_Blend_Src: ONE
+    Alpha_Blend_Dst: ONE
+    Alpha_Blend_Op: ADD
+    Blend_Color: (1, 1, 1, 1)
+}
+
+!!vs
+struct vs_out {
+    float4 color: COLOR0;
+    float2 uv: UV;
+    float2 screen_uv: TEXCOORD0;
+    float4 pos: SV_Position;
+};
+vs_out vs_main(vs_in inp) {
+    vs_out outp;
+    outp.pos = mul(mvp, float4(inp.pos.xy, 0, 1.0f));
+    outp.uv = inp.uv;
+    outp.screen_uv = (outp.pos.xy / outp.pos.w + float2(1,1)) * 0.5f;
+    outp.color = inp.color;
+    return outp;
+}
+
+!!ps
+float4 ps_main(float4 vtxColor: COLOR0, float2 uv: UV, float2 screen_uv: TEXCOORD0): SV_Target0
+{
+    float4 base = vtxColor * albedo.Sample(albedo_smp, uv);
+
+    // Build local 0..1 quad UVs from the exact screen rect we render into (in PIXELS)
+    float2 svpos_px = screen_uv * resolution_time.xy;
+    float2 rectMin = rect_px.xy;
+    float2 rectMax = rect_px.zw;
+    float2 rectSize = max(rectMax - rectMin, 1e-6.xx);
+    float2 uv_local = saturate((svpos_px - rectMin) / rectSize);
+
+    // image/target aspects (target computed in pixels to avoid screen aspect bias)
+    uint iw, ih; image.GetDimensions(iw, ih);
+    float ia_auto = (float)iw / max(1.0f, (float)ih); // image w/h
+    float ia = (image_aspect > 0.0f) ? image_aspect : ia_auto; // prefer override
+    float ta = rectSize.x / rectSize.y;               // target w/h (pixels)
+
+    // KEEP_WIDTH: map full width, crop vertically (no stretch)
+    float sy = min(ia / ta, 1.0f);
+    float oy = saturate((1.0f - sy) * (v_offset));   // v_offset=0.5 centers; 0 bottom; 1 top
+    float2 uv_img = float2(uv_local.x, uv_local.y * sy + oy);
+    // Apply isotropic zoom around image center in image UV space
+    float z = zoom;
+    if (z <= 0.0f) z = 1.0f;
+    uv_img = (uv_img - 0.5f) / z + 0.5f;
+    // Horizontal pan to choose slice after zoom
+    float panX = (saturate(u_offset) - 0.5f) * (1.0f - 1.0f / z);
+    uv_img.x += panX;
+    uv_img.y = lerp(uv_img.y, 1.0f - uv_img.y, saturate(flip_v01));
+
+    // in-bounds mask so we don't clamp/stretch outside
+    float2 inMin = step(0.0f, uv_img);
+    float2 inMax = step(uv_img, 1.0f);
+    float  mask  = inMin.x * inMin.y * inMax.x * inMax.y;
+
+    // Optional blur in source texture pixel space
+    float blur = max(blur_px, 0.0f);
+    float4 tex;
+    if (blur < 0.5f)
+    {
+        tex = image.Sample(image_smp, saturate(uv_img));
+    }
+    else
+    {
+        // High-quality single-pass isotropic blur using Poisson-disk taps.
+        float2 u = saturate(uv_img);
+        float2 texel = 1.0f / float2(max(1.0f, (float)iw), max(1.0f, (float)ih));
+        float s = max(blur, 0.0f);
+        float2 stepVec = texel * s;
+
+        // 12-tap Poisson offsets (unit circle)
+        const float2 OFFS[12] = {
+            float2(-0.326212f, -0.40581f),
+            float2(-0.840144f, -0.07358f),
+            float2(-0.695914f,  0.457137f),
+            float2(-0.203345f,  0.620716f),
+            float2( 0.96234f,  -0.194983f),
+            float2( 0.473434f, -0.480026f),
+            float2( 0.519456f,  0.767022f),
+            float2( 0.185461f, -0.893124f),
+            float2( 0.507431f,  0.064425f),
+            float2( 0.89642f,   0.412458f),
+            float2(-0.32194f,  -0.932615f),
+            float2(-0.791559f, -0.59771f)
+        };
+
+        float4 acc = image.Sample(image_smp, u);
+        float  wsum = 1.0f;
+        [unroll]
+        for (int i = 0; i < 12; ++i)
+        {
+            float2 o = OFFS[i] * stepVec;
+            float4 c1 = image.Sample(image_smp, saturate(u + o));
+            acc += c1;
+            wsum += 1.0f;
+        }
+        tex = acc / max(wsum, 1.0f);
+    }
+
+    // composite inside the quad only (contain fit), keep base elsewhere
+    float3 outRgb = lerp(base.rgb, tex.rgb, mask * tex.a);
+    return float4(outRgb * base.a, base.a);
+}
+
+

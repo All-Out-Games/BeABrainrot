@@ -1,0 +1,145 @@
+HLSL:
+Vertex Shader:
+cbuffer user_input: register(b1) {
+float4 top_color;
+float4 bottom_color;
+float4 rect_px;
+};
+
+#define MATRIX_TEXTURE_PROVIDED
+
+struct vs_in {
+    float2 pos: POS;
+    float2 uv: UV;
+    float2 uv2: UV1;
+    float4 color: COLOR;
+    int matrix_index: MATRIX_INDEX;
+};
+
+
+cbuffer params: register(b0) {
+    float4x4 mvp;
+    float4 resolution_time;
+    int matrix_image_size;
+};
+#define FLIP_IF_GL(y) do { } while (0);
+
+Texture2D<float4> matrices: register(t0);
+sampler matrices_smp: register(s0);
+
+#ifdef MATRIX_TEXTURE_PROVIDED
+int3 create_pixel_coord(int index) {
+    int x = index % matrix_image_size;
+    int y = index / matrix_image_size;
+    return int3(x, y, 0);
+}
+float4x4 final_mvp(vs_in inp) {
+    float4 _0 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 0));
+    float4 _1 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 1));
+    float4 _2 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 2));
+    float4 _3 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 3));
+    float4x4 model_matrix = float4x4(_0, _1, _2, _3);
+    #ifdef AO_WEB
+    model_matrix = transpose(model_matrix);
+    #endif
+    return mul(mvp, model_matrix);
+}
+#endif
+
+float4 bc7_correct_alpha(float4 color) {
+    // map 254 to 255. this is because bc7 is lossy in the alpha channel and an opaque pixel often outputs as 254 alpha.
+    if (color.a > 0.995f && color.a <= 1.0f) color.a = 1.0f;
+    return color;
+}
+
+struct vs_out {
+    float4 color: COLOR0;
+    float2 uv: UV;
+    float2 shadow_uv: TEXCOORD0; // 0..1 across screen
+    float4 pos: SV_Position;
+};
+vs_out vs_main(vs_in inp) {
+    vs_out outp;
+    outp.pos = mul(mvp, float4(inp.pos.xy, 0, 1.0f));
+    outp.uv = inp.uv;
+    outp.color = inp.color;
+    // Match bleach_to_white: compute screen uv in VS
+    outp.shadow_uv = (outp.pos.xy + float2(1,1)) / 2;
+    return outp;
+}
+
+
+
+Fragment Shader:
+cbuffer user_input: register(b1) {
+float4 top_color;
+float4 bottom_color;
+float4 rect_px;
+};
+
+Texture2D<float4> albedo: register(t0);
+sampler albedo_smp: register(s0);
+
+#define MATRIX_TEXTURE_PROVIDED
+
+struct vs_in {
+    float2 pos: POS;
+    float2 uv: UV;
+    float2 uv2: UV1;
+    float4 color: COLOR;
+    int matrix_index: MATRIX_INDEX;
+};
+
+
+cbuffer params: register(b0) {
+    float4x4 mvp;
+    float4 resolution_time;
+    int matrix_image_size;
+};
+#define FLIP_IF_GL(y) do { } while (0);
+
+Texture2D<float4> matrices: register(t0);
+sampler matrices_smp: register(s0);
+
+#ifdef MATRIX_TEXTURE_PROVIDED
+int3 create_pixel_coord(int index) {
+    int x = index % matrix_image_size;
+    int y = index / matrix_image_size;
+    return int3(x, y, 0);
+}
+float4x4 final_mvp(vs_in inp) {
+    float4 _0 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 0));
+    float4 _1 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 1));
+    float4 _2 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 2));
+    float4 _3 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 3));
+    float4x4 model_matrix = float4x4(_0, _1, _2, _3);
+    #ifdef AO_WEB
+    model_matrix = transpose(model_matrix);
+    #endif
+    return mul(mvp, model_matrix);
+}
+#endif
+
+float4 bc7_correct_alpha(float4 color) {
+    // map 254 to 255. this is because bc7 is lossy in the alpha channel and an opaque pixel often outputs as 254 alpha.
+    if (color.a > 0.995f && color.a <= 1.0f) color.a = 1.0f;
+    return color;
+}
+
+float4 ps_main(float4 vtxColor: COLOR0, float2 uv: UV, float2 shadow_uv: TEXCOORD0): SV_Target0 {
+    float4 base = vtxColor * albedo.Sample(albedo_smp, uv);
+
+    // Exact rect-anchored gradient: top_color at rect_min.y, bottom_color at rect_max.y
+    float2 svpos_px = shadow_uv * resolution_time.xy;
+    float2 rectMin = rect_px.xy;
+    float2 rectMax = rect_px.zw;
+    float  rectH   = max(1.0f, rectMax.y - rectMin.y);
+    float  t       = saturate((svpos_px.y - rectMin.y) / rectH);
+    t = 1.0f - t; // flip so top_color maps to visual top and bottom_color to bottom
+    float4 grad    = lerp(top_color, bottom_color, t);
+    float a = base.a * grad.a;
+    return float4(grad.rgb * a, a);
+}
+
+
+

@@ -1,0 +1,94 @@
+// Disables the LivingEntity and draws a UI quad of it at the carrier's
+// held_item bone. Used as the default pickup effect.
+Carry_Brainrot_Effect :: class : Effect_Base {
+    carried: LivingEntity;
+
+    saved_id:         string;
+    saved_level:      s64;
+    saved_mutation:   Mutation;
+    saved_world_size: v2;
+
+    saved_radius: float;
+
+    effect_start :: method() {
+        if carried != null {
+            carried.carried_by = player;
+            saved_id       = carried.config_id;
+            saved_level    = carried.level;
+            saved_mutation = carried.mutation;
+            saved_radius   = carried.radius;
+            carried.radius = 0;
+            if carried.sprite != null saved_world_size = carried.sprite.get_world_size();
+            if #alive(carried.entity) carried.entity.set_local_enabled(false);
+        }
+
+        // Movement slow is applied per-frame in Player.ao_update via #alive(carried_brainrot).
+        if player != null && player.animator != null && player.animator.state_machine != null {
+            player.animator.state_machine.set_bool("carryingMoving", true);
+        }
+    }
+
+    effect_update :: method(dt: float) {
+        if player == null || !#alive(player.entity) {
+            remove_effect(false);
+            return;
+        }
+        if saved_id.count == 0 return;
+
+        held_pos := player.entity.world_position + v2{0, CARRY_Y_OFFSET};
+        if player.animator != null {
+            local_bone := player.animator.get_bone_local_position("held_item");
+            if local_bone.x != 0 || local_bone.y != 0 {
+                held_pos = player.entity.world_position + local_bone;
+            }
+        }
+
+        tex: Texture_Asset;
+        configs := get_brainrot_configs();
+        for c: configs {
+            if c.id != saved_id continue;
+            if c.sprite_path.count > 0 tex = get_asset(Texture_Asset, c.sprite_path);
+            break;
+        }
+        if tex == null return;
+
+        UI.push_world_draw_context();
+        defer UI.pop_draw_context();
+        UI.begin_world_space_ui(player.entity);
+        defer UI.end_world_space_ui();
+        UI.push_z(held_pos.y);
+        defer UI.pop_z();
+        UI.push_layer(player.current_floor.(s32));
+        defer UI.pop_layer();
+
+        half_w := saved_world_size.x * 0.5;
+        half_h := saved_world_size.y * 0.5;
+        if half_w <= 0 || half_h <= 0 {
+            ppu := tex.get_pixels_per_unit();
+            if ppu <= 0 ppu = SPRITE_PPU;
+            half_w = tex.get_width().(float)  / ppu * 0.5;
+            half_h = tex.get_height().(float) / ppu * 0.5;
+        }
+        rect := Rect{held_pos, held_pos}.grow(half_h * 2.0, half_w, 0, half_w);
+
+        mat := get_mutation_material(saved_mutation);
+        if mat != null {
+            UI.push_material(mat);
+            UI.quad(rect, tex);
+            UI.pop_material();
+        } else {
+            UI.quad(rect, tex);
+        }
+    }
+
+    effect_end :: method(interrupt: bool) {
+        if carried != null {
+            carried.carried_by = null;
+            if saved_radius > 0 carried.radius = saved_radius;
+            if #alive(carried.entity) carried.entity.set_local_enabled(true);
+        }
+        if player != null && player.animator != null && player.animator.state_machine != null {
+            player.animator.state_machine.set_bool("carryingMoving", false);
+        }
+    }
+}

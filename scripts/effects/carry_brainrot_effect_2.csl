@@ -1,0 +1,61 @@
+// Like Carry_Brainrot_Effect but physically moves the LivingEntity to the
+// carrier's held_item bone instead of drawing a UI quad. If the effect ends
+// with `interrupt = true`, the entity is teleported back to where it was
+// before the carry started.
+Carry_Brainrot_Effect_2 :: class : Effect_Base {
+    carried: LivingEntity;
+
+    saved_position: v2;
+    saved_radius:   float;
+
+    effect_start :: method() {
+        if carried != null && #alive(carried.entity) {
+            carried.carried_by = player;
+            saved_position = carried.entity.world_position;
+            saved_radius   = carried.radius;
+            carried.radius = 0;
+            carried.state = Brainrot_State.CLAIMED;
+            carried.owner = player;
+        }
+        if player != null && player.animator != null && player.animator.state_machine != null {
+            player.animator.state_machine.set_bool("carryingMoving", true);
+        }
+    }
+
+    effect_update :: method(dt: float) {
+        if player == null || !#alive(player.entity) {
+            remove_effect(false);
+            return;
+        }
+        if carried == null || !#alive(carried.entity) {
+            remove_effect(false);
+            return;
+        }
+
+        held_pos := player.entity.world_position + v2{0, CARRY_Y_OFFSET};
+        if player.animator != null {
+            local_bone := player.animator.get_bone_local_position("held_item");
+            if local_bone.x != 0 || local_bone.y != 0 {
+                held_pos = player.entity.world_position + local_bone;
+            }
+        }
+        carried.entity.set_local_position(held_pos);
+    }
+
+    effect_end :: method(interrupt: bool) {
+        if carried != null {
+            carried.carried_by = null;
+            carried.radius = saved_radius;
+            if interrupt {
+                if #alive(carried.entity) {
+                    carried.entity.set_local_position(saved_position);
+                }
+                carried.state = Brainrot_State.NOT_CLAIMED;
+                carried.owner = null;
+            }
+        }
+        if player != null && player.animator != null && player.animator.state_machine != null {
+            player.animator.state_machine.set_bool("carryingMoving", false);
+        }
+    }
+}

@@ -1,0 +1,384 @@
+// Texture-driven shop UI — no shaders, no UIK. Pixel values are 1080p
+// reference; the engine auto-scales by screen_height / 1080. For
+// proportional splits, use rect.subrect(x0,y0,x1,y1) instead of computing
+// from rect.width()/height() (those return already-scaled values).
+
+// ===== Box panel shader =====
+//
+// Instead of pre-baked PNGs we draw plain rects through box_panel.aosl —
+// the shader fills a vertical gradient, overlays a dot pattern from
+// dotallout.png, and adds a dark "3D" strip at the bottom. Per-draw we
+// just set rect_px so the gradient/band align with the actual pixels.
+
+Shop2_Box :: struct {
+    top:            v4;
+    bottom:         v4;
+    dot_cell:       float;  // pixel size of each dot's cell
+    dot_min_radius: float;  // 0..0.5 (cell-relative) at the top
+    dot_max_radius: float;  // 0..0.5 (cell-relative) at the bottom
+    dot_alpha:      float;  // intensity 0..1; dot color is taken from band_color
+    band_h:         float;  // bottom strip height in pixels (0 = no strip)
+    band_color:     v4;
+    outline_px:     float;
+    outline_color:  v4;
+    corner_radius:  float;
+    rainbow:           float;  // 0 = use top/bottom gradient, 1 = horizontal rainbow
+    rainbow_speed:     float;  // hue scroll rate (0 = static)
+    rainbow_hue_span:  float;  // 1 = full rainbow across diagonal, smaller = fewer bands
+}
+
+shop2_default_box :: proc(top: v4, bottom: v4) -> Shop2_Box {
+    b: Shop2_Box;
+    b.top            = top;
+    b.bottom         = bottom;
+    b.dot_cell       = 18.0;
+    b.dot_min_radius = 0.0;
+    b.dot_max_radius = 0.30;
+    b.dot_alpha      = 0.55;
+    b.band_h         = 14.0;
+    b.band_color     = v4{0.88, 0.24, 0.36, 1.00};   // pink/red accent
+    b.outline_px     = 5.0;
+    b.outline_color  = v4{0, 0, 0, 1};
+    b.corner_radius  = 8.0;
+    b.rainbow          = 0.0;
+    b.rainbow_speed    = 0.0;
+    b.rainbow_hue_span = 1.0;
+    return b;
+}
+
+SHOP2_PANEL_MAT: Material;
+
+get_box_panel_material :: proc() -> Material {
+    if SHOP2_PANEL_MAT == null {
+        shader := get_asset(Shader_Asset, "shaders/box_panel.aosl");
+        if shader == null return null;
+        SHOP2_PANEL_MAT = Material.create(shader);
+    }
+    return SHOP2_PANEL_MAT;
+}
+
+draw_box :: proc(rect: Rect, box: Shop2_Box) {
+    mat := get_box_panel_material();
+    if mat == null {
+        UI.quad(rect, core_globals.white_sprite, box.top);
+        return;
+    }
+    mat.set_float4("top_color",         box.top);
+    mat.set_float4("bottom_color",      box.bottom);
+    mat.set_float4("rect_px",           v4{rect.min.x, rect.min.y, rect.max.x, rect.max.y});
+    mat.set_float ("dot_cell_px",       box.dot_cell);
+    mat.set_float ("dot_min_radius",    box.dot_min_radius);
+    mat.set_float ("dot_max_radius",    box.dot_max_radius);
+    mat.set_float ("dot_alpha",         box.dot_alpha);
+    mat.set_float ("bottom_band_h",     box.band_h);
+    mat.set_float4("bottom_band_color", box.band_color);
+    mat.set_float ("outline_px",        box.outline_px);
+    mat.set_float4("outline_color",     box.outline_color);
+    mat.set_float ("corner_radius_px",  box.corner_radius);
+    mat.set_float ("rainbow_strength",  box.rainbow);
+    mat.set_float ("rainbow_speed",     box.rainbow_speed);
+    mat.set_float ("rainbow_hue_span",  box.rainbow_hue_span);
+    UI.push_material(mat);
+    UI.quad(rect, core_globals.white_sprite, v4{1, 1, 1, 1});
+    UI.pop_material();
+}
+
+// ===== Box presets =====
+
+// Header / "orange" preset — soft peach top fading to warm orange with a
+// pink/red bottom band; dots inherit the band color.
+shop2_box_orange :: proc() -> Shop2_Box {
+    b := shop2_default_box(v4{0.97, 0.85, 0.59, 1}, v4{0.95, 0.66, 0.37, 1});
+    b.band_color = v4{0.91, 0.46, 0.55, 1.00};
+    return b;
+}
+// "Yellow" preset = the orange/red reference palette (image #46): warm
+// orange gradient with a darker maroon-ish dot color and pink/red bottom band.
+// Yellow preset — saturated orange body with a deep red band underneath,
+// matching the reference cards' warmer accent (instead of bright pink).
+shop2_box_yellow :: proc() -> Shop2_Box {
+    b := shop2_default_box(v4{1.00, 0.78, 0.18, 1}, v4{0.96, 0.55, 0.10, 1});
+    b.band_color = v4{0.78, 0.16, 0.18, 1};
+    return b;
+}
+shop2_box_red :: proc() -> Shop2_Box {
+    return shop2_default_box(v4{1.00, 0.32, 0.32, 1}, v4{0.78, 0.10, 0.10, 1});
+}
+// Purple preset — vivid violet body with a deeper-purple bottom band so
+// it reads as a darker shadow under the box instead of a pink stripe.
+shop2_box_purple :: proc() -> Shop2_Box {
+    b := shop2_default_box(v4{0.86, 0.40, 0.95, 1}, v4{0.55, 0.12, 0.78, 1});
+    b.band_color = v4{0.34, 0.05, 0.45, 1};
+    return b;
+}
+shop2_box_dark :: proc() -> Shop2_Box {
+    return shop2_default_box(v4{0.32, 0.30, 0.34, 1}, v4{0.15, 0.13, 0.18, 1});
+}
+
+// Green buy-button preset (100/500 cards).
+shop2_box_green :: proc() -> Shop2_Box {
+    b := shop2_default_box(v4{0.55, 0.85, 0.20, 1}, v4{0.30, 0.62, 0.10, 1});
+    b.band_color = v4{0.18, 0.40, 0.05, 1};
+    return b;
+}
+
+// Gold buy-button preset (2,000 card).
+shop2_box_gold :: proc() -> Shop2_Box {
+    b := shop2_default_box(v4{1.00, 0.84, 0.20, 1}, v4{0.94, 0.62, 0.08, 1});
+    b.band_color = v4{0.62, 0.30, 0.04, 1};
+    return b;
+}
+
+// Rainbow preset — diagonal hue gradient that slowly scrolls.
+shop2_box_rainbow :: proc() -> Shop2_Box {
+    b := shop2_default_box(v4{1, 1, 1, 1}, v4{1, 1, 1, 1});
+    b.rainbow          = 1.0;
+    b.rainbow_speed    = 0.06;
+    b.rainbow_hue_span = 0.85;
+    b.band_color       = v4{0, 0, 0, 0.9};
+    return b;
+}
+
+shop2_text :: proc(size: float) -> Text_Settings {
+    ts := UI.default_text_settings();
+    ts.size = size;
+    ts.color = v4{1, 1, 1, 1};
+    ts.do_outline = true;
+    ts.outline_thickness = 3.0;
+    ts.outline_color = v4{0, 0, 0, 1};
+    return ts;
+}
+
+draw_shop_v2 :: proc(player: Player) {
+    if player == null return;
+    if !player.show_shop_v2 return;
+
+    UI.push_screen_draw_context();
+    defer UI.pop_draw_context();
+
+    // Faded-black backdrop + click eater.
+    UI.quad(UI.get_screen_rect(), core_globals.white_sprite, v4{0, 0, 0, 0.85});
+    UI.button(UI.get_screen_rect(), {}, {}, "shop2_swallow");
+
+    // Fixed 1400x750 panel (1080p reference; engine auto-scales).
+    panel := UI.get_safe_screen_rect().center_rect().grow(375, 700, 375, 700);
+    UI.quad(panel, core_globals.white_sprite, v4{0, 0, 0, 0.55});
+
+    // ---- Top header bar ----
+    HEADER_H :: 80.0;
+    header := panel.cut_top(HEADER_H);
+    draw_box(header, shop2_box_orange());
+
+    title_ts := shop2_text(44);
+    title_ts.outline_thickness = 4.0;
+    title_ts.halign = .LEFT;
+    UI.text(header.inset(0, 0, 0, 26), title_ts, "Store");
+
+    // Close: square anchored to header right edge.
+    close_rect := header.right_rect().grow_left(HEADER_H).inset(8, 8, 8, 0);
+    draw_box(close_rect, shop2_box_red());
+    close_ts := shop2_text(34);
+    close_ts.outline_thickness = 4.0;
+    UI.text(close_rect, close_ts, "X");
+    close_bs: Button_Settings;
+    if UI.button(close_rect, close_bs, {}, "shop2_close").clicked {
+        player.show_shop_v2 = false;
+        return;
+    }
+
+    // ---- Subscription banner ----
+    SUB_H :: 230.0;
+    sub_area := panel.cut_top(SUB_H).inset(16, 16, 0, 16);
+    draw_box(sub_area, shop2_box_yellow());
+    draw_shop_v2_subscription_row(sub_area);
+
+    // ---- Section header ----
+    SECTION_H :: 70.0;
+    section := panel.cut_top(SECTION_H);
+    sec_ts := shop2_text(40);
+    sec_ts.outline_thickness = 4.0;
+    UI.text(section, sec_ts, "Trade Tokens");
+
+    // ---- Token cards row — three equal-width columns ----
+    cards_area := panel.inset(0, 16, 16, 16);
+
+    coins_100  := get_asset(Texture_Asset, "Textures/UI/gold_coins_7fa0a9.png");
+    coins_500  := get_asset(Texture_Asset, "Textures/UI/gold_coin_stacks_c55048.png");
+    chest_2000 := get_asset(Texture_Asset, "Textures/UI/open-treasure-chest_1c03dc.png");
+
+    THIRD :: 1.0 / 3.0;
+    if draw_shop_v2_token_card(cards_area.subrect(0.0,         0, THIRD,        1.0), shop2_box_yellow(), "100 Trade Tokens",   "",          coins_100,  "100",  shop2_box_green(), "shop2_buy_100") {
+        // TODO: hook 100-token purchase
+    }
+    if draw_shop_v2_token_card(cards_area.subrect(THIRD,       0, THIRD * 2.0,  1.0), shop2_box_rainbow(), "500 Trade Tokens",   "+25 Free",  coins_500,  "500",  shop2_box_green(), "shop2_buy_500") {
+        // TODO: hook 500-token purchase
+    }
+    if draw_shop_v2_token_card(cards_area.subrect(THIRD * 2.0, 0, 1.0,          1.0), shop2_box_purple(), "2,000 Trade Tokens", "+100 Free", chest_2000, "2000", shop2_box_gold(),  "shop2_buy_2000") {
+        // TODO: hook 2000-token purchase
+    }
+}
+
+draw_shop_v2_subscription_row :: proc(area: Rect) {
+    inner := area.inset(20, 20, 20, 20);
+
+    // Big icon on the left — coin sit on top of a ray-burst, both inside an
+    // orange box so the icon panel matches the others.
+    icon_rect := inner.cut_left(180);
+    draw_box(icon_rect, shop2_box_orange());
+
+    burst := get_asset(Texture_Asset, "Textures/UI/ray_burst_2.png");
+    if burst != null {
+        burst_rect := icon_rect.grow(20, 20, 20, 20).fit_aspect(burst.get_aspect());
+        angle_deg := get_time() * 25.0;
+        UI.push_matrix(Matrix4.rotate_about_point(burst_rect.center(), angle_deg));
+        UI.quad(burst_rect, burst, v4{1, 0.95, 0.55, 0.85});
+        UI.pop_matrix();
+    }
+
+    coin := get_asset(Texture_Asset, "Textures/UI/coin2_deef5c.png");
+    if coin != null {
+        UI.quad(icon_rect.inset(12, 12, 12, 12).fit_aspect(coin.get_aspect()), coin, v4{1, 1, 1, 1});
+    } else {
+        icon_ts := shop2_text(70);
+        icon_ts.outline_thickness = 4.0;
+        UI.text(icon_rect, icon_ts, "*");
+    }
+
+    inner.cut_left(20);
+
+    // Right side: purple price pill with the spark icon prefixed.
+    price_rect := inner.cut_right(220);
+    draw_box(price_rect, shop2_box_purple());
+
+    inner_pill := price_rect.inset(20, 22, 20, 22);
+    spark := get_asset(Texture_Asset, "$AO/new/icons/sparks/spark_icon.png");
+    if spark != null {
+        spark_size := inner_pill.height() * 0.55;
+        spark_rect := inner_pill.cut_left_unscaled(spark_size);
+        UI.quad(spark_rect.fit_aspect(spark.get_aspect()), spark, v4{1, 1, 1, 1});
+        inner_pill.cut_left(8);
+    }
+
+    price_ts := shop2_text(36);
+    price_ts.outline_thickness = 4.0;
+    UI.text(inner_pill, price_ts, "100/mo");
+
+    inner.cut_right(16);
+
+    // Title + subtitle stacked at top.
+    title_strip := inner.cut_top(60);
+    title_ts := shop2_text(40);
+    title_ts.outline_thickness = 4.0;
+    title_ts.halign = .LEFT;
+    UI.text(title_strip, title_ts, "Trade Pack Subscription");
+
+    sub_strip := inner.cut_top(36);
+    sub_ts := shop2_text(22);
+    sub_ts.halign = .LEFT;
+    UI.text(sub_strip, sub_ts, "First 20 are granted instantly!");
+
+    // Bottom row of mini icons.
+    cursor := inner;
+    MINI_W :: 88.0;
+    GAP    :: 14.0;
+
+    draw_shop_v2_mini_icon(cursor.cut_left(MINI_W), shop2_box_dark(), "+1\nBooth Listing");
+    cursor.cut_left(GAP);
+    draw_shop_v2_mini_icon(cursor.cut_left(MINI_W), shop2_box_red(),  "Booth");
+    cursor.cut_left(GAP);
+    draw_shop_v2_mini_icon(cursor.cut_left(MINI_W), shop2_box_dark(), "+20/5d");
+    cursor.cut_left(GAP);
+    draw_shop_v2_mini_icon(cursor.cut_left(MINI_W), shop2_box_dark(), "x1");
+}
+
+draw_shop_v2_mini_icon :: proc(rect: Rect, box: Shop2_Box, label: string) {
+    draw_box(rect, box);
+    ts := shop2_text(18);
+    ts.word_wrap = true;
+    UI.text(rect.inset(4, 4, 4, 4), ts, label);
+}
+
+draw_shop_v2_token_card :: proc(
+    area: Rect,
+    box: Shop2_Box,
+    title: string,
+    badge: string,
+    icon: Texture_Asset,
+    price: string,
+    buy_box: Shop2_Box,
+    button_id: string,
+) -> bool {
+    card := area.inset(0, 8, 0, 8);
+    draw_box(card, box);
+
+    title_strip := card.cut_top(54);
+    title_ts := shop2_text(28);
+    title_ts.outline_thickness = 4.0;
+    UI.text(title_strip, title_ts, title);
+
+    if badge.count > 0 {
+        // Old-school sale sticker — rotated text tucked inside the top-right.
+        // Use scaled offset/grow so the badge tracks the card across resolutions.
+        badge_anchor := card.top_right_rect().offset(-110, -70);
+        badge_rect := badge_anchor.grow(40, 90, 40, 90);
+        b_ts := shop2_text(36);
+        b_ts.color = v4{1.00, 0.92, 0.20, 1};
+        b_ts.outline_thickness = 5.0;
+        b_ts.outline_color = v4{0, 0, 0, 1};
+        UI.push_matrix(Matrix4.rotate_about_point(badge_rect.center(), -18.0));
+        UI.text(badge_rect, b_ts, badge);
+        UI.pop_matrix();
+    }
+
+    // Reserve a strip at the bottom of the card for the buy button. The
+    // pink/red band on the card is ~14px tall — keep the button above that.
+    buy_strip := card.cut_bottom(110);
+
+    icon_rect := card.inset(12, 20, 4, 20);
+
+    // Sun-ray burst behind the icon — grown beyond the icon area so it pokes
+    // out, and slowly rotating for life.
+    burst := get_asset(Texture_Asset, "Textures/UI/ray_burst_2.png");
+    if burst != null {
+        burst_rect := icon_rect.grow(40, 40, 40, 40).fit_aspect(burst.get_aspect());
+        angle_deg := get_time() * 25.0;
+        UI.push_matrix(Matrix4.rotate_about_point(burst_rect.center(), angle_deg));
+        UI.quad(burst_rect, burst, v4{1, 0.95, 0.55, 0.85});
+        UI.pop_matrix();
+    }
+
+    if icon != null {
+        UI.quad(icon_rect.fit_aspect(icon.get_aspect()), icon, v4{1, 1, 1, 1});
+    } else {
+        placeholder_ts := shop2_text(64);
+        placeholder_ts.outline_thickness = 4.0;
+        UI.text(icon_rect, placeholder_ts, "$");
+    }
+
+    // Buy button — colored box with spark + price. Inset narrower than the
+    // card and lifted above the bottom band so it doesn't sit on top of it.
+    buy_rect := buy_strip.inset(8, 70, 22, 70);
+    draw_box(buy_rect, buy_box);
+
+    price_ts := shop2_text(46);
+    price_ts.outline_thickness = 4.0;
+    price_ts.halign = .CENTER;
+    text_rect := UI.text_sync(buy_rect, price_ts, price);
+
+    spark := get_asset(Texture_Asset, "$AO/new/icons/sparks/spark_icon.png");
+    if spark != null {
+        spark_size := buy_rect.height() * 0.70;
+        gap_px    := buy_rect.height() * 0.10;
+        sh := spark_size * 0.5;
+        cy := buy_rect.center().y;
+        spark_cx := text_rect.min.x - gap_px - sh;
+        spark_rect := Rect{
+            v2{spark_cx - sh, cy - sh},
+            v2{spark_cx + sh, cy + sh},
+        };
+        UI.quad(spark_rect.fit_aspect(spark.get_aspect()), spark, v4{1, 1, 1, 1});
+    }
+
+    bs: Button_Settings;
+    return UI.button(buy_rect, bs, {}, button_id).clicked;
+}

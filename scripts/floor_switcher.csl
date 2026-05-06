@@ -1,0 +1,24 @@
+// Interactable that warps the using player to a target floor.
+// Set `target_floor` in the editor; the prompt becomes "Switch to floor N".
+
+Floor_Switcher :: class : Interactable {
+    target_floor:   s64            @ao_serialize;
+    floor_renderer: Floor_Renderer @ao_serialize;
+
+    ao_start :: method() {
+        this.set_listener(this);
+        this.set_text(format_string("Switch to floor %", {target_floor}));
+        this.required_hold_time = 0.5;
+    }
+
+    can_use :: method(player: Player) -> bool {
+        if player == null return false;
+        if floor_renderer != null && player.current_floor != floor_renderer.floor return false;
+        return player.current_floor != target_floor;
+    }
+
+    on_interact :: method(player: Player) {
+        if player == null return;
+        player.current_floor = target_floor;
+    }
+}

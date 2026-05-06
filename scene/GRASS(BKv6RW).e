@@ -1,0 +1,31 @@
+14
+1
+1254073430
+{
+  "name": "GRASS",
+  "local_enabled": true,
+  "local_position": {
+
+  },
+  "local_rotation": 0,
+  "local_scale": {
+    "X": 1,
+    "Y": 1
+  },
+  "next_sibling": 1245978951
+},
+{
+  "cid": 1,
+  "aoid": 1244312888,
+  "component_type": "Internal_Component",
+  "internal_component_type": "Sprite_Renderer",
+  "data": {
+    "texture": "Textures/environments/Grass/drygrassfloor_3.png",
+    "layer": -10,
+    "scale": {
+      "X": 100,
+      "Y": 200
+    },
+    "wrap": true
+  }
+}

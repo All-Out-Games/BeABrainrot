@@ -1,0 +1,146 @@
+14
+1653562408961
+1254304642
+{
+  "name": "TileMapNavmesh",
+  "local_enabled": true,
+  "local_position": {
+    "X": -10.3161420822143555,
+    "Y": 7.4266166687011719
+  },
+  "local_rotation": 0,
+  "local_scale": {
+    "X": 1,
+    "Y": 1
+  },
+  "previous_sibling": 1245978951,
+  "next_sibling": 1244969375
+},
+{
+  "cid": 1,
+  "aoid": 1250661234,
+  "component_type": "Internal_Component",
+  "internal_component_type": "Tilemap_Component",
+  "data": {
+    "layer_data": [
+      {
+        "layer_id": 1,
+        "sort_order": 1,
+        "kind": 1,
+        "outline_color": {
+          "W": 1
+        },
+        "chunks": [
+          {
+            "chunk_x": 3,
+            "chunk_y": 4,
+            "tiles": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2251804108128256,
+              2251799814209536,
+              2251799814209536,
+              2251799814209536,
+              2251799814209536,
+              2251799814209536,
+              2251799814209536,
+              2251799814209536,
+              524288
+            ]
+          },
+          {
+            "chunk_x": 3,
+            "chunk_y": 5
+          },
+          {
+            "chunk_x": 4,
+            "chunk_y": 4,
+            "tiles": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              4294967295,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "chunk_x": 5,
+            "chunk_y": 4,
+            "tiles": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              4294967295,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "chunk_x": 6,
+            "chunk_y": 4,
+            "tiles": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              35184372105215,
+              35184372097024,
+              35184372097024,
+              35184372097024,
+              35184372097024,
+              35184372097024,
+              35184372097024,
+              35184372097024,
+              8192
+            ]
+          },
+          {
+            "chunk_x": 6,
+            "chunk_y": 5
+          }
+        ],
+        "textures": [
+          {
+            "texture": "Textures/006LOAD_Stone/tileable_texture.png"
+          }
+        ],
+        "mask": "Textures/006LOAD_Stone/tileable_texture.png",
+        "wall_outline_color": {
+          "W": 1
+        },
+        "wall_top_texture": "Textures/006LOAD_Stone/tileable_texture.png",
+        "wall_top_mask": "Textures/mask_normal.png",
+        "collision_enabled": true
+      }
+    ]
+  }
+}

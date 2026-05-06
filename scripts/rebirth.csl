@@ -1,0 +1,326 @@
+// Generic rebirth system.
+//
+// Each Rebirth_Level holds:
+//   - required_cash:   the cost (in cash) the player must hit to perform the rebirth
+//   - rewards:         a list of typed rewards
+//
+// Rebirth_Reward is intentionally generic:
+//   - stat_id + mult_add  -> contributes to the player's cumulative multiplier for that stat
+//                            (e.g. stat_id="money" adds money earnings; stat_id="strength"
+//                            would just work the same way once you query it)
+//   - grant_cash          -> one-time cash bonus given on rebirth completion
+//   - label / icon_path   -> UI display
+//
+// Querying multipliers from gameplay:
+//   mult := get_rebirth_multiplier(player, "money");
+//   final := raw_amount * mult;
+
+Rebirth_Reward :: class {
+    stat_id:        string; // empty if this reward is not a multiplier
+    mult_add:       float;  // additive contribution to that stat's multiplier
+    grant_cash:     float;  // one-time cash grant
+    grant_pedestals: s64;   // permanent pedestal-slot unlock count
+    label:          string;
+    icon_path:      string;
+}
+
+Rebirth_Level :: class {
+    level:         s64;
+    required_cash: float;
+    rewards:       [..]Rebirth_Reward;
+}
+
+ALL_REBIRTH_LEVELS: [..]Rebirth_Level;
+
+register_rebirth_level :: proc(level: s64, required_cash: float) -> Rebirth_Level {
+    lvl := new(Rebirth_Level);
+    lvl.level = level;
+    lvl.required_cash = required_cash;
+    append(ref ALL_REBIRTH_LEVELS, lvl);
+    return lvl;
+}
+
+add_rebirth_multiplier :: proc(lvl: Rebirth_Level, stat_id: string, mult_add: float, label: string, icon_path: string = "") {
+    r := new(Rebirth_Reward);
+    r.stat_id   = stat_id;
+    r.mult_add  = mult_add;
+    r.label     = label;
+    r.icon_path = icon_path;
+    append(ref lvl.rewards, r);
+}
+
+add_rebirth_cash_grant :: proc(lvl: Rebirth_Level, amount: float, label: string, icon_path: string = "") {
+    r := new(Rebirth_Reward);
+    r.grant_cash = amount;
+    r.label      = label;
+    r.icon_path  = icon_path;
+    append(ref lvl.rewards, r);
+}
+
+add_rebirth_pedestal_grant :: proc(lvl: Rebirth_Level, amount: s64, label: string, icon_path: string = "") {
+    r := new(Rebirth_Reward);
+    r.grant_pedestals = amount;
+    r.label           = label;
+    r.icon_path       = icon_path;
+    append(ref lvl.rewards, r);
+}
+
+get_rebirth_level :: proc(level: s64) -> Rebirth_Level {
+    for l: ALL_REBIRTH_LEVELS {
+        if l.level == level return l;
+    }
+    return null;
+}
+
+get_max_rebirth_level :: proc() -> s64 {
+    if ALL_REBIRTH_LEVELS.count == 0 return 0;
+    return ALL_REBIRTH_LEVELS[ALL_REBIRTH_LEVELS.count - 1].level;
+}
+
+// Cumulative multiplier from all completed rebirths (0..player.rebirth_level - 1).
+get_rebirth_multiplier :: proc(player: Player, stat_id: string) -> float {
+    total: float = 0;
+    i: s64 = 0;
+    while i < player.rebirth_level {
+        lvl := get_rebirth_level(i);
+        if lvl != null {
+            for r: lvl.rewards {
+                if r.stat_id == stat_id total += r.mult_add;
+            }
+        }
+        i += 1;
+    }
+    return 1.0 + total;
+}
+
+// Multiplier you would have AFTER performing the next rebirth.
+get_rebirth_multiplier_after_next :: proc(player: Player, stat_id: string) -> float {
+    cur := get_rebirth_multiplier(player, stat_id);
+    nxt := get_rebirth_level(player.rebirth_level);
+    if nxt == null return cur;
+    for r: nxt.rewards {
+        if r.stat_id == stat_id cur += r.mult_add;
+    }
+    return cur;
+}
+
+REBIRTH_SAVE_KEY :: "rebirth_level";
+
+can_rebirth :: proc(player: Player) -> bool {
+    nxt := get_rebirth_level(player.rebirth_level);
+    if nxt == null return false;
+    if player.cash < nxt.required_cash return false;
+    return true;
+}
+
+do_rebirth :: proc(player: Player) -> bool {
+    nxt := get_rebirth_level(player.rebirth_level);
+    if nxt == null return false;
+    if player.cash < nxt.required_cash return false;
+
+    grant_total: float = 0;
+    pedestal_total: s64 = 0;
+    for r: nxt.rewards {
+        if r.grant_cash > 0 grant_total += r.grant_cash;
+        if r.grant_pedestals > 0 pedestal_total += r.grant_pedestals;
+    }
+
+    // Reset stats
+    player.cash = 0;
+    player.displayed_cash = 0;
+    Save.set_f64(player, CASH_SAVE_KEY, 0);
+    set_speed(player, BASE_SPEED);
+
+    // Advance level
+    player.rebirth_level += 1;
+    Save.set_int(player, REBIRTH_SAVE_KEY, player.rebirth_level);
+
+    // Grant cash directly (bypass deposit_cash so it's not multiplied again)
+    if grant_total > 0 {
+        player.cash += grant_total;
+        Save.set_f64(player, CASH_SAVE_KEY, player.cash.(f64));
+        push_cash_popup(player, grant_total, false);
+    }
+
+    // Permanent pedestal-slot unlocks.
+    if pedestal_total > 0 {
+        player.pedestals_unlocked += pedestal_total;
+        Save.set_int(player, PEDESTALS_SAVE_KEY, player.pedestals_unlocked);
+        if player.my_room != null player.my_room.refresh_pedestal_unlocks();
+    }
+
+    Notifier.notify(player, "Rebirth %!", {player.rebirth_level});
+    return true;
+}
+
+// ----- Default progression. Tune freely; the system doesn't care about specific stat ids. -----
+
+register_default_rebirth_levels :: proc() {
+    // Each level: 5x cash cost, +0.5x money multiplier, scaling cash grant.
+    cost: float = 1000000.0;
+    grant: float = 5000.0;
+    i: s64 = 0;
+    while i < 25 {
+        lvl := register_rebirth_level(i, cost);
+        add_rebirth_multiplier(lvl, "money", 0.5, "+0.5x money");
+        add_rebirth_cash_grant(lvl, grant, format_string("+% bonus", {format_cash(grant)}));
+        add_rebirth_pedestal_grant(lvl, 1, "+1 Pedestal");
+        cost  *= 5.0;
+        grant *= 4.0;
+        i += 1;
+    }
+}
+
+// ----- UI -----
+
+draw_rebirth_modal :: proc(player: Player) {
+    if !player.show_rebirth_modal return;
+
+    UIK.begin(UIK.modal(UIK.rect_window(), 15));
+
+    shell := UIK.panel_modal(.RED);
+    shell.gap = 0;
+    UIK.panel_begin(shell);
+
+    exit_h := UIK.title_area(UIK.title_area_desc("REBIRTH"));
+
+    body := UIK.layout_column();
+    body.width  = UIK.flex(1);
+    body.height = UIK.flex(1);
+    body.padding = v4{16, 24, 16, 24};
+    body.gap = 16;
+    body.cross_align = .CENTER;
+    body.main_align = .CENTER;
+    UIK.panel_begin(body);
+
+    warning := UIK.text_title();
+    UIK.text_set_color(&warning, {1.0, 0.6, 0.6, 1});
+    UIK.text("[Warning] Rebirth Resets Your Speed & Cash!", warning);
+
+    // ----- Current vs next preview row with arrow -----
+    cur_mult  := get_rebirth_multiplier(player, "money");
+    next_mult := get_rebirth_multiplier_after_next(player, "money");
+
+    preview := UIK.layout_row();
+    preview.width  = UIK.flex(1);
+    preview.height = UIK.pixels(120);
+    preview.gap = 12;
+    preview.cross_align = .CENTER;
+    preview.main_align = .CENTER;
+    UIK.panel_begin(preview);
+
+    money_icon := get_asset(Texture_Asset, "money_stack_1_f9a568.png");
+    arrow_icon := get_asset(Texture_Asset, "arrow_right_e47b99.png");
+
+    draw_rebirth_preview_card(format_string("Rebirth %", {player.rebirth_level}),     format_string("%0x Money", {format_float(cur_mult,  decimals=1)}), .BUTTON_BASIC_GREEN, money_icon);
+
+    arrow_holder := UIK.layout_centered(UIK.pixels(60), UIK.flex(1));
+    UIK.panel_begin(arrow_holder);
+    if arrow_icon != null {
+        UIK.image_fitted(arrow_icon, UIK.image_desc(.CONTAIN));
+    } else {
+        arrow_desc := UIK.text_title();
+        UIK.text(">", arrow_desc);
+    }
+    UIK.panel_end();
+
+    draw_rebirth_preview_card(format_string("Rebirth %", {player.rebirth_level + 1}), format_string("%0x Money", {format_float(next_mult, decimals=1)}), .BUTTON_BASIC_YELLOW1, money_icon);
+
+    UIK.panel_end(); // preview
+
+    // ----- Progress bar (cash / required) with overlay label -----
+    nxt := get_rebirth_level(player.rebirth_level);
+    if nxt != null {
+        progress := player.cash / nxt.required_cash;
+        if progress > 1.0 progress = 1.0;
+        if progress < 0.0 progress = 0.0;
+
+        bar_color := v4{0.3, 0.75, 1.0, 1};
+        if progress >= 1.0 bar_color = v4{0.3, 1.0, 0.4, 1};
+
+        bar_stack := UIK.layout_centered(UIK.flex(1), UIK.pixels(48));
+        UIK.panel_begin(bar_stack);
+
+        UIK.progress_bar(UIK.panel_progress_bar(.PROGRESS_BAR_STYLE_1, progress, bar_color, UIK.flex(1), UIK.flex(1)));
+
+        UIK.overlay_begin(.CENTER, {0, 0});
+        cash_label := UIK.text_title();
+        UIK.text(format_string("% / %", {format_cash(player.cash), format_cash(nxt.required_cash)}), cash_label);
+        UIK.overlay_end();
+
+        UIK.panel_end(); // bar_stack
+    }
+
+    // ----- Buttons row -----
+    btn_row := UIK.layout_row();
+    btn_row.width  = UIK.flex(1);
+    btn_row.height = UIK.pixels(80);
+    btn_row.gap = 16;
+    btn_row.main_align = .CENTER;
+    UIK.panel_begin(btn_row);
+
+    rebirth_d := UIK.widget_desc_button_default(.BUTTON_BASIC_RED);
+    rebirth_d.panel.width  = UIK.pixels(220);
+    rebirth_d.panel.height = UIK.flex(1);
+    rebirth_d.disabled = !can_rebirth(player);
+    rebirth_h := UIK.button("rebirth_confirm", "Rebirth", rebirth_d);
+
+    skip_d := UIK.widget_desc_button_default(.BUTTON_BASIC_PURPLE);
+    skip_d.panel.width  = UIK.pixels(220);
+    skip_d.panel.height = UIK.flex(1);
+    skip_h := UIK.button("rebirth_skip", "Skip Rebirth", skip_d);
+
+    UIK.panel_end(); // btn_row
+    UIK.panel_end(); // body
+    UIK.panel_end(); // shell
+    UIK.end();
+
+    if UIK.clicked(exit_h) || UIK.clicked(skip_h) {
+        player.show_rebirth_modal = false;
+        return;
+    }
+    if UIK.clicked(rebirth_h) {
+        if !do_rebirth(player) {
+            Notifier.notify(player, "Not enough cash for rebirth!");
+        }
+    }
+}
+
+draw_rebirth_preview_card :: proc(title: string, body_label: string, bg: UIK.Panel_Background_Kind, icon: Texture_Asset = null) {
+    col := UIK.layout_column();
+    col.width  = UIK.flex(1);
+    col.height = UIK.flex(1);
+    col.gap = 8;
+    col.cross_align = .CENTER;
+    UIK.panel_begin(col);
+
+    UIK.text(title, UIK.text_title());
+
+    card := UIK.panel_styled(bg);
+    card.width  = UIK.flex(1);
+    card.height = UIK.flex(1);
+    card.padding = v4{8, 12, 8, 12};
+    card.gap = 8;
+    card.axis = .HORIZONTAL;
+    card.main_align = .CENTER;
+    card.cross_align = .CENTER;
+    UIK.panel_begin(card);
+
+    if icon != null {
+        icon_holder := UIK.layout_centered(UIK.pixels(40), UIK.pixels(40));
+        UIK.panel_begin(icon_holder);
+        UIK.image_fitted(icon, UIK.image_desc(.CONTAIN));
+        UIK.panel_end();
+    }
+
+    UIK.text(body_label, UIK.text_button());
+
+    UIK.panel_end();
+
+    UIK.panel_end();
+}
+
+// Chat command for testing.
+rebirth_cmd :: proc(player: Player) {
+    player.show_rebirth_modal = !player.show_rebirth_modal;
+} @chat_command

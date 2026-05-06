@@ -1,0 +1,229 @@
+// Shop v3 — UIK layout for sizing/positioning, with per-panel box_panel
+// shader backgrounds drawn beneath UIK's content using the resolved rect
+// returned via Interact_Handle.
+//
+// Toggle with /shop3.
+
+// Modal backdrop preset — flat faded black (alpha 0.8), no dots, no band.
+shop3_box_modal_bg :: proc() -> Shop2_Box {
+    b := shop2_default_box(v4{0, 0, 0, 0.8}, v4{0, 0, 0, 0.8});
+    b.dot_alpha     = 0.0;
+    b.band_color    = v4{0, 0, 0, 0};
+    b.outline_px    = 5.0;
+    b.outline_color = v4{0, 0, 0, 1};
+    b.corner_radius = 14.0;
+    return b;
+}
+
+shop3_push_box :: proc(rect: Rect, box: Shop2_Box) {
+    mat := get_box_panel_material();
+    if mat == null return;
+    mat.set_float4("top_color",         box.top);
+    mat.set_float4("bottom_color",      box.bottom);
+    mat.set_float4("rect_px",           v4{rect.min.x, rect.min.y, rect.max.x, rect.max.y});
+    mat.set_float ("dot_cell_px",       box.dot_cell);
+    mat.set_float ("dot_min_radius",    box.dot_min_radius);
+    mat.set_float ("dot_max_radius",    box.dot_max_radius);
+    mat.set_float ("dot_alpha",         box.dot_alpha);
+    mat.set_float ("bottom_band_h",     box.band_h);
+    mat.set_float4("bottom_band_color", box.band_color);
+    mat.set_float ("outline_px",        box.outline_px);
+    mat.set_float4("outline_color",     box.outline_color);
+    mat.set_float ("corner_radius_px",  box.corner_radius);
+    mat.set_float ("rainbow_strength",  box.rainbow);
+    mat.set_float ("rainbow_speed",     box.rainbow_speed);
+    mat.set_float ("rainbow_hue_span",  box.rainbow_hue_span);
+    UI.push_material(mat);
+    UI.quad(rect, core_globals.white_sprite, v4{1, 1, 1, 1});
+    UI.pop_material();
+}
+
+draw_shop_v3 :: proc(player: Player) {
+    if player == null return;
+    if !player.show_shop_v3 return;
+
+    // Manual faded-black dim at the default layer. Our per-rect shader
+    // quads (drawn after UIK.end at the same layer) cover this dim where
+    // the panels are. UIK content renders above at layer 20.
+    UI.push_screen_draw_context();
+    UI.quad(UI.get_screen_rect(), core_globals.white_sprite, v4{0, 0, 0, 0.5});
+    UI.pop_draw_context();
+
+    UIK.begin(UIK.modal(UIK.rect_window(), 20, v4{0, 0, 0, 0}));
+
+    // Transparent shell — we don't want UIK to paint a dark fill that would
+    // cover our shader quads. The modal backdrop is still drawn by
+    // UIK.modal() above.
+    shell := UIK.layout_column();
+    shell.width            = UIK.flex(1);
+    shell.height           = UIK.flex(1);
+    shell.gap              = 10;
+    shell.padding          = v4{16, 16, 16, 16};
+    shell.show_background  = false;
+    UIK.panel_begin(shell);
+
+    title_desc  := UIK.title_area_desc("Store");
+    exit_handle := UIK.title_area(title_desc);
+
+    // ---- Subscription banner ----
+    banner_desc := UIK.layout_row();
+    banner_desc.width            = UIK.flex(1);
+    banner_desc.height           = UIK.pixels(220);
+    banner_desc.gap              = 16;
+    banner_desc.padding          = v4{14, 14, 14, 14};
+    banner_desc.show_background  = false; // we'll paint the bg ourselves
+    banner_h := UIK.panel_begin_interactive("shop3_banner", banner_desc);
+
+    icon_panel := UIK.layout_centered(UIK.pixels(180), UIK.flex(1));
+    UIK.panel_begin(icon_panel);
+    coin := get_asset(Texture_Asset, "Textures/UI/coin2_deef5c.png");
+    if coin != null UIK.image_fitted(coin, UIK.image_desc(.CONTAIN));
+    UIK.panel_end();
+
+    text_col := UIK.layout_column();
+    text_col.width      = UIK.flex(1);
+    text_col.height     = UIK.flex(1);
+    text_col.gap        = 4;
+    text_col.main_align = .CENTER;
+    UIK.panel_begin(text_col);
+    UIK.text("Trade Pack Subscription", UIK.text_title());
+    sub_ts := UIK.text_title();
+    UIK.text_set_size_mult(&sub_ts, 0.55);
+    UIK.text("First 20 are granted instantly!", sub_ts);
+    UIK.panel_end();
+
+    price_desc := UIK.widget_desc_button_default(.BUTTON_BASIC_PURPLE);
+    price_desc.panel.width  = UIK.pixels(220);
+    price_desc.panel.height = UIK.pixels(100);
+    spark_icon := get_asset(Texture_Asset, "$AO/new/icons/sparks/spark_icon.png");
+    sub_handle := UIK.icon_button_label("shop3_sub", spark_icon, "100/mo", price_desc);
+
+    UIK.panel_end(); // banner
+
+    // ---- Section header ----
+    UIK.spacer(UIK.pixels(1), UIK.pixels(8));
+    UIK.text("Trade Tokens", UIK.text_title());
+    UIK.spacer(UIK.pixels(1), UIK.pixels(4));
+
+    // ---- Cards row ----
+    cards_row := UIK.layout_row();
+    cards_row.width            = UIK.flex(1);
+    cards_row.height           = UIK.flex(1);
+    cards_row.gap              = 12;
+    cards_row.show_background  = false;
+    UIK.panel_begin(cards_row);
+
+    coins_100  := get_asset(Texture_Asset, "Textures/UI/gold_coins_7fa0a9.png");
+    coins_500  := get_asset(Texture_Asset, "Textures/UI/gold_coin_stacks_c55048.png");
+    chest_2000 := get_asset(Texture_Asset, "Textures/UI/open-treasure-chest_1c03dc.png");
+
+    h100  := draw_shop_v3_card("100 Trade Tokens",   100,  coins_100,  "shop3_buy_100");
+    h500  := draw_shop_v3_card("500 Trade Tokens",   500,  coins_500,  "shop3_buy_500");
+    h2000 := draw_shop_v3_card("2,000 Trade Tokens", 2000, chest_2000, "shop3_buy_2000");
+
+    UIK.panel_end(); // cards_row
+
+    UIK.panel_end(); // shell
+    UIK.end();
+
+    // ===== Post-end shader pass =====
+    // Default layer — drawn AFTER the dim quad above, so shader quads
+    // cover the dim where panels are. UIK content (layer 20) stays on top.
+    UI.push_screen_draw_context();
+    {
+        // Whole-modal shaded background.
+        modal_rect := UIK.rect_window();
+        shop3_push_box(modal_rect, shop3_box_modal_bg());
+
+        banner_rect := UIK.resolve(banner_h).rect;
+        if banner_rect.max.x > banner_rect.min.x {
+            shop3_push_box(banner_rect, shop2_box_orange());
+        }
+
+        c100 := UIK.resolve(h100).rect;
+        if c100.max.x > c100.min.x {
+            shop3_push_box(c100, shop2_box_yellow());
+            shop3_draw_ray(c100);
+        }
+        c500 := UIK.resolve(h500).rect;
+        if c500.max.x > c500.min.x {
+            shop3_push_box(c500, shop2_box_rainbow());
+            shop3_draw_ray(c500);
+        }
+        c2000 := UIK.resolve(h2000).rect;
+        if c2000.max.x > c2000.min.x {
+            shop3_push_box(c2000, shop2_box_purple());
+            shop3_draw_ray(c2000);
+        }
+
+        // Rotated sale badges drawn ABOVE UIK content (layer 25) so they
+        // sit on top of the cards like classic sale stickers.
+        UI.push_layer(25);
+        if c500.max.x > c500.min.x {
+            draw_shop_v3_badge(c500, "+25 Free");
+        }
+        if c2000.max.x > c2000.min.x {
+            draw_shop_v3_badge(c2000, "+100 Free");
+        }
+        UI.pop_layer();
+    }
+    UI.pop_draw_context();
+
+    if UIK.clicked(exit_handle) {
+        player.show_shop_v3 = false;
+        return;
+    }
+    if UIK.clicked(sub_handle) {}
+    if UIK.clicked(h100) {}
+    if UIK.clicked(h500) {}
+    if UIK.clicked(h2000) {}
+}
+
+// Rotating sun-ray burst behind each card's icon (matches v2's effect).
+shop3_draw_ray :: proc(card_rect: Rect) {
+    burst := get_asset(Texture_Asset, "Textures/UI/ray_burst_2.png");
+    if burst == null return;
+    burst_rect := card_rect.center_rect().grow(140, 140, 140, 140).fit_aspect(burst.get_aspect());
+    angle_deg := get_time() * 25.0;
+    UI.push_matrix(Matrix4.rotate_about_point(burst_rect.center(), angle_deg));
+    UI.quad(burst_rect, burst, v4{1, 0.95, 0.55, 0.85});
+    UI.pop_matrix();
+}
+
+draw_shop_v3_badge :: proc(card_rect: Rect, label: string) {
+    badge_anchor := card_rect.top_right_rect().offset(-110, -70);
+    badge_rect := badge_anchor.grow(40, 90, 40, 90);
+    ts := UI.default_text_settings();
+    ts.size              = 36;
+    ts.color             = v4{1.00, 0.92, 0.20, 1};
+    ts.do_outline        = true;
+    ts.outline_thickness = 4.0;
+    ts.outline_color     = v4{0, 0, 0, 1};
+    UI.push_matrix(Matrix4.rotate_about_point(badge_rect.center(), -18.0));
+    UI.text(badge_rect, ts, label);
+    UI.pop_matrix();
+}
+
+draw_shop_v3_card :: proc(name: string, price: s64, icon: Texture_Asset, button_id: string) -> UIK.Interact_Handle {
+    card_desc := UIK.layout_column();
+    card_desc.width            = UIK.flex(1);
+    card_desc.height           = UIK.flex(1);
+    card_desc.gap              = 6;
+    card_desc.padding          = v4{14, 14, 14, 14};
+    card_desc.cross_align      = .CENTER;
+    card_desc.show_background  = false; // shader paints the bg
+    handle := UIK.panel_begin_interactive(button_id, card_desc);
+
+    UIK.text(name, UIK.text_button());
+
+    media := UIK.layout_centered(UIK.flex(1), UIK.flex(1));
+    UIK.panel_begin(media);
+    if icon != null UIK.image_fitted(icon, UIK.image_desc(.CONTAIN));
+    UIK.panel_end();
+
+    spark := get_asset(Texture_Asset, "$AO/new/icons/sparks/spark_icon.png");
+    UIK.currency(spark, price, UIK.text_title());
+
+    UIK.panel_end();
+    return handle;
+}

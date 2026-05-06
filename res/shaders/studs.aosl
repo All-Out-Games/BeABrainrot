@@ -1,0 +1,77 @@
+!!inputs {
+    texture albedo ALBEDO
+    texture shadow SHADOW
+    texture lighting LIGHT
+    float mask_in_shadow
+    float stud_density
+    float stud_size
+    float light_strength
+    float crevice_strength
+}
+
+!!pipeline {
+    Pixel_Format: HDR
+    Depth_Enabled: true
+    Blend_Enabled: true
+    Blend_Src: ONE
+    Blend_Dst: ONE_MINUS_SRC_ALPHA
+    Blend_Op: ADD
+    Alpha_Blend_Src: ONE
+    Alpha_Blend_Dst: ONE
+    Alpha_Blend_Op: ADD
+    Blend_Color: (1, 1, 1, 1)
+}
+
+!!vs
+struct vs_out {
+    float4 color: COLOR0;
+    float2 uv: UV;
+    float2 local_pos: TEXCOORD1;
+    float2 shadow_uv: TEXCOORD0;
+    float4 pos: SV_Position;
+};
+
+vs_out vs_main(vs_in inp) {
+    vs_out outp;
+    outp.pos = mul(final_mvp(inp), float4(inp.pos.xy, 0, 1.0f));
+    outp.uv = inp.uv;
+    outp.local_pos = inp.pos;
+    outp.color = inp.color;
+    outp.shadow_uv = (outp.pos.xy + float2(1,1)) / 2;
+    return outp;
+}
+
+!!ps
+float4 ps_main(float4 color: COLOR0, float2 _uv: UV, float2 local_pos: TEXCOORD1, float2 shadow_uv: TEXCOORD0): SV_Target0 {
+    float4 base = color * bc7_correct_alpha(albedo.Sample(albedo_smp, _uv));
+
+    float2 cell = frac(local_pos * stud_density) - 0.5;
+    float stud_half = stud_size * 0.5;
+
+    // Square stud mask (Chebyshev distance from cell center).
+    float cheb = max(abs(cell.x), abs(cell.y));
+    float in_stud = 1.0 - smoothstep(stud_half - 0.02, stud_half, cheb);
+
+    // Fake bevel normal; light from top-left (negative x, negative y).
+    float2 n = clamp(cell / stud_half, -1.0, 1.0);
+    float lit = -0.7071 * (n.x + n.y);
+
+    // Bevel only near the stud edge so the stud top stays flat.
+    float edge_mask = smoothstep(stud_half * 0.4, stud_half, cheb);
+    float light = in_stud * edge_mask * lit * light_strength;
+
+    // Slight shadow in the gap between studs (set crevice_strength = 0 to leave gaps alone).
+    float crevice = (1.0 - in_stud) * crevice_strength;
+
+    // Only apply studs to opaque pixels; leave transparent areas alone.
+    float opaque_mask = base.a;
+    float3 rgb = base.rgb + (light - crevice) * opaque_mask;
+    float4 result = float4(rgb, base.a);
+
+    if (mask_in_shadow != 0.0f) {
+        float2 suv = float2(shadow_uv.x, 1 - shadow_uv.y);
+        result *= shadow.Sample(shadow_smp, suv).r;
+    }
+
+    return result;
+}

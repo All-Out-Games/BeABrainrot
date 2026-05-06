@@ -1,0 +1,534 @@
+COLLECT_RANGE_SQ        :: 0.64;  // 0.8 world units, squared
+UPGRADE_PROMPT_RANGE_SQ :: 6.25;  // 2.5 world units, squared
+WORLD_UI_SCALE          :: 0.00926; // 5/540, matches C# reference
+CLAIM_COOLDOWN_SECONDS  :: 1.0;
+
+BRAINROT_PREFAB_PATH    :: "Brainrot.prefab";
+
+PEDESTALS_SAVE_KEY         :: "pedestals_unlocked";
+DEFAULT_PEDESTALS_UNLOCKED :: 10;
+
+TEMPLATE_FONT: Font_Asset;
+
+get_template_font :: proc() -> Font_Asset {
+    if TEMPLATE_FONT == null {
+        TEMPLATE_FONT = get_asset(Font_Asset, "$AO/fonts/Barlow-Black.ttf");
+    }
+    return TEMPLATE_FONT;
+}
+
+// Copy the pedestal's floor onto the placed brainrot so the Floor_Manager
+// fades them in lockstep.
+sync_brainrot_floor_to_pedestal :: proc(le: LivingEntity, pedestal: Pedestal) {
+    if le == null || pedestal == null return;
+    if le.floor_renderer == null || pedestal.floor_renderer == null return;
+    le.floor_renderer.floor = pedestal.floor_renderer.floor;
+    le.floor_renderer.apply_layer();
+}
+
+Pedestal :: class : Interactable {
+    brainrot_pedestal: Entity @ao_serialize;
+    money_entity: Entity @ao_serialize;
+    floor_renderer: Floor_Renderer @ao_serialize;
+
+    placed_brainrot: LivingEntity;
+    accumulated_gold: float;
+    claim_cooldown: float;
+    gps_tick_timer: float;
+    room: Room;
+
+    ao_start :: method() {
+        this.set_listener(this);
+        this.set_text("Place");
+    }
+
+    can_use :: method(player: Player) -> bool {
+        if room == null return false;
+        if !#alive(room.owner) return false;
+        if room.owner != player return false;
+        if floor_renderer != null && player.current_floor != floor_renderer.floor return false;
+        if placed_brainrot != null && #alive(placed_brainrot.entity) return false;
+        if is_carrying(player) return true;
+        if player.selected_brainrot_item != null && #alive(player.selected_brainrot_item) return true;
+        return false;
+    }
+
+    on_interact :: method(player: Player) {
+        log_info("Pedestal.on_interact: carried=% selected=% slot_filled=%", {
+            is_carrying(player),
+            #alive(player.selected_brainrot_item),
+            placed_brainrot != null && #alive(placed_brainrot.entity),
+        });
+        if placed_brainrot != null && #alive(placed_brainrot.entity) return;
+        if room == null || room.owner != player return;
+
+        carried := get_carried_brainrot(player);
+        if carried != null {
+            br := carried;
+            remove_effect(player.entity, Carry_Brainrot_Effect_2, false);
+            br.pedestal = this;
+            br.owner = player;
+            br.state = Brainrot_State.CLAIMED_IN_BASE;
+            if brainrot_pedestal != null {
+                br.entity.set_local_position(brainrot_pedestal.world_position);
+            }
+            placed_brainrot = br;
+            sync_brainrot_floor_to_pedestal(br, this);
+            log_info("Placed from carry: %", {br.display_name});
+            save_room_brainrots(player, room);
+            return;
+        }
+
+        if player.selected_brainrot_item != null && #alive(player.selected_brainrot_item) {
+            ok := place_brainrot_from_item(this, player, player.selected_brainrot_item);
+            log_info("Placed from inventory: ok=%", {ok});
+            if ok save_room_brainrots(player, room);
+        }
+    }
+
+    ao_update :: method(dt: float) {
+        if placed_brainrot != null && !#alive(placed_brainrot.entity) {
+            placed_brainrot = null;
+            accumulated_gold = 0;
+            gps_tick_timer = 0;
+        }
+
+        if placed_brainrot != null {
+            gps_tick_timer += dt;
+            while gps_tick_timer >= 1.0 {
+                accumulated_gold += placed_brainrot.get_gps();
+                gps_tick_timer -= 1.0;
+            }
+        }
+
+        if claim_cooldown > 0 {
+            claim_cooldown -= dt;
+            if claim_cooldown < 0 claim_cooldown = 0;
+        }
+
+        if room == null return;
+        if !#alive(room.owner) return;
+        if money_entity == null return;
+        if accumulated_gold <= 0 return;
+        if claim_cooldown > 0 return;
+        if !room.owner.is_local_or_server() return;
+        if floor_renderer != null && room.owner.current_floor != floor_renderer.floor return;
+
+        diff := room.owner.entity.world_position - money_entity.world_position;
+        if length_squared(diff) < COLLECT_RANGE_SQ {
+            deposit_cash(room.owner, accumulated_gold);
+            accumulated_gold = 0;
+            claim_cooldown = CLAIM_COOLDOWN_SECONDS;
+            if placed_brainrot != null && #alive(placed_brainrot.entity) {
+                placed_brainrot.start_jump();
+            }
+            collect_sfx := get_asset(SFX_Asset, "SFX/Collect_Money.wav");
+            if collect_sfx != null {
+                desc := SFX.default_sfx_desc();
+                desc.entity_to_follow = money_entity.id;
+                desc.volume = 0.6;
+                desc.speed_perturb = 0.08;
+                SFX.play(collect_sfx, desc);
+            }
+        }
+    }
+
+    ao_late_update :: method(dt: float) {
+        if accumulated_gold <= 0 return;
+
+        local, has_local := Game.get_local_player();
+        if !has_local return;
+
+        // Only show money for pedestals in the room the viewer is currently
+        // standing in — keeps neighbour bases from polluting our labels.
+        if room != null && local.is_in_current_room != room return;
+
+        // Don't draw the money label if the viewer isn't on the same floor.
+        if floor_renderer != null && local.current_floor != floor_renderer.floor return;
+
+        pos := entity.world_position + v2{0, -0.7};
+
+        // Camera-rect culling — skip the money label when off-screen.
+        if local.camera.size > 0 {
+            cam_pos := local.camera.position;
+            cull_radius := local.camera.size * 1.5;
+            diff := pos - cam_pos;
+            if length_squared(diff) > cull_radius * cull_radius return;
+        }
+
+        UI.push_world_draw_context();
+        defer UI.pop_draw_context();
+        UI.begin_world_space_ui(entity);
+        defer UI.end_world_space_ui();
+        UI.push_layer(2);
+
+        ts := UI.default_text_settings();
+        ts.size = 0.4;
+        ts.color = v4{0.25, 1.0, 0.25, 1};
+        ts.word_wrap = false;
+        ts.overflow_wrap = false;
+        ts.do_outline = true;
+        ts.outline_thickness = 4.0;
+        ts.outline_color = v4{0, 0, 0, 1};
+
+        rect := Rect{pos, pos}.grow(0.3, 1.5, 0.3, 1.5);
+        UI.text(rect, ts, format_cash(accumulated_gold));
+    }
+}
+
+Room :: class : Component {
+    // Auto-populated at runtime by walking child entities — never hand-assigned.
+    pedestals: [..]Pedestal;
+
+    owner: Player;
+    trigger: Trigger_Volume @ao_serialize;
+
+    ao_start :: method() {
+        collect_pedestals_recursive(this, entity);
+        for p: pedestals {
+            if p == null continue;
+            p.room = this;
+        }
+
+        if trigger != null trigger.set_listener(this, room_on_player_enter, room_on_player_exit);
+    }
+
+    // Snap a player back inside the room's trigger AABB. Used to fake walls
+    // on upper floors so players can't walk out of their plot.
+    clamp_player_inside :: method(player: Player) {
+        if player == null return;
+        if !#alive(player.entity) return;
+        if trigger == null return;
+        if !#alive(trigger.corner_a) return;
+        if !#alive(trigger.corner_b) return;
+
+        a := trigger.corner_a.world_position;
+        b := trigger.corner_b.world_position;
+        x_min := min(a.x, b.x);
+        x_max := max(a.x, b.x);
+        y_min := min(a.y, b.y);
+        y_max := max(a.y, b.y);
+
+        pos := player.entity.world_position;
+        clamped := v2{clamp(pos.x, x_min, x_max), clamp(pos.y, y_min, y_max)};
+        if clamped.x != pos.x || clamped.y != pos.y {
+            player.entity.set_local_position(clamped);
+        }
+    }
+
+    ao_update :: method(dt: float) {
+        if owner != null && !#alive(owner) {
+            owner = null;
+        }
+    }
+
+    claim_room :: method(player: Player) -> bool {
+        if #alive(owner) return false;
+        owner = player;
+        if player != null {
+            player.my_room = this;
+            if #alive(player.entity) {
+                player.entity.set_local_position(entity.world_position);
+            }
+        }
+        apply_pedestal_unlocks(this, player);
+        load_room_brainrots(player, this);
+        return true;
+    }
+
+    // Re-apply unlock state on demand (e.g. after rebirth grants more slots).
+    refresh_pedestal_unlocks :: method() {
+        apply_pedestal_unlocks(this, owner);
+    }
+
+    // Wipe ownership and clear out all placed brainrots so the room is free
+    // for the next player who joins. Order matters: tear down the brainrots
+    // FIRST, then disable the pedestal entities — that way brainrot cleanup
+    // doesn't run with an already-disabled pedestal underneath it.
+    release_room :: method() {
+        for p: pedestals {
+            if p == null continue;
+            if p.placed_brainrot != null && #alive(p.placed_brainrot.entity) {
+                p.placed_brainrot.entity.destroy();
+            }
+            p.placed_brainrot  = null;
+            p.accumulated_gold = 0;
+        }
+        // Reset to the default unlocked count so the room shows the baseline
+        // on the next player join (rebirth-granted slots stay locked until
+        // someone with that progression claims the room).
+        i: s64 = 0;
+        for p: pedestals {
+            if p == null continue;
+            on := i < DEFAULT_PEDESTALS_UNLOCKED;
+            if #alive(p.entity) p.entity.set_local_enabled(on);
+            i += 1;
+        }
+        if owner != null && owner.my_room == this {
+            owner.my_room = null;
+        }
+        owner = null;
+    }
+
+    find_empty_pedestal :: method() -> Pedestal {
+        for p: pedestals {
+            if p == null continue;
+            if p.placed_brainrot != null && #alive(p.placed_brainrot.entity) continue;
+            return p;
+        }
+        return null;
+    }
+}
+
+collect_pedestals_recursive :: proc(room: Room, e: Entity) {
+    current := e.get_first_child();
+    while current != null {
+        p := current.get_component(Pedestal);
+        if p != null {
+            append(ref room.pedestals, p);
+        }
+        collect_pedestals_recursive(room, current);
+        current = current.get_next_sibling();
+    }
+}
+
+get_closest_placed_brainrot :: proc(player: Player) -> LivingEntity {
+    room := player.my_room;
+    if room == null return null;
+
+    closest: LivingEntity;
+    closest_dist_sq: float = 1000000.0;
+    for p: room.pedestals {
+        if p == null continue;
+        if p.placed_brainrot == null continue;
+        if !#alive(p.placed_brainrot.entity) continue;
+        // Skip pedestals on a different floor than the viewer.
+        if p.floor_renderer != null && player.current_floor != p.floor_renderer.floor continue;
+        diff := p.placed_brainrot.entity.world_position - player.entity.world_position;
+        d := length_squared(diff);
+        if d < closest_dist_sq {
+            closest_dist_sq = d;
+            closest = p.placed_brainrot;
+        }
+    }
+    if closest_dist_sq > UPGRADE_PROMPT_RANGE_SQ return null;
+    return closest;
+}
+
+draw_upgrade_hud :: proc(player: Player) {
+    target := get_closest_placed_brainrot(player);
+    if target == null return;
+
+    UIK.begin(UIK.window(UIK.rect_hotbar().offset(0, 160)));
+
+    row := UIK.layout_row();
+    row.width = UIK.flex(1);
+    row.height = UIK.flex(1);
+    row.padding = v4{8, 16, 8, 16};
+    row.main_align = .CENTER;
+    row.cross_align = .CENTER;
+    UIK.panel_begin(row);
+
+    btn_desc := UIK.widget_desc_button_auto_default(.BUTTON_BASIC_GREEN);
+    btn_desc.panel.width = UIK.pixels(420);
+    btn_desc.panel.height = UIK.pixels(120);
+    label := format_string("%   Lv % > %", {format_cash(target.get_upgrade_price()), target.level, target.level + 1});
+    handle := UIK.button("upgrade_closest_brainrot", label, btn_desc);
+
+    UIK.panel_end();
+    UIK.end();
+
+    if UIK.clicked(handle) {
+        target.try_upgrade(player);
+    }
+}
+
+room_on_player_enter :: proc(listener: Component, player: Player) {
+    if listener == null return;
+    if player == null return;
+    room := listener.(Room);
+    if room == null return;
+    player.is_in_current_room = room;
+}
+
+room_on_player_exit :: proc(listener: Component, player: Player) {
+    if listener == null return;
+    if player == null return;
+    room := listener.(Room);
+    if room == null return;
+    // Only clear if it's still pointing at us — handles the same-frame
+    // exit-then-enter race when teleporting between rooms.
+    if player.is_in_current_room == room {
+        player.is_in_current_room = null;
+    }
+}
+
+// Enable only the first `player.pedestals_unlocked` pedestals; disable the
+// rest so they're hidden until unlocked (e.g. via rebirth).
+apply_pedestal_unlocks :: proc(room: Room, player: Player) {
+    if room == null return;
+    if player == null return;
+    unlocked := player.pedestals_unlocked;
+    i: s64 = 0;
+    for p: room.pedestals {
+        if p == null continue;
+        on := i < unlocked;
+        if #alive(p.entity) p.entity.set_local_enabled(on);
+        i += 1;
+    }
+}
+
+find_free_room :: proc() -> Room {
+    for r: component_iterator(Room) {
+        if r.owner != null && #alive(r.owner) continue;
+        return r;
+    }
+    return null;
+}
+
+apply_config_to_living_entity :: proc(le: LivingEntity, config: Brainrot_Config) {
+    le.config_id = config.id;
+    le.display_name = config.display_name;
+    le.rarity = config.rarity;
+    le.base_price = config.base_price;
+    le.base_gps = config.base_gps;
+    if le.base_scale <= 0 le.base_scale = 1.0;
+    if le.sprite != null && config.sprite_path.count > 0 {
+        tex := get_asset(Texture_Asset, config.sprite_path);
+        if tex != null le.sprite.set_texture(tex);
+    }
+    le.update_visuals();
+}
+
+spawn_brainrot_on_pedestal :: proc(pedestal: Pedestal, config: Brainrot_Config) -> LivingEntity {
+    if pedestal == null return null;
+    if pedestal.brainrot_pedestal == null return null;
+
+    prefab := get_asset(Prefab_Asset, BRAINROT_PREFAB_PATH);
+    if prefab == null {
+        log_info("Brainrot prefab not found at %", {BRAINROT_PREFAB_PATH});
+        return null;
+    }
+
+    pos := pedestal.brainrot_pedestal.world_position;
+    e := Scene.instantiate(prefab, pos);
+    if e == null return null;
+
+    le := e.get_component(LivingEntity);
+    if le == null {
+        log_info("Spawned Brainrot prefab is missing a LivingEntity component");
+        return null;
+    }
+
+    le.pedestal = pedestal;
+    apply_config_to_living_entity(le, config);
+    pedestal.placed_brainrot = le;
+    sync_brainrot_floor_to_pedestal(le, pedestal);
+    return le;
+}
+
+BRAINROTS_SAVE_KEY :: "base_brainrots";
+
+Saved_Brainrot :: class {
+    pedestal_index: s64 @ao_serialize;
+    config_id:      string @ao_serialize;
+    level:          s64 @ao_serialize;
+    mutation:       s64 @ao_serialize;
+}
+
+Saved_Brainrots :: class {
+    items: [..]Saved_Brainrot @ao_serialize;
+}
+
+save_room_brainrots :: proc(player: Player, room: Room) {
+    if player == null return;
+    if room == null return;
+
+    payload := new(Saved_Brainrots);
+    for i: 0..room.pedestals.count - 1 {
+        p := room.pedestals[i];
+        if p == null continue;
+        if p.placed_brainrot == null continue;
+        if !#alive(p.placed_brainrot.entity) continue;
+
+        item := new(Saved_Brainrot);
+        item.pedestal_index = i;
+        item.config_id      = p.placed_brainrot.config_id;
+        item.level          = p.placed_brainrot.level;
+        item.mutation       = p.placed_brainrot.mutation.(s64);
+        append(ref payload.items, item);
+    }
+    Save.set_json(player, BRAINROTS_SAVE_KEY, ref payload);
+}
+
+load_room_brainrots :: proc(player: Player, room: Room) {
+    if player == null return;
+    if room == null return;
+
+    payload: Saved_Brainrots;
+    if !Save.try_get_json(player, BRAINROTS_SAVE_KEY, ref payload) return;
+    if payload == null return;
+
+    configs := get_brainrot_configs();
+    for item: payload.items {
+        if item == null continue;
+        if item.pedestal_index < 0 || item.pedestal_index >= room.pedestals.count continue;
+
+        pedestal := room.pedestals[item.pedestal_index];
+        if pedestal == null continue;
+        if pedestal.placed_brainrot != null && #alive(pedestal.placed_brainrot.entity) continue;
+
+        for c: configs {
+            if c.id != item.config_id continue;
+            le := spawn_brainrot_on_pedestal(pedestal, c);
+            if le == null break;
+            if item.level > 0 le.level = item.level;
+            le.mutation = item.mutation.(Mutation);
+            le.owner    = player;
+            le.state    = Brainrot_State.CLAIMED_IN_BASE;
+            le.update_visuals();
+            break;
+        }
+    }
+}
+
+claim_room_cmd :: proc(player: Player) {
+    existing := player.my_room;
+    if existing != null {
+        Notifier.notify(player, "You already own a base.");
+        return;
+    }
+    room := find_free_room();
+    if room == null {
+        Notifier.notify(player, "No free base available.");
+        return;
+    }
+    room.claim_room(player);
+    Notifier.notify(player, "Base claimed!");
+} @chat_command @any
+
+place_brainrot_cmd :: proc(player: Player, id: string = "tralalero") {
+    room := player.my_room;
+    if room == null {
+        Notifier.notify(player, "Claim a base first with /claim_room_cmd");
+        return;
+    }
+    pedestal := room.find_empty_pedestal();
+    if pedestal == null {
+        Notifier.notify(player, "All pedestals are full.");
+        return;
+    }
+    configs := get_brainrot_configs();
+    for c: configs {
+        if c.id == id {
+            le := spawn_brainrot_on_pedestal(pedestal, c);
+            if le == null {
+                Notifier.notify(player, "Spawn failed (check prefab + LivingEntity component).");
+                return;
+            }
+            Notifier.notify(player, "Placed %", {c.display_name});
+            return;
+        }
+    }
+    Notifier.notify(player, "Unknown brainrot id: %", {id});
+} @chat_command

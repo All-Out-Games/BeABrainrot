@@ -1,0 +1,582 @@
+Brainrot_Item_Definition :: class : Item_Definition {
+    config_id: string;
+    base_price: float;
+    base_gps: float;
+    rarity: Rarity;
+}
+
+Brainrot_Item :: class : Item_Instance {
+    level: s64 @ao_serialize;
+    mutation: Mutation @ao_serialize;
+}
+
+ALL_BRAINROT_DEFINITIONS: [..]Brainrot_Item_Definition;
+
+register_brainrot_definitions :: proc() {
+    configs := get_brainrot_configs();
+    for c: configs {
+        icon: Texture_Asset;
+        if c.sprite_path.count > 0 {
+            icon = get_asset(Texture_Asset, c.sprite_path);
+        }
+        defn := Items.register_item_definition(
+            {c.id, c.display_name, icon, 1, .COMMON},
+            Brainrot_Item_Definition,
+            instance_type = Brainrot_Item
+        );
+        defn.config_id = c.id;
+        defn.base_price = c.base_price;
+        defn.base_gps = c.base_gps;
+        defn.rarity = c.rarity;
+        append(ref ALL_BRAINROT_DEFINITIONS, defn);
+    }
+}
+
+find_brainrot_definition :: proc(config_id: string) -> Brainrot_Item_Definition {
+    for d: ALL_BRAINROT_DEFINITIONS {
+        if d.config_id == config_id return d;
+    }
+    return null;
+}
+
+add_brainrot_to_inventory :: proc(player: Player, brainrot: LivingEntity) -> bool {
+    if brainrot == null return false;
+
+    // Cash out any pending gold on the pedestal before storing the item.
+    if brainrot.pedestal != null {
+        if brainrot.pedestal.accumulated_gold > 0 {
+            deposit_cash(player, brainrot.pedestal.accumulated_gold);
+            brainrot.pedestal.accumulated_gold = 0;
+        }
+        brainrot.pedestal.placed_brainrot = null;
+        brainrot.pedestal.gps_tick_timer = 0;
+        brainrot.pedestal = null;
+    }
+
+    defn := find_brainrot_definition(brainrot.config_id);
+    if defn == null {
+        Notifier.notify(player, "No item definition for %", {brainrot.config_id});
+        return false;
+    }
+
+    item := Items.create_item_instance(defn, Brainrot_Item, 1);
+    item.level = brainrot.level;
+    item.mutation = brainrot.mutation;
+
+    will_destroy: bool;
+    if !Items.can_move_item_to_inventory(item, player.default_inventory, ref will_destroy) {
+        Items.destroy_item_instance(item);
+        Notifier.notify(player, "Inventory full!");
+        return false;
+    }
+    Items.move_item_to_inventory(item, player.default_inventory);
+
+    brainrot.entity.destroy();
+
+    room := player.my_room;
+    if room != null save_room_brainrots(player, room);
+    return true;
+}
+
+draw_selected_brainrot_above_player :: proc(player: Player) {
+    if player == null return;
+    if !#alive(player.entity) return;
+    if is_carrying(player) return; // carry effect already shows the world entity
+    if player.selected_brainrot_item == null return;
+    if !#alive(player.selected_brainrot_item) return;
+
+    defn := player.selected_brainrot_item.get_definition();
+    if defn == null return;
+    icon := defn.get_icon();
+    if icon == null return;
+
+    UI.push_world_draw_context();
+    defer UI.pop_draw_context();
+    UI.begin_world_space_ui(player.entity);
+    defer UI.end_world_space_ui();
+
+    ppu := icon.get_pixels_per_unit();
+    if ppu <= 0 ppu = SPRITE_PPU;
+    half_w := icon.get_width().(float)  / ppu * 0.5;
+    half_h := icon.get_height().(float) / ppu * 0.5;
+
+    pos := player.entity.world_position + v2{0, CARRY_Y_OFFSET};
+    if player.animator != null {
+        local_bone := player.animator.get_bone_local_position("held_item");
+        if local_bone.x != 0 || local_bone.y != 0 {
+            pos = player.entity.world_position + local_bone;
+        }
+    }
+
+    UI.push_z(pos.y);
+    defer UI.pop_z();
+    UI.push_layer(player.current_floor.(s32));
+    defer UI.pop_layer();
+    // Honor the icon's pivot ([-1..1]; (0,-1) = bottom-anchored, matches the C# carry layout).
+    pivot := icon.get_pivot();
+    top    := (1.0 - pivot.y) * half_h;
+    bottom := (1.0 + pivot.y) * half_h;
+    right  := (1.0 - pivot.x) * half_w;
+    left   := (1.0 + pivot.x) * half_w;
+    rect := Rect{pos, pos}.grow(top, right, bottom, left);
+    UI.quad(rect, icon);
+}
+
+place_brainrot_from_item :: proc(pedestal: Pedestal, player: Player, item: Brainrot_Item) -> bool {
+    if pedestal == null {
+        log_info("place_brainrot_from_item: pedestal null");
+        return false;
+    }
+    if player == null {
+        log_info("place_brainrot_from_item: player null");
+        return false;
+    }
+    if item == null {
+        log_info("place_brainrot_from_item: item null");
+        return false;
+    }
+    if pedestal.placed_brainrot != null && #alive(pedestal.placed_brainrot.entity) {
+        log_info("place_brainrot_from_item: slot already filled");
+        return false;
+    }
+
+    defn := item.get_definition();
+    if defn == null {
+        log_info("place_brainrot_from_item: defn null");
+        return false;
+    }
+    if defn.#type != Brainrot_Item_Definition {
+        log_info("place_brainrot_from_item: defn is not Brainrot_Item_Definition (type=%)", {defn.#type});
+        return false;
+    }
+    brainrot_defn := defn.(Brainrot_Item_Definition);
+
+    saved_level    := item.level;
+    saved_mutation := item.mutation;
+    target_id      := brainrot_defn.config_id;
+
+    log_info("place_brainrot_from_item: id=% level=% mutation=%", {target_id, saved_level, saved_mutation});
+
+    configs := get_brainrot_configs();
+    for c: configs {
+        if c.id != target_id continue;
+        le := spawn_brainrot_on_pedestal(pedestal, c);
+        if le == null {
+            log_info("place_brainrot_from_item: spawn returned null");
+            return false;
+        }
+        if saved_level > 0 le.level = saved_level;
+        le.mutation = saved_mutation;
+        le.owner = player;
+        le.state = Brainrot_State.CLAIMED_IN_BASE;
+        le.update_visuals();
+        Items.destroy_item_instance(item);
+        log_info("place_brainrot_from_item: placed % at level %", {c.display_name, le.level});
+        return true;
+    }
+    log_info("place_brainrot_from_item: no config matched id '%'", {target_id});
+    return false;
+}
+
+// ===== Sell helpers =====
+
+get_brainrot_item_gps :: proc(item: Brainrot_Item) -> float {
+    if item == null return 0;
+    if !#alive(item) return 0;
+    defn := item.get_definition();
+    if defn == null return 0;
+    if defn.#type != Brainrot_Item_Definition return 0;
+    br_defn := defn.(Brainrot_Item_Definition);
+    lvl := item.level;
+    if lvl < 1 lvl = 1;
+    e := (lvl - 1).(float);
+    g := br_defn.base_gps * pow(GPS_PER_LEVEL_MULT, e);
+    g *= get_mutation_gps_multiplier(item.mutation);
+    return g;
+}
+
+get_brainrot_item_sell_price :: proc(item: Brainrot_Item) -> float {
+    return get_brainrot_item_gps(item) * 10.0;
+}
+
+sell_brainrot_item :: proc(player: Player, item: Brainrot_Item) {
+    if player == null return;
+    if item == null return;
+    if !#alive(item) return;
+    price := get_brainrot_item_sell_price(item);
+    deposit_cash(player, price);
+    Items.destroy_item_instance(item);
+}
+
+sell_all_brainrots :: proc(player: Player) {
+    if player == null return;
+    inv := player.default_inventory;
+    if inv == null return;
+    total: float = 0;
+    for i: 0..inv.capacity - 1 {
+        item := inv.get_item(i);
+        if item == null continue;
+        if !#alive(item) continue;
+        if item.#type != Brainrot_Item continue;
+        br := item.(Brainrot_Item);
+        total += get_brainrot_item_sell_price(br);
+        Items.destroy_item_instance(br);
+    }
+    if total > 0 deposit_cash(player, total);
+}
+
+// ===== Auto-equip best =====
+//
+// Walks every pedestal in the player's room and, if the player owns a
+// higher-GPS brainrot in inventory, swaps it onto the pedestal (sending
+// the displaced brainrot back into inventory). Cashes out all pedestal
+// gold first so swapping doesn't drop pending earnings.
+
+EQUIP_BEST_COOLDOWN :: 10.0;
+
+auto_equip_best :: proc(player: Player) {
+    if player == null return;
+
+    now := get_time();
+    if now < player.equip_best_next_at {
+        remaining := player.equip_best_next_at - now;
+        Notifier.notify(player, "Equip Best on cooldown (%s)", {format_float(remaining, decimals=1)});
+        return;
+    }
+
+    room := player.my_room;
+    if room == null {
+        Notifier.notify(player, "No base claimed.");
+        return;
+    }
+    inv := player.default_inventory;
+    if inv == null return;
+
+    player.equip_best_next_at = now + EQUIP_BEST_COOLDOWN;
+
+    // Phase 1: collect any pending gold from every pedestal.
+    cashed_out: float = 0;
+    for p: room.pedestals {
+        if p == null continue;
+        if p.accumulated_gold > 0 {
+            cashed_out += p.accumulated_gold;
+            deposit_cash(player, p.accumulated_gold);
+            p.accumulated_gold = 0;
+            p.gps_tick_timer = 0;
+            if p.placed_brainrot != null && #alive(p.placed_brainrot.entity) {
+                p.placed_brainrot.start_jump();
+            }
+        }
+    }
+    if cashed_out > 0 {
+        collect_sfx := get_asset(SFX_Asset, "SFX/Collect_Money.wav");
+        if collect_sfx != null {
+            desc := SFX.default_sfx_desc();
+            desc.entity_to_follow = player.entity.id;
+            desc.volume = 0.6;
+            desc.speed_perturb = 0.08;
+            SFX.play(collect_sfx, desc);
+        }
+    }
+
+    // Phase 2: greedy swap — for each pedestal, if the best inventory
+    // brainrot beats what's placed (or the pedestal is empty), swap.
+    swaps: s64 = 0;
+    for p: room.pedestals {
+        if p == null continue;
+
+        cur_gps: float = -1.0;
+        if p.placed_brainrot != null && #alive(p.placed_brainrot.entity) {
+            cur_gps = p.placed_brainrot.get_gps();
+        }
+
+        best_idx: s64 = -1;
+        best_gps: float = cur_gps;
+        for i: 0..inv.capacity - 1 {
+            it := inv.get_item(i);
+            if it == null continue;
+            if !#alive(it) continue;
+            if it.#type != Brainrot_Item continue;
+            br := it.(Brainrot_Item);
+            g := get_brainrot_item_gps(br);
+            if g > best_gps {
+                best_gps = g;
+                best_idx = i;
+            }
+        }
+
+        if best_idx < 0 continue;
+
+        // Move current placed back to inventory before placing the new one.
+        // Net inventory size doesn't change (–1 from place_from_item, +1 from this).
+        if p.placed_brainrot != null && #alive(p.placed_brainrot.entity) {
+            ok := add_brainrot_to_inventory(player, p.placed_brainrot);
+            if !ok continue; // inventory full — give up on this pedestal
+        }
+
+        item := inv.get_item(best_idx);
+        if item == null continue;
+        if !#alive(item) continue;
+        if item.#type != Brainrot_Item continue;
+        br_item := item.(Brainrot_Item);
+
+        if !place_brainrot_from_item(p, player, br_item) continue;
+        swaps += 1;
+    }
+
+    if swaps > 0 {
+        save_room_brainrots(player, room);
+        Notifier.notify(player, "Equipped best (% swap%0)", {swaps, ""});
+    } else if cashed_out > 0 {
+        Notifier.notify(player, "Collected %", {format_cash(cashed_out)});
+    } else {
+        Notifier.notify(player, "Already at best!");
+    }
+}
+
+equip_best_cmd :: proc(player: Player) {
+    auto_equip_best(player);
+} @chat_command
+
+// ===== Navigation topbar =====
+
+draw_navigation_topbar :: proc(player: Player) {
+    if player == null return;
+    if !#alive(player.entity) return;
+
+    UIK.begin(UIK.window(UIK.rect_topbar()));
+
+    bar := UIK.layout_row();
+    bar.width = UIK.flex(1);
+    bar.height = UIK.flex(1);
+    bar.padding = v4{8, 16, 8, 16};
+    bar.gap = 16;
+    bar.main_align = .CENTER;
+    bar.cross_align = .CENTER;
+    UIK.panel_begin(bar);
+
+    btn_w := UIK.pixels(160);
+    btn_h := UIK.pixels(70);
+
+    buy_d := UIK.widget_desc_button_auto_default(.BUTTON_BASIC_GREEN);
+    buy_d.panel.width = btn_w;
+    buy_d.panel.height = btn_h;
+    buy_h := UIK.button("nav_buy", "Buy", buy_d);
+
+    base_d := UIK.widget_desc_button_auto_default(.BUTTON_BASIC_BLUE);
+    base_d.panel.width = btn_w;
+    base_d.panel.height = btn_h;
+    base_h := UIK.button("nav_base", "Base", base_d);
+
+    sell_d := UIK.widget_desc_button_auto_default(.BUTTON_BASIC_RED);
+    sell_d.panel.width = btn_w;
+    sell_d.panel.height = btn_h;
+    sell_h := UIK.button("nav_sell", "Sell", sell_d);
+
+    UIK.panel_end();
+    UIK.end();
+
+    if UIK.clicked(buy_h) {
+        player.entity.set_local_position({0, 0});
+    }
+    if UIK.clicked(base_h) {
+        room := player.my_room;
+        if room != null && #alive(room.entity) {
+            player.entity.set_local_position(room.entity.world_position);
+            player.current_floor = 0;
+        }
+    }
+    if UIK.clicked(sell_h) {
+        player.show_sell_modal = !player.show_sell_modal;
+    }
+}
+
+// ===== Sell modal =====
+
+SELL_COLS_PER_ROW :: 3;
+SELL_CARD_HEIGHT  :: 260.0;
+
+draw_sell_modal :: proc(player: Player) {
+    if player == null return;
+    if !player.show_sell_modal return;
+    inv := player.default_inventory;
+    if inv == null return;
+
+    sell_indices: [..]s64;
+    total_value: float = 0;
+    for i: 0..inv.capacity - 1 {
+        item := inv.get_item(i);
+        if item == null continue;
+        if !#alive(item) continue;
+        if item.#type != Brainrot_Item continue;
+        br := item.(Brainrot_Item);
+        append(ref sell_indices, i);
+        total_value += get_brainrot_item_sell_price(br);
+    }
+
+    UIK.begin(UIK.modal(UIK.rect_window(), 15));
+
+    shell := UIK.panel_modal(.RED);
+    shell.gap = 0;
+    UIK.panel_begin(shell);
+
+    title_d := UIK.title_area_desc("SELL BRAINROTS");
+    exit_h := UIK.title_area(title_d);
+
+    body := UIK.layout_column();
+    body.width = UIK.flex(1);
+    body.height = UIK.flex(1);
+    body.padding = v4{12, 16, 12, 16};
+    body.gap = 8;
+    UIK.panel_begin(body);
+
+    sell_handles: [..]UIK.Interact_Handle;
+    sell_handle_indices: [..]s64;
+
+    list_panel := UIK.layout_column();
+    list_panel.width  = UIK.flex(1);
+    list_panel.height = UIK.flex(1);
+    list_panel.gap = 8;
+    UIK.list_begin("sell_scroll", list_panel);
+
+    n := sell_indices.count;
+    i: s64 = 0;
+    while i < n {
+        row := UIK.layout_row(UIK.flex(1), UIK.fit(), 8);
+        UIK.panel_begin(row);
+
+        c: s64 = 0;
+        while c < SELL_COLS_PER_ROW {
+            if i >= n {
+                UIK.spacer(UIK.flex(1), UIK.pixels(1));
+                c += 1;
+                continue;
+            }
+
+            slot_idx := sell_indices[i];
+            item := inv.get_item(slot_idx);
+            if item == null || !#alive(item) || item.#type != Brainrot_Item {
+                i += 1;
+                continue;
+            }
+            br := item.(Brainrot_Item);
+            defn := br.get_definition();
+            if defn == null {
+                i += 1;
+                continue;
+            }
+
+            cdesc := UIK.card_desc(UIK.flex(1), UIK.pixels(SELL_CARD_HEIGHT), v4{0.12, 0.12, 0.12, 1}, .PORTRAIT, 0.55, 0.18, 0.27);
+            UIK.card_begin(format_string("sell_card_%", {slot_idx}), cdesc);
+
+            UIK.card_zone(.HEADER);
+                name_desc := UIK.text_button();
+                UIK.text_set_word_wrap(&name_desc, false);
+                UIK.text(defn.name, name_desc);
+            UIK.card_zone_end();
+
+            UIK.card_zone(.MEDIA);
+                icon := defn.get_icon();
+                if icon != null UIK.image_fitted(icon, UIK.image_desc(.CONTAIN));
+            UIK.card_zone_end();
+
+            UIK.card_zone(.FOOTER);
+                foot_row := UIK.layout_row();
+                foot_row.width  = UIK.flex(1);
+                foot_row.height = UIK.flex(1);
+                foot_row.cross_align = .CENTER;
+                foot_row.gap = 6;
+                UIK.panel_begin(foot_row);
+
+                sd := UIK.widget_desc_button_default(.BUTTON_BASIC_RED);
+                sd.panel.width  = UIK.pixels(56);
+                sd.panel.height = UIK.pixels(56);
+                sd.panel.main_align = .CENTER;
+                sd.panel.cross_align = .CENTER;
+                sd.panel.padding = v4{0, 0, 0, 0};
+                UIK.text_set_halign(&sd.label_text, .CENTER);
+                UIK.text_set_valign(&sd.label_text, .CENTER);
+                UIK.text_set_size_mult(&sd.label_text, 1.6);
+                h := UIK.button(format_string("sell_one_%", {slot_idx}), "$", sd);
+                append(ref sell_handles, h);
+                append(ref sell_handle_indices, slot_idx);
+
+                UIK.spacer(UIK.flex(1), UIK.pixels(1));
+
+                info := UIK.layout_column();
+                info.width  = UIK.fit();
+                info.height = UIK.fit();
+                info.cross_align = .END;
+                info.gap = 2;
+                UIK.panel_begin(info);
+
+                mut_label := get_mutation_name(br.mutation);
+                if mut_label.count == 0 mut_label = "Normal";
+                mut_text := UIK.text_body();
+                mut_text.color = get_mutation_color(br.mutation);
+                UIK.text_set_word_wrap(&mut_text, false);
+                UIK.text(mut_label, mut_text);
+
+                price_desc := UIK.text_body();
+                price_desc.color = v4{0.3, 1.0, 0.3, 1};
+                UIK.text_set_word_wrap(&price_desc, false);
+                UIK.text(format_cash(get_brainrot_item_sell_price(br)), price_desc);
+
+                UIK.panel_end(); // info
+                UIK.panel_end(); // foot_row
+            UIK.card_zone_end();
+
+            UIK.card_end();
+            i += 1;
+            c += 1;
+        }
+
+        UIK.panel_end(); // row
+    }
+
+    UIK.list_end();
+
+    footer := UIK.layout_row();
+    footer.width = UIK.flex(1);
+    footer.height = UIK.pixels(80);
+    footer.cross_align = .CENTER;
+    footer.gap = 16;
+    UIK.panel_begin(footer);
+
+    sell_all_d := UIK.widget_desc_button_auto_default(.BUTTON_BASIC_RED);
+    sell_all_d.panel.width = UIK.pixels(200);
+    sell_all_d.panel.height = UIK.flex(1);
+    sell_all_h := UIK.button("sell_all_brainrots", "Sell All", sell_all_d);
+
+    UIK.spacer(UIK.flex(1), UIK.pixels(1));
+
+    summary := format_string("Total Brainrots: %\nTotal Value: %", {sell_indices.count, format_cash(total_value)});
+    summary_desc := UIK.text_body();
+    summary_desc.color = v4{1, 1, 1, 1};
+    UIK.text(summary, summary_desc);
+
+    UIK.panel_end(); // footer
+    UIK.panel_end(); // body
+    UIK.panel_end(); // shell
+    UIK.end();
+
+    if UIK.clicked(exit_h) {
+        player.show_sell_modal = false;
+        return;
+    }
+    if UIK.clicked(sell_all_h) {
+        sell_all_brainrots(player);
+        return;
+    }
+    for k: 0..sell_handles.count - 1 {
+        if UIK.clicked(sell_handles[k]) {
+            i := sell_handle_indices[k];
+            it := inv.get_item(i);
+            if it == null continue;
+            if !#alive(it) continue;
+            if it.#type != Brainrot_Item continue;
+            sell_brainrot_item(player, it.(Brainrot_Item));
+            return;
+        }
+    }
+}

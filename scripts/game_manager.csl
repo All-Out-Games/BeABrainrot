@@ -1,0 +1,42 @@
+game_manager_instance: Game_Manager;
+
+Game_Manager :: class : Component {
+    navmesh: Navmesh @ao_serialize;
+
+    ao_start :: method() {
+        game_manager_instance = this;
+    }
+
+    ao_end :: method() {
+        if game_manager_instance == this {
+            game_manager_instance = null;
+        }
+    }
+}
+
+get_game_manager :: proc() -> Game_Manager {
+    if game_manager_instance != null return game_manager_instance;
+    for gm: component_iterator(Game_Manager) {
+        game_manager_instance = gm;
+        return gm;
+    }
+    return null;
+}
+
+snap_player_to_navmesh :: proc(player: Player) {
+    if player == null return;
+    if !#alive(player.entity) return;
+
+    gm := get_game_manager();
+    if gm == null return;
+    if gm.navmesh == null return;
+    if !#alive(gm.navmesh.entity) return;
+
+    pos := player.entity.world_position;
+    snapped: v2;
+    hint: s64 = 0;
+    if gm.navmesh.try_find_closest_point_on_navmesh(pos, ref snapped, ref hint) {
+        player.entity.set_local_position(snapped);
+    }
+    player.agent.set_navmesh_to_lock_to(gm.navmesh);
+}

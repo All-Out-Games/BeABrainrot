@@ -1,0 +1,88 @@
+// Single-instance manager that fades all Floor_Renderer components in the scene
+// according to the local player's current_floor.
+//
+// Place one Floor_Manager component anywhere in the scene (e.g. on the root
+// or a "FloorManagers" entity). It re-applies visibility every state sync so
+// that any server overwrite of color values gets corrected back to per-client
+// floor visibility.
+//
+// Floor_Manager doesn't track Floor_Renderers manually — it walks
+// component_iterator(Floor_Renderer) on demand.
+
+Floor_Manager :: class : Component {
+
+    ao_on_state_sync :: method() {
+        local, has_local := Game.get_local_player();
+        if !has_local return;
+        apply_visibility(local);
+    }
+
+    ao_late_update :: method(dt: float) {
+        // Belt-and-suspenders: re-apply each frame in case any state push
+        // resets sprite.color between syncs.
+        local, has_local := Game.get_local_player();
+        if !has_local return;
+        apply_visibility(local);
+    }
+
+    apply_visibility :: method(viewer: Player) {
+        if viewer == null return;
+        viewer_floor := viewer.current_floor;
+        for r: component_iterator(Floor_Renderer) {
+            if r == null continue;
+            r.apply_for_viewer_floor(viewer_floor);
+        }
+        apply_other_player_visibility(viewer);
+    }
+}
+
+FLOOR_INVIS_REASON :: "different_floor";
+
+// Caller must pass the local player (Floor_Manager only invokes this from
+// hooks where Game.get_local_player() returned a local). Invisibility reasons
+// are server-authoritative, so this MUST NOT run on dedicated server contexts.
+apply_other_player_visibility :: proc(viewer: Player) {
+    if viewer == null return;
+    viewer_floor := viewer.current_floor;
+    for p: component_iterator(Player) {
+        if p == null continue;
+        if p == viewer continue;
+        if p.current_floor <= viewer_floor {
+            p.remove_invisibility_reason(FLOOR_INVIS_REASON);
+            p.remove_name_invisibility_reason(FLOOR_INVIS_REASON);
+        } else {
+            p.add_invisibility_reason(FLOOR_INVIS_REASON);
+            p.add_name_invisibility_reason(FLOOR_INVIS_REASON);
+        }
+    }
+}
+
+get_floor_manager :: proc() -> Floor_Manager {
+    for fm: component_iterator(Floor_Manager) {
+        return fm;
+    }
+    return null;
+}
+
+// Mirrors C# RenderBlackOverlay: draws a big black quad below the local player
+// at layer = current_floor - 1, dimming whatever's on the floor underneath.
+FLOOR_SHADOW_GROW  :: 80.0;
+FLOOR_SHADOW_ALPHA :: 0.85;
+
+draw_floor_shadow :: proc(player: Player) {
+    if player == null return;
+    if !#alive(player.entity) return;
+    if player.current_floor <= 0 return;
+
+    pos := player.entity.world_position;
+    rect := Rect{pos, pos}.grow(FLOOR_SHADOW_GROW, FLOOR_SHADOW_GROW, FLOOR_SHADOW_GROW, FLOOR_SHADOW_GROW);
+
+    UI.push_world_draw_context();
+    defer UI.pop_draw_context();
+    UI.push_z(-1000000.0);
+    defer UI.pop_z();
+    UI.push_layer(player.current_floor - 1);
+    defer UI.pop_layer();
+
+    UI.quad(rect, core_globals.white_sprite, v4{0, 0, 0, FLOOR_SHADOW_ALPHA});
+}

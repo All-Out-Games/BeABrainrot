@@ -1,0 +1,104 @@
+// Poll-based 2D trigger volume. CSL has no collision callbacks and no virtual
+// dispatch on user classes, so we use the same listener-via-proc-pointers
+// pattern Interactable uses (see generated.csl_engine:150).
+//
+// Usage:
+//   1. Make two empty entities marking the volume's diagonal corners.
+//   2. Drop a Trigger_Volume on any entity and wire corner_a / corner_b.
+//   3. From whatever component wants the events, register callbacks:
+//
+//        ao_start :: method() {
+//            tv := entity.get_component(Trigger_Volume);
+//            if tv != null tv.set_listener(this, my_on_enter, my_on_exit);
+//        }
+//
+//        my_on_enter :: proc(listener: Component, player: Player) {
+//            self := listener.(My_Component);
+//            ...
+//        }
+//
+//   You can pass null for either proc if you don't care about that side.
+
+Trigger_Volume :: class : Component {
+    corner_a: Entity @ao_serialize;
+    corner_b: Entity @ao_serialize;
+
+    listener:      Component;
+    on_enter_proc: proc(listener: Component, player: Player);
+    on_exit_proc:  proc(listener: Component, player: Player);
+
+    // Previous-frame "inside" set, plus a scratch buffer reused each frame
+    // to avoid heap churn.
+    inside:  [..]Player;
+    scratch: [..]Player;
+
+    set_listener :: method(
+        l: Component,
+        on_enter: proc(listener: Component, player: Player),
+        on_exit:  proc(listener: Component, player: Player),
+    ) {
+        listener      = l;
+        on_enter_proc = on_enter;
+        on_exit_proc  = on_exit;
+    }
+
+    ao_update :: method(dt: float) {
+        if !#alive(corner_a) return;
+        if !#alive(corner_b) return;
+
+        a := corner_a.world_position;
+        b := corner_b.world_position;
+        x_min := min(a.x, b.x);
+        x_max := max(a.x, b.x);
+        y_min := min(a.y, b.y);
+        y_max := max(a.y, b.y);
+
+        clear(ref scratch);
+        for p: component_iterator(Player) {
+            if p == null continue;
+            if !#alive(p.entity) continue;
+            pos := p.entity.world_position;
+            if pos.x < x_min continue;
+            if pos.x > x_max continue;
+            if pos.y < y_min continue;
+            if pos.y > y_max continue;
+            append(ref scratch, p);
+        }
+
+        if on_enter_proc != null {
+            for p: scratch {
+                if !contains_player(inside, p) {
+                    on_enter_proc(listener, p);
+                }
+            }
+        }
+        if on_exit_proc != null {
+            for p: inside {
+                if p == null continue;
+                if !#alive(p.entity) {
+                    on_exit_proc(listener, p);
+                    continue;
+                }
+                if !contains_player(scratch, p) {
+                    on_exit_proc(listener, p);
+                }
+            }
+        }
+
+        clear(ref inside);
+        for p: scratch {
+            append(ref inside, p);
+        }
+    }
+
+    is_inside :: method(player: Player) -> bool {
+        return contains_player(inside, player);
+    }
+}
+
+contains_player :: proc(list: [..]Player, p: Player) -> bool {
+    for x: list {
+        if x == p return true;
+    }
+    return false;
+}

@@ -274,6 +274,7 @@ Player :: class : Player_Base {
     debug_show_le: bool;
     show_shop_v2: bool;
     show_shop_v3: bool;
+    default_camera_size: float;
 
     ao_start :: method() {
         speed = Save.get_int(this, SPEED_SAVE_KEY, BASE_SPEED);
@@ -282,6 +283,8 @@ Player :: class : Player_Base {
         displayed_cash = cash;
         rebirth_level = Save.get_int(this, REBIRTH_SAVE_KEY, 0);
         pedestals_unlocked = Save.get_int(this, PEDESTALS_SAVE_KEY, DEFAULT_PEDESTALS_UNLOCKED);
+
+        default_camera_size = camera.size;
 
         room := find_free_room();
         if room != null room.claim_room(this);
@@ -311,6 +314,8 @@ Player :: class : Player_Base {
         if current_floor > 0 && is_in_current_room != null && #alive(is_in_current_room.entity) {
             is_in_current_room.clamp_player_inside(this);
         }
+
+        update_player_camera_zoom(this);
     }
 
     ao_late_update :: method(dt: float) {

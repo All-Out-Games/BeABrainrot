@@ -5,7 +5,8 @@
   "name": "GRASS",
   "local_enabled": true,
   "local_position": {
-
+    "X": -10.2440767288208008,
+    "Y": 156.5430908203125000
   },
   "local_rotation": 0,
   "local_scale": {

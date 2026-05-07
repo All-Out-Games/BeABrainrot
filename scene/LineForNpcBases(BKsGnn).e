@@ -2,7 +2,7 @@
 158913789953
 1253075431
 {
-  "name": "CarpetOtherBases",
+  "name": "LineForNpcBases",
   "local_enabled": true,
   "local_position": {
     "X": -10.1725530624389648,
@@ -13,7 +13,7 @@
     "X": 4000,
     "Y": 50
   },
-  "previous_sibling": 1254916458,
+  "previous_sibling": 1242052410,
   "next_sibling": 1253328260
 },
 {

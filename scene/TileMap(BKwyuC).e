@@ -2,7 +2,7 @@
 1653562408961
 1254304642
 {
-  "name": "TileMapNavmesh",
+  "name": "TileMap",
   "local_enabled": true,
   "local_position": {
     "X": -10.3161420822143555,

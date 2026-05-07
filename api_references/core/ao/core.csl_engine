@@ -1118,6 +1118,9 @@ Items :: struct {
     can_move_item_to_inventory                  :: proc(instance: Item_Instance, inventory: Inventory, will_destroy_item: ref bool) -> bool               #foreign "items_can_move_item_to_inventory";
     move_item_to_inventory                      :: proc(instance: Item_Instance, inventory: Inventory)                                                    #foreign "items_move_item_to_inventory";
 
+    can_move_all_items                          :: proc(entries: []Item_Transaction_Entry)                                          -> bool               #foreign "items_can_move_all_items";
+    move_all_items                              :: proc(entries: []Item_Transaction_Entry)                                                                #foreign "items_move_all_items";
+
     move_as_many_items_as_possible_to_inventory :: proc(instance: Item_Instance, inventory: Inventory, destroyed_item: ref bool)    -> s64                #foreign "items_move_as_many_items_as_possible_to_inventory";
     remove_item_from_inventory                  :: proc(instance: Item_Instance, inventory: Inventory)                                                    #foreign "items_remove_item_from_inventory";
     can_swap_items                              :: proc(inventory_a: Inventory, inventory_b: Inventory, slot_a: s64, slot_b: s64)   -> bool               #foreign "items_can_swap_items";
@@ -1171,6 +1174,11 @@ get_tier_color :: proc(tier: Item_Tier) -> v4 {
         case .MYTHIC:    return {1.0, 0.2, 0.3, 1.0};   // Crimson
     }
     return {1, 1, 1, 1};
+}
+
+Item_Transaction_Entry :: struct {
+    instance:  Item_Instance;
+    inventory: Inventory;
 }
 
 Inventory :: class : Inventory_Base {
@@ -1349,9 +1357,9 @@ Spine_Instance :: class : Spine_Instance_Base {
     set_to_setup_pose :: method()                                                            #foreign "spine_instance_set_to_setup_pose";
     get_skins         :: method() -> []string                                                #foreign "spine_instance_get_skins";
 
-    override_slot_sprite             :: method(slot_name: string, texture: Texture_Asset) #foreign "spine_instance_override_slot_sprite";
-    clear_slot_sprite_override       :: method(slot_name: string)                         #foreign "spine_instance_clear_slot_sprite_override";
-    clear_all_slot_sprite_overrides  :: method()                                          #foreign "spine_instance_clear_all_slot_sprite_overrides";
+    override_attachment_sprite             :: method(attachment_name: string, texture: Texture_Asset) #foreign "spine_instance_override_attachment_sprite";
+    clear_attachment_sprite_override       :: method(attachment_name: string)                         #foreign "spine_instance_clear_attachment_sprite_override";
+    clear_all_attachment_sprite_overrides  :: method()                                                #foreign "spine_instance_clear_all_attachment_sprite_overrides";
 
     apply_cosmetic :: method(cosmetic: Cosmetic_Asset) #foreign "spine_instance_apply_cosmetic";
 }

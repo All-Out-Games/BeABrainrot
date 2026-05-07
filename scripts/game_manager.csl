@@ -1,7 +1,10 @@
 game_manager_instance: Game_Manager;
 
+ZOOMED_OUT_CAMERA_SIZE :: 10.0;
+
 Game_Manager :: class : Component {
     navmesh: Navmesh @ao_serialize;
+    npc_line: Entity @ao_serialize;
 
     ao_start :: method() {
         game_manager_instance = this;
@@ -12,6 +15,24 @@ Game_Manager :: class : Component {
             game_manager_instance = null;
         }
     }
+}
+
+update_player_camera_zoom :: proc(player: Player) {
+    if player == null return;
+    if !#alive(player.entity) return;
+    if player.default_camera_size <= 0 return;
+
+    gm := get_game_manager();
+    if gm == null return;
+    if gm.npc_line == null || !#alive(gm.npc_line) return;
+
+    line_y := gm.npc_line.world_position.y;
+    player_y := player.entity.world_position.y;
+
+    target := player.default_camera_size;
+    if player_y > line_y target = ZOOMED_OUT_CAMERA_SIZE;
+
+    player.camera.size = lerp(player.camera.size, target, 0.1);
 }
 
 get_game_manager :: proc() -> Game_Manager {

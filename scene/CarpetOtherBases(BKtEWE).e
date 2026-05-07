@@ -5,7 +5,7 @@
   "name": "CarpetOtherBases",
   "local_enabled": true,
   "local_position": {
-    "X": -10.1725530624389648,
+    "X": -10.3125562667846680,
     "Y": 46.1682624816894531
   },
   "local_rotation": 0,
@@ -13,7 +13,8 @@
     "X": 200,
     "Y": 5000
   },
-  "previous_sibling": 1253075431
+  "previous_sibling": 1253075431,
+  "next_sibling": 1243957534
 },
 {
   "cid": 1,

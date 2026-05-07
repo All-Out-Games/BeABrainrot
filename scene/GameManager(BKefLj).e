@@ -13,7 +13,7 @@
     "Y": 1
   },
   "previous_sibling": 1244969375,
-  "next_sibling": 1244163537
+  "next_sibling": 1257874850
 },
 {
   "cid": 1,
@@ -21,6 +21,7 @@
   "component_type": "Internal_Component",
   "internal_component_type": "Game_Manager",
   "data": {
-    "navmesh": 1247989403
+    "navmesh": 1247989403,
+    "npc_line": 1253075431
   }
 }

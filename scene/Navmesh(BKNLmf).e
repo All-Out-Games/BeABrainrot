@@ -2,7 +2,7 @@
 1662152343553
 1244969375
 {
-  "name": "Navmehs",
+  "name": "Navmesh",
   "local_enabled": true,
   "local_position": {
     "X": -25.6397895812988281,

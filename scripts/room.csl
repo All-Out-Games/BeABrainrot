@@ -216,11 +216,6 @@ Room :: class : Component {
         }
     }
 
-    ao_update :: method(dt: float) {
-        if owner != null && !#alive(owner) {
-            owner = null;
-        }
-    }
 
     claim_room :: method(player: Player) -> bool {
         if #alive(owner) return false;
@@ -277,6 +272,126 @@ Room :: class : Component {
             return p;
         }
         return null;
+    }
+}
+
+NPC_SPAWN_INTERVAL :: 60.0;
+
+Room_Npc :: class : Room {
+    spawnable_brainrot_ids: [..]string @ao_serialize;
+
+    pedestal_timers: [..]float;
+    rng:             u64;
+    initialized:     bool;
+
+    ao_update :: method(dt: float) {
+        if !initialized {
+            init_npc_room(this);
+            initialized = true;
+        }
+        tick_npc_room(this, dt);
+    }
+
+    ao_late_update :: method(dt: float) {
+        draw_npc_pedestal_timers(this);
+    }
+}
+
+init_npc_room :: proc(r: Room_Npc) {
+    seed_input: u64 = Time.nanoseconds_since_epoch();
+    if #alive(r.entity) seed_input += r.entity.id.(u64);
+    r.rng = rng_seed(seed_input);
+
+    r.pedestal_timers.clear();
+    for p: r.pedestals {
+        append(ref r.pedestal_timers, 0.0);
+    }
+    for i: 0..r.pedestals.count - 1 {
+        respawn_npc_on_pedestal(r, i);
+    }
+}
+
+tick_npc_room :: proc(r: Room_Npc, dt: float) {
+    for i: 0..r.pedestals.count - 1 {
+        if i >= r.pedestal_timers.count continue;
+        p := r.pedestals[i];
+        if p == null continue;
+
+        // Picked up or destroyed → respawn early.
+        if p.placed_brainrot == null || !#alive(p.placed_brainrot.entity) {
+            respawn_npc_on_pedestal(r, i);
+            continue;
+        }
+
+        r.pedestal_timers[i] -= dt;
+        if r.pedestal_timers[i] <= 0 {
+            if #alive(p.placed_brainrot.entity) p.placed_brainrot.entity.destroy();
+            p.placed_brainrot = null;
+            respawn_npc_on_pedestal(r, i);
+        }
+    }
+}
+
+respawn_npc_on_pedestal :: proc(r: Room_Npc, i: s64) {
+    if i < 0 || i >= r.pedestals.count return;
+    p := r.pedestals[i];
+    if p == null return;
+    if r.spawnable_brainrot_ids.count <= 0 return;
+
+    idx := rng_range_int(ref r.rng, 0, r.spawnable_brainrot_ids.count - 1);
+    id  := r.spawnable_brainrot_ids[idx];
+
+    configs := get_brainrot_configs();
+    for c: configs {
+        if c.id != id continue;
+        spawn_brainrot_on_pedestal(p, c);
+        break;
+    }
+
+    if i < r.pedestal_timers.count {
+        r.pedestal_timers[i] = NPC_SPAWN_INTERVAL;
+    } else {
+        append(ref r.pedestal_timers, NPC_SPAWN_INTERVAL);
+    }
+}
+
+draw_npc_pedestal_timers :: proc(r: Room_Npc) {
+    local, has_local := Game.get_local_player();
+    if !has_local return;
+
+    for i: 0..r.pedestals.count - 1 {
+        if i >= r.pedestal_timers.count continue;
+        p := r.pedestals[i];
+        if p == null continue;
+        if p.placed_brainrot == null continue;
+        if !#alive(p.placed_brainrot.entity) continue;
+        if p.floor_renderer != null && local.current_floor != p.floor_renderer.floor continue;
+
+        time_left := r.pedestal_timers[i];
+        if time_left < 0 time_left = 0;
+
+        le := p.placed_brainrot;
+        anchor := le.entity;
+        if le.sprite != null && #alive(le.sprite.entity) anchor = le.sprite.entity;
+        base_pos := get_sprite_top_center(le.sprite, anchor) + v2{0, LABEL_TOP_PADDING};
+
+        if local.camera.size > 0 {
+            cam_pos := local.camera.position;
+            cull_radius := local.camera.size * 1.5;
+            diff := base_pos - cam_pos;
+            if length_squared(diff) > cull_radius * cull_radius continue;
+        }
+
+        UI.push_world_draw_context();
+        defer UI.pop_draw_context();
+        UI.begin_world_space_ui(anchor);
+        defer UI.end_world_space_ui();
+        UI.push_layer(2);
+        defer UI.pop_layer();
+
+        cursor_y := LABEL_LINE_HEIGHT * 5;
+        secs := time_left.(s64);
+        draw_brainrot_label(base_pos + v2{0, cursor_y}, format_string("%s", {secs}), v4{1, 1, 0.3, 1});
     }
 }
 
@@ -380,6 +495,7 @@ apply_pedestal_unlocks :: proc(room: Room, player: Player) {
 
 find_free_room :: proc() -> Room {
     for r: component_iterator(Room) {
+        if r.#type == Room_Npc continue;
         if r.owner != null && #alive(r.owner) continue;
         return r;
     }

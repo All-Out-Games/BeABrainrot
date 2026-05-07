@@ -1,0 +1,31 @@
+14
+1769526525953
+1255757992
+{
+  "name": "RoomNPC",
+  "local_enabled": true,
+  "local_position": {
+    "X": 4.7742795944213867,
+    "Y": 14.2425432205200195
+  },
+  "local_rotation": 0,
+  "local_scale": {
+    "X": 1,
+    "Y": 1
+  },
+  "previous_sibling": 1251179120
+},
+{
+  "cid": 1,
+  "aoid": 1248253443,
+  "component_type": "Internal_Component",
+  "internal_component_type": "Room_Npc",
+  "data": {
+    "trigger": 1241623787,
+    "spawnable_brainrot_ids": [
+      "tung_tung_sahur",
+      "boneca",
+      "trippi_troppi"
+    ]
+  }
+}

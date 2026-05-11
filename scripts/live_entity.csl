@@ -41,7 +41,7 @@ Brainrot_State :: enum {
 get_carried_brainrot :: proc(player: Player) -> LivingEntity {
     if player == null return null;
     if !#alive(player.entity) return null;
-    e, ok := get_effect(player.entity, Carry_Brainrot_Effect_2);
+    e, ok := get_effect(player.entity, Carry_Brainrot_Effect_2, Try_Get_Effect_Mode.ALLOW_INHERITANCE);
     if !ok return null;
     if e == null return null;
     if !#alive(e.carried) return null;
@@ -328,8 +328,15 @@ LivingEntity :: class : Interactable {
             return;
         }
 
-        // NOT_CLAIMED → pick it up via the carry effect.
+        // NOT_CLAIMED → pick it up. Subclasses can't override on_interact, and
+        // user-code method calls dispatch statically, so we type-check and call
+        // the subclass's method directly.
         if is_carrying(player) return;
+
+        if this.#type == LivingEntity_Npc {
+            this.(LivingEntity_Npc).handle_npc_pickup(player);
+            return;
+        }
 
         if pedestal != null {
             pedestal.placed_brainrot = null;
@@ -440,6 +447,46 @@ LivingEntity :: class : Interactable {
 
         if mutation != Mutation.NONE {
             draw_brainrot_label(base_pos + v2{0, cursor_y}, get_mutation_name(mutation), get_mutation_color(mutation));
+        }
+    }
+}
+
+LivingEntity_Npc :: class : LivingEntity {
+    handle_npc_pickup :: method(player: Player) {
+        npc_room: Room_Npc;
+        if pedestal != null && pedestal.room != null && pedestal.room.#type == Room_Npc {
+            npc_room = pedestal.room.(Room_Npc);
+        }
+        idx: s64 = -1;
+        if npc_room != null && pedestal != null {
+            for i: 0..npc_room.pedestals.count - 1 {
+                if npc_room.pedestals[i] == pedestal {
+                    idx = i;
+                    break;
+                }
+            }
+        }
+
+        if pedestal != null {
+            pedestal.placed_brainrot = null;
+            pedestal.accumulated_gold = 0;
+            pedestal = null;
+        }
+        if npc_room != null && idx >= 0 && idx < npc_room.pedestal_locked.count {
+            npc_room.pedestal_locked[idx] = true;
+        }
+
+        effect := new(Carry_Brainrot_Stealing_Npc_Effect);
+        effect.carried = this;
+        effect.origin_room = npc_room;
+        effect.origin_pedestal_index = idx;
+        player.entity.add_passive_effect(effect);
+
+        // Stealing while jailed → re-trigger this base's chaser.
+        _, has_in_room := get_effect(player.entity, In_Npc_Room_Effect);
+        if has_in_room && npc_room != null {
+            c := get_player_chaser_in_room(npc_room, player);
+            if c != null c.state = Npc_Chaser_State.CHASING;
         }
     }
 }

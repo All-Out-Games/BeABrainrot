@@ -275,12 +275,17 @@ Room :: class : Component {
     }
 }
 
-NPC_SPAWN_INTERVAL :: 60.0;
+NPC_SPAWN_INTERVAL       :: 60.0;
+BRAINROT_NPC_PREFAB_PATH :: "Brainrot_Npc.prefab";
 
 Room_Npc :: class : Room {
-    spawnable_brainrot_ids: [..]string @ao_serialize;
+    spawnable_brainrot_ids: [..]string         @ao_serialize;
+    chase_trigger:          Trigger_Volume     @ao_serialize;
+    jail_trigger:           Trigger_Volume     @ao_serialize;
 
     pedestal_timers: [..]float;
+    pedestal_locked: [..]bool;
+    chasers:         [..]Npc_Chaser;
     rng:             u64;
     initialized:     bool;
 
@@ -303,17 +308,30 @@ init_npc_room :: proc(r: Room_Npc) {
     r.rng = rng_seed(seed_input);
 
     r.pedestal_timers.clear();
+    r.pedestal_locked.clear();
     for p: r.pedestals {
         append(ref r.pedestal_timers, 0.0);
+        append(ref r.pedestal_locked, false);
     }
     for i: 0..r.pedestals.count - 1 {
         respawn_npc_on_pedestal(r, i);
+    }
+
+    r.chasers.clear();
+    if #alive(r.entity) collect_chasers_recursive(r, r.entity);
+
+    if r.chase_trigger != null {
+        r.chase_trigger.set_listener(r, room_npc_on_chase_enter, room_npc_on_chase_exit);
+    }
+    if r.jail_trigger != null {
+        r.jail_trigger.set_listener(r, null, room_npc_on_jail_exit);
     }
 }
 
 tick_npc_room :: proc(r: Room_Npc, dt: float) {
     for i: 0..r.pedestals.count - 1 {
         if i >= r.pedestal_timers.count continue;
+        if i < r.pedestal_locked.count && r.pedestal_locked[i] continue;
         p := r.pedestals[i];
         if p == null continue;
 
@@ -344,7 +362,7 @@ respawn_npc_on_pedestal :: proc(r: Room_Npc, i: s64) {
     configs := get_brainrot_configs();
     for c: configs {
         if c.id != id continue;
-        spawn_brainrot_on_pedestal(p, c);
+        spawn_npc_brainrot_on_pedestal(p, c);
         break;
     }
 
@@ -353,6 +371,35 @@ respawn_npc_on_pedestal :: proc(r: Room_Npc, i: s64) {
     } else {
         append(ref r.pedestal_timers, NPC_SPAWN_INTERVAL);
     }
+    if i < r.pedestal_locked.count {
+        r.pedestal_locked[i] = false;
+    } else {
+        append(ref r.pedestal_locked, false);
+    }
+}
+
+spawn_npc_brainrot_on_pedestal :: proc(pedestal: Pedestal, config: Brainrot_Config) -> LivingEntity_Npc {
+    if pedestal == null return null;
+    if pedestal.brainrot_pedestal == null return null;
+
+    prefab := get_asset(Prefab_Asset, BRAINROT_NPC_PREFAB_PATH);
+    if prefab == null {
+        log_info("spawn_npc_brainrot_on_pedestal: prefab not found at '%'.", {BRAINROT_NPC_PREFAB_PATH});
+        return null;
+    }
+    pos := pedestal.brainrot_pedestal.world_position;
+    e := Scene.instantiate(prefab, pos);
+    if e == null return null;
+    le := e.get_component(LivingEntity_Npc);
+    if le == null {
+        log_info("spawn_npc_brainrot_on_pedestal: prefab root has no LivingEntity_Npc component.");
+        return null;
+    }
+    le.pedestal = pedestal;
+    apply_config_to_living_entity(le, config);
+    pedestal.placed_brainrot = le;
+    sync_brainrot_floor_to_pedestal(le, pedestal);
+    return le;
 }
 
 draw_npc_pedestal_timers :: proc(r: Room_Npc) {

@@ -315,7 +315,6 @@ Player :: class : Player_Base {
             is_in_current_room.clamp_player_inside(this);
         }
 
-        update_player_camera_zoom(this);
     }
 
     ao_late_update :: method(dt: float) {
@@ -367,6 +366,7 @@ Player :: class : Player_Base {
 
     ao_end :: method() {
         if my_room != null my_room.release_room();
+        release_chasers_for_player(this);
     }
 
     ao_can_use_ability :: method(ability: Ability_Base) -> bool {

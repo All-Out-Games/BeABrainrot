@@ -22,6 +22,7 @@
   "internal_component_type": "Game_Manager",
   "data": {
     "navmesh": 1247989403,
-    "npc_line": 1253075431
+    "npc_line": 1253075431,
+    "teleport_pos": 1255031540
   }
 }

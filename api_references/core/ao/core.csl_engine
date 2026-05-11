@@ -3213,15 +3213,21 @@ UIK :: struct {
 
         spacer(flex(1), pixels(30));
 
-        // Outer container: full width, fit height, horizontal padding insets the banner
-        outer := layout_column();
+        // Outer container: full width, fit height. When the close button is visible,
+        // it gets its own reserved slot so it never overlaps the title banner.
+        outer := layout_row();
         outer.width = flex(1);
         outer.height = fit();
         outer.cross_align = .CENTER;
-        outer.padding = v4{0, 120, 0, 120};
+        outer.main_align = .CENTER;
+        outer.gap = 8;
+        outer.padding = v4{0, 64, 0, 64};
+        if desc.show_exit {
+            outer.padding = v4{0, 8, 0, 8};
+        }
         panel_begin(outer);
 
-        // Background panel: fills outer's content area, centered text
+        // Background panel: fills the middle header area, centered text.
         bg := layout_row();
         bg.width = flex(1);
         bg.height = fit();
@@ -3256,17 +3262,9 @@ UIK :: struct {
 
         panel_end(); // bg
 
-        // Exit button overlay: top right of outer
+        // Exit button: separate sibling of the banner, inside the modal bounds.
         if desc.show_exit {
             exit_tex := get_asset(Texture_Asset, "$AO/ui/kit/Icons/misc_icons_2/exit_button_large.png");
-            exit_overlay: Panel_Desc = {};
-            exit_overlay.opacity = 1;
-            exit_overlay.axis = .VERTICAL;
-            exit_overlay.width = fit();
-            exit_overlay.height = fit();
-            exit_overlay.cross_align = .CENTER;
-            exit_overlay.main_align = .CENTER;
-            overlay_begin(.TOP_RIGHT, exit_overlay, v2{-8, 0});
 
             btn: Panel_Desc = {};
             btn.opacity = 1;
@@ -3279,8 +3277,6 @@ UIK :: struct {
             exit_handle = panel_begin_interactive("title_area_exit", btn);
             image_fitted(exit_tex, image_desc(.CONTAIN));
             panel_end();
-
-            overlay_end();
         }
 
         panel_end(); // outer

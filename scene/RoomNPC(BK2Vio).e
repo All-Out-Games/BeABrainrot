@@ -26,6 +26,8 @@
       "tung_tung_sahur",
       "boneca",
       "trippi_troppi"
-    ]
+    ],
+    "chase_trigger": 1254716832,
+    "jail_trigger": 1256141139
   }
 }

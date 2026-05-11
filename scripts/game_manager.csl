@@ -3,11 +3,18 @@ game_manager_instance: Game_Manager;
 ZOOMED_OUT_CAMERA_SIZE :: 10.0;
 
 Game_Manager :: class : Component {
-    navmesh: Navmesh @ao_serialize;
-    npc_line: Entity @ao_serialize;
+    navmesh:      Navmesh @ao_serialize;
+    npc_line:     Entity  @ao_serialize;
+    teleport_pos: Entity  @ao_serialize;
 
     ao_start :: method() {
         game_manager_instance = this;
+        if npc_line != null && #alive(npc_line) {
+            tv := npc_line.get_component(Trigger_Volume);
+            if tv != null {
+                tv.set_listener(this, gm_on_npc_line_enter, gm_on_npc_line_exit);
+            }
+        }
     }
 
     ao_end :: method() {
@@ -17,24 +24,6 @@ Game_Manager :: class : Component {
     }
 }
 
-update_player_camera_zoom :: proc(player: Player) {
-    if player == null return;
-    if !#alive(player.entity) return;
-    if player.default_camera_size <= 0 return;
-
-    gm := get_game_manager();
-    if gm == null return;
-    if gm.npc_line == null || !#alive(gm.npc_line) return;
-
-    line_y := gm.npc_line.world_position.y;
-    player_y := player.entity.world_position.y;
-
-    target := player.default_camera_size;
-    if player_y > line_y target = ZOOMED_OUT_CAMERA_SIZE;
-
-    player.camera.size = lerp(player.camera.size, target, 0.1);
-}
-
 get_game_manager :: proc() -> Game_Manager {
     if game_manager_instance != null return game_manager_instance;
     for gm: component_iterator(Game_Manager) {
@@ -42,6 +31,55 @@ get_game_manager :: proc() -> Game_Manager {
         return gm;
     }
     return null;
+}
+
+gm_on_npc_line_enter :: proc(listener: Component, player: Player) {
+    if player == null return;
+    if !#alive(player.entity) return;
+
+    // Already auto-walking — skip (e.g. teleport landing inside the trigger).
+    _, already_moving := get_effect(player.entity, Moving_Toward_Effect);
+    if already_moving return;
+
+    e, has_steal := get_effect(player.entity, Carry_Brainrot_Stealing_Npc_Effect);
+    if has_steal && e != null && e.carried != null && #alive(e.carried.entity) {
+        le          := e.carried;
+        origin_room := e.origin_room;
+        origin_idx  := e.origin_pedestal_index;
+
+        add_brainrot_to_inventory(player, le);
+        remove_effect(player.entity, Carry_Brainrot_Stealing_Npc_Effect, false);
+
+        if origin_room != null && #alive(origin_room.entity) {
+            if origin_idx >= 0 && origin_idx < origin_room.pedestal_locked.count {
+                origin_room.pedestal_locked[origin_idx] = false;
+                origin_room.pedestal_timers[origin_idx] = 0;
+            }
+        }
+        return;
+    }
+
+    gm := listener.(Game_Manager);
+    if gm == null return;
+    if gm.teleport_pos != null && #alive(gm.teleport_pos) {
+        player.entity.set_local_position(gm.teleport_pos.world_position);
+    }
+    eff := new(Moving_Toward_Effect);
+    player.entity.add_passive_effect(eff);
+}
+
+gm_on_npc_line_exit :: proc(listener: Component, player: Player) {
+    if player == null return;
+    if !#alive(player.entity) return;
+
+    _, has_catched := get_effect(player.entity, Catched_By_Npc_Effect);
+    _, has_in_room := get_effect(player.entity, In_Npc_Room_Effect);
+    if !has_catched && !has_in_room return;
+
+    remove_effect(player.entity, Catched_By_Npc_Effect, false);
+    remove_effect(player.entity, In_Npc_Room_Effect, false);
+    player.remove_freeze_reason(NPC_ESCORT_FREEZE_REASON);
+    reset_chasers_for_player(player);
 }
 
 snap_player_to_navmesh :: proc(player: Player) {

@@ -1,0 +1,7 @@
+// Stealing variant of Carry_Brainrot_Effect_2. Inherits the parent's physical-
+// carry behavior; adds origin metadata so the secure-on-carpet check can
+// unlock the source NPC pedestal.
+Carry_Brainrot_Stealing_Npc_Effect :: class : Carry_Brainrot_Effect_2 {
+    origin_room:           Room_Npc;
+    origin_pedestal_index: s64;
+}

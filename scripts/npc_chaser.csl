@@ -1,0 +1,256 @@
+Npc_Chaser_State :: enum {
+    IDLE;
+    CHASING;
+    ESCORTING;
+}
+
+NPC_CATCH_RADIUS_SQ      :: 0.25;   // 0.5 wu
+NPC_ARRIVED_RADIUS_SQ    :: 0.04;   // 0.2 wu
+NPC_HOME_RADIUS_SQ       :: 0.0025; // 0.05 wu
+NPC_ESCORT_FREEZE_REASON :: "escort_to_jail";
+
+Npc_Chaser :: class : Component {
+    speed: float @ao_serialize;
+
+    home_room:       Room_Npc; // set by Room_Npc.init_npc_room via collect_chasers_recursive
+    assigned_player: Player;
+    home_position:   v2;
+    state:           Npc_Chaser_State;
+
+    ao_start :: method() {
+        home_position = entity.world_position;
+        if speed <= 0 speed = 5.0;
+    }
+
+    ao_update :: method(dt: float) {
+        if state == Npc_Chaser_State.IDLE {
+            tick_chaser_idle(this, dt);
+        } else if state == Npc_Chaser_State.CHASING {
+            tick_chaser_chasing(this, dt);
+        } else if state == Npc_Chaser_State.ESCORTING {
+            tick_chaser_escorting(this, dt);
+        }
+    }
+
+    on_catch :: method() {
+        if assigned_player == null return;
+        if !#alive(assigned_player.entity) return;
+
+        _, has_in_room := get_effect(assigned_player.entity, In_Npc_Room_Effect);
+        if has_in_room {
+            // Re-catch while jailed → return stolen brainrot + send player home.
+            npc_punish_player(this);
+            return;
+        }
+
+        // First catch → tag, remove Moving_Toward, start escort to first pedestal.
+        eff := new(Catched_By_Npc_Effect);
+        assigned_player.entity.add_passive_effect(eff);
+        remove_effect(assigned_player.entity, Moving_Toward_Effect, true);
+        assigned_player.add_freeze_reason(NPC_ESCORT_FREEZE_REASON);
+        state = Npc_Chaser_State.ESCORTING;
+    }
+}
+
+// Apply a world-space step to entity by translating its local_position.
+// Works for parents with translation only (no rotation/scale).
+nudge_local_by_world_delta :: proc(e: Entity, world_delta: v2) {
+    e.set_local_position(e.local_position + world_delta);
+}
+
+tick_chaser_idle :: proc(c: Npc_Chaser, dt: float) {
+    my_world := c.entity.world_position;
+    diff := c.home_position - my_world;
+    if length_squared(diff) < NPC_HOME_RADIUS_SQ return;
+    step := c.speed * dt;
+    if length_squared(diff) <= step * step {
+        nudge_local_by_world_delta(c.entity, diff);
+        return;
+    }
+    n := normalize(diff);
+    nudge_local_by_world_delta(c.entity, n * step);
+}
+
+tick_chaser_chasing :: proc(c: Npc_Chaser, dt: float) {
+    if c.assigned_player == null { c.state = Npc_Chaser_State.IDLE; return; }
+    if !#alive(c.assigned_player.entity) { c.state = Npc_Chaser_State.IDLE; return; }
+
+    player_pos := c.assigned_player.entity.world_position;
+    my_world := c.entity.world_position;
+    diff := player_pos - my_world;
+
+    if length_squared(diff) < NPC_CATCH_RADIUS_SQ {
+        c.on_catch();
+        return;
+    }
+    n := normalize(diff);
+    nudge_local_by_world_delta(c.entity, n * c.speed * dt);
+}
+
+tick_chaser_escorting :: proc(c: Npc_Chaser, dt: float) {
+    if c.assigned_player == null { c.state = Npc_Chaser_State.IDLE; return; }
+    if !#alive(c.assigned_player.entity) { c.state = Npc_Chaser_State.IDLE; return; }
+    if c.home_room == null { c.state = Npc_Chaser_State.IDLE; return; }
+    if c.home_room.pedestals.count <= 0 { c.state = Npc_Chaser_State.IDLE; return; }
+
+    p0 := c.home_room.pedestals[0];
+    if p0 == null || p0.brainrot_pedestal == null { c.state = Npc_Chaser_State.IDLE; return; }
+    target := p0.brainrot_pedestal.world_position;
+
+    my_world := c.entity.world_position;
+    diff := target - my_world;
+
+    if length_squared(diff) < NPC_ARRIVED_RADIUS_SQ {
+        // Arrived → place player on pedestal.
+        player_diff := target - c.assigned_player.entity.world_position;
+        nudge_local_by_world_delta(c.assigned_player.entity, player_diff);
+        remove_effect(c.assigned_player.entity, Catched_By_Npc_Effect, false);
+        eff := new(In_Npc_Room_Effect);
+        c.assigned_player.entity.add_passive_effect(eff);
+        c.assigned_player.remove_freeze_reason(NPC_ESCORT_FREEZE_REASON);
+        c.state = Npc_Chaser_State.IDLE;
+        return;
+    }
+
+    step := c.speed * dt;
+    n := normalize(diff);
+    world_step := n * step;
+    nudge_local_by_world_delta(c.entity, world_step);
+    nudge_local_by_world_delta(c.assigned_player.entity, world_step);
+}
+
+collect_chasers_recursive :: proc(r: Room_Npc, e: Entity) {
+    current := e.get_first_child();
+    while current != null {
+        c := current.get_component(Npc_Chaser);
+        if c != null {
+            append(ref r.chasers, c);
+            c.home_room = r;
+        }
+        collect_chasers_recursive(r, current);
+        current = current.get_next_sibling();
+    }
+}
+
+get_player_chaser_in_room :: proc(r: Room_Npc, player: Player) -> Npc_Chaser {
+    if r == null return null;
+    if player == null return null;
+    for c: r.chasers {
+        if c == null continue;
+        if c.assigned_player == player return c;
+    }
+    return null;
+}
+
+// Returns the chaser already assigned to player, or grabs the first unassigned
+// slot in this room and binds it. Called lazily when a player first enters a
+// chase trigger.
+claim_or_get_chaser_in_room :: proc(r: Room_Npc, player: Player) -> Npc_Chaser {
+    existing := get_player_chaser_in_room(r, player);
+    if existing != null return existing;
+    if r == null return null;
+    for c: r.chasers {
+        if c == null continue;
+        if c.assigned_player != null continue;
+        c.assigned_player = player;
+        return c;
+    }
+    return null;
+}
+
+release_chasers_for_player :: proc(player: Player) {
+    if player == null return;
+    for c: component_iterator(Npc_Chaser) {
+        if c == null continue;
+        if c.assigned_player != player continue;
+        c.assigned_player = null;
+        c.state = Npc_Chaser_State.IDLE;
+    }
+}
+
+reset_chasers_for_player :: proc(player: Player) {
+    if player == null return;
+    for c: component_iterator(Npc_Chaser) {
+        if c == null continue;
+        if c.assigned_player != player continue;
+        c.state = Npc_Chaser_State.IDLE;
+    }
+}
+
+room_npc_on_chase_enter :: proc(listener: Component, player: Player) {
+    if listener == null return;
+    if player == null return;
+    r := listener.(Room_Npc);
+    if r == null return;
+    c := claim_or_get_chaser_in_room(r, player);
+    if c == null return;
+    if c.state == Npc_Chaser_State.ESCORTING return;
+    c.state = Npc_Chaser_State.CHASING;
+}
+
+room_npc_on_chase_exit :: proc(listener: Component, player: Player) {
+    if listener == null return;
+    if player == null return;
+    r := listener.(Room_Npc);
+    if r == null return;
+    c := get_player_chaser_in_room(r, player);
+    if c == null return;
+    if c.state == Npc_Chaser_State.ESCORTING return;
+
+    _, has_catched := get_effect(player.entity, Catched_By_Npc_Effect);
+    _, has_in_room := get_effect(player.entity, In_Npc_Room_Effect);
+    if !has_catched && !has_in_room {
+        c.state = Npc_Chaser_State.IDLE;
+    }
+    // else: player is a parolee — keep chasing across the border.
+}
+
+room_npc_on_jail_exit :: proc(listener: Component, player: Player) {
+    if listener == null return;
+    if player == null return;
+    r := listener.(Room_Npc);
+    if r == null return;
+
+    _, has_in_room := get_effect(player.entity, In_Npc_Room_Effect);
+    if !has_in_room return;
+
+    // Jailbreak — InNpcRoom stays on the player; only chase resumes.
+    c := get_player_chaser_in_room(r, player);
+    if c != null c.state = Npc_Chaser_State.CHASING;
+}
+
+npc_punish_player :: proc(c: Npc_Chaser) {
+    if c == null return;
+    if c.assigned_player == null return;
+    if !#alive(c.assigned_player.entity) return;
+
+    // Return the stolen brainrot (if any) to its origin pedestal — unlock and
+    // reset its timer so Room_Npc respawns it next tick. Destroy the carried
+    // entity since the steal failed.
+    e, has_steal := get_effect(c.assigned_player.entity, Carry_Brainrot_Stealing_Npc_Effect);
+    if has_steal && e != null {
+        if e.origin_room != null && #alive(e.origin_room.entity) {
+            idx := e.origin_pedestal_index;
+            if idx >= 0 && idx < e.origin_room.pedestal_locked.count {
+                e.origin_room.pedestal_locked[idx] = false;
+                e.origin_room.pedestal_timers[idx] = 0;
+            }
+        }
+        if e.carried != null && #alive(e.carried.entity) e.carried.entity.destroy();
+        remove_effect(c.assigned_player.entity, Carry_Brainrot_Stealing_Npc_Effect, true);
+    }
+
+    // Teleport player back to their own base.
+    if c.assigned_player.my_room != null && #alive(c.assigned_player.my_room.entity) {
+        target_world := c.assigned_player.my_room.entity.world_position;
+        player_diff := target_world - c.assigned_player.entity.world_position;
+        nudge_local_by_world_delta(c.assigned_player.entity, player_diff);
+    }
+
+    // Clear effects and unfreeze.
+    remove_effect(c.assigned_player.entity, In_Npc_Room_Effect, false);
+    remove_effect(c.assigned_player.entity, Catched_By_Npc_Effect, false);
+    c.assigned_player.remove_freeze_reason(NPC_ESCORT_FREEZE_REASON);
+
+    c.state = Npc_Chaser_State.IDLE;
+}

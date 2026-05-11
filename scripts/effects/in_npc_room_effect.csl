@@ -1,0 +1,4 @@
+// Tag effect: player has been placed on an NPC base's jail pedestal. Read by
+// the jail_trigger.on_exit handler to detect escapes.
+In_Npc_Room_Effect :: class : Effect_Base {
+}

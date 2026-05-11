@@ -1,0 +1,5 @@
+// Tag effect: player has been caught at least once by an NPC chaser. Read by
+// Npc_Chaser.on_catch to decide between first-catch (just tag) and second-catch
+// (escort to jail).
+Catched_By_Npc_Effect :: class : Effect_Base {
+}

@@ -14,7 +14,7 @@
     "Y": 50
   },
   "previous_sibling": 1242052410,
-  "next_sibling": 1253328260
+  "next_sibling": 1255031540
 },
 {
   "cid": 1,
@@ -44,5 +44,15 @@
   "internal_component_type": "Studs_Auto",
   "data": {
 
+  }
+},
+{
+  "cid": 3,
+  "aoid": 1253907941,
+  "component_type": "Internal_Component",
+  "internal_component_type": "Trigger_Volume",
+  "data": {
+    "corner_a": 1249812944,
+    "corner_b": 1249971355
   }
 }

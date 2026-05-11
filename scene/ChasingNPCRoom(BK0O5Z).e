@@ -21,7 +21,7 @@
   "component_type": "Internal_Component",
   "internal_component_type": "Npc_Chaser",
   "data": {
-    "speed": 20
+
   }
 },
 {

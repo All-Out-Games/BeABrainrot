@@ -1,0 +1,11 @@
+[
+  {
+    "id": "Textures/environments/Room/scifi_vertical_wall.png"
+  },
+  {
+    "id": "Textures/environments/Room/scifi_horizontal_wall.png",
+    "texture": {
+      "wrap_repeat": true
+    }
+  }
+]

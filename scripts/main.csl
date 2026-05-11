@@ -294,9 +294,7 @@ Player :: class : Player_Base {
 
     ao_update :: method(dt: float) {
         if agent != null {
-            target := compute_agent_movement_speed(speed);
-            if is_carrying(this) target *= CARRY_SPEED_MULT;
-            agent.movement_speed = target;
+            agent.movement_speed = compute_agent_movement_speed(speed);
         }
         if animator != null {
             animator.layer = current_floor.(s32);

@@ -6,6 +6,8 @@
 // Engine integrates `velocities += inputs * dt * movement_speed` and drains
 // velocity via friction (≈ 60/s), so steady-state world-units/sec = speed / 60.
 MOVING_TOWARD_FRICTION_DIVISOR :: 60.0;
+// Final scale applied to the computed speed (slow the auto-walk down).
+MOVING_TOWARD_SPEED_SCALE      :: 0.5;
 
 Moving_Toward_Effect :: class : Effect_Base {
     saved_default_camera_size: float;
@@ -28,7 +30,7 @@ Moving_Toward_Effect :: class : Effect_Base {
         if input.x != 0 || input.y != 0 {
             stat_speed = player.speed;
         }
-        units_per_sec := compute_agent_movement_speed(stat_speed) / MOVING_TOWARD_FRICTION_DIVISOR;
+        units_per_sec := compute_agent_movement_speed(stat_speed) / MOVING_TOWARD_FRICTION_DIVISOR * MOVING_TOWARD_SPEED_SCALE;
 
         pos := player.entity.local_position;
         pos.y += units_per_sec * dt;

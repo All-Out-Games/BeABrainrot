@@ -10,16 +10,20 @@ NPC_HOME_RADIUS_SQ       :: 0.0025; // 0.05 wu
 NPC_ESCORT_FREEZE_REASON :: "escort_to_jail";
 
 Npc_Chaser :: class : Component {
-    speed: float @ao_serialize;
+    speed_max: float @ao_serialize; // full chase speed (initial chase, escort, idle return)
+    speed_min: float @ao_serialize; // slower re-chase speed after jailbreak / re-steal (head-start for player)
 
     home_room:       Room_Npc; // set by Room_Npc.init_npc_room via collect_chasers_recursive
     assigned_player: Player;
     home_position:   v2;
     state:           Npc_Chaser_State;
+    current_speed:   float; // chosen between speed_max / speed_min on state transitions
 
     ao_start :: method() {
         home_position = entity.world_position;
-        if speed <= 0 speed = 5.0;
+        if speed_max <= 0 speed_max = 8.0;
+        if speed_min <= 0 speed_min = speed_max;
+        current_speed = speed_max;
     }
 
     ao_update :: method(dt: float) {
@@ -58,11 +62,25 @@ nudge_local_by_world_delta :: proc(e: Entity, world_delta: v2) {
     e.set_local_position(e.local_position + world_delta);
 }
 
+// Flip the entity along X so it faces the direction it's moving. Assumes the
+// default sprite faces right (positive scale.x). For default-faces-left rigs,
+// flip the scene scale once and it'll keep working.
+face_along_x :: proc(e: Entity, world_dx: float) {
+    if abs(world_dx) < 0.001 return;
+    s := e.local_scale;
+    abs_x := abs(s.x);
+    target_x := abs_x;
+    if world_dx < 0 target_x = -abs_x;
+    if s.x == target_x return;
+    e.set_local_scale(v2{target_x, s.y});
+}
+
 tick_chaser_idle :: proc(c: Npc_Chaser, dt: float) {
     my_world := c.entity.world_position;
     diff := c.home_position - my_world;
     if length_squared(diff) < NPC_HOME_RADIUS_SQ return;
-    step := c.speed * dt;
+    step := c.speed_max * dt;
+    face_along_x(c.entity, diff.x);
     if length_squared(diff) <= step * step {
         nudge_local_by_world_delta(c.entity, diff);
         return;
@@ -83,8 +101,9 @@ tick_chaser_chasing :: proc(c: Npc_Chaser, dt: float) {
         c.on_catch();
         return;
     }
+    face_along_x(c.entity, diff.x);
     n := normalize(diff);
-    nudge_local_by_world_delta(c.entity, n * c.speed * dt);
+    nudge_local_by_world_delta(c.entity, n * c.current_speed * dt);
 }
 
 tick_chaser_escorting :: proc(c: Npc_Chaser, dt: float) {
@@ -112,7 +131,8 @@ tick_chaser_escorting :: proc(c: Npc_Chaser, dt: float) {
         return;
     }
 
-    step := c.speed * dt;
+    face_along_x(c.entity, diff.x);
+    step := c.speed_max * dt;
     n := normalize(diff);
     world_step := n * step;
     nudge_local_by_world_delta(c.entity, world_step);
@@ -186,6 +206,7 @@ room_npc_on_chase_enter :: proc(listener: Component, player: Player) {
     if c == null return;
     if c.state == Npc_Chaser_State.ESCORTING return;
     c.state = Npc_Chaser_State.CHASING;
+    c.current_speed = c.speed_max;
 }
 
 room_npc_on_chase_exit :: proc(listener: Component, player: Player) {
@@ -214,9 +235,13 @@ room_npc_on_jail_exit :: proc(listener: Component, player: Player) {
     _, has_in_room := get_effect(player.entity, In_Npc_Room_Effect);
     if !has_in_room return;
 
-    // Jailbreak — InNpcRoom stays on the player; only chase resumes.
+    // Jailbreak — InNpcRoom stays on the player; chaser resumes at the slower
+    // re-chase speed so the player has a chance to escape/steal.
     c := get_player_chaser_in_room(r, player);
-    if c != null c.state = Npc_Chaser_State.CHASING;
+    if c != null {
+        c.state = Npc_Chaser_State.CHASING;
+        c.current_speed = c.speed_min;
+    }
 }
 
 npc_punish_player :: proc(c: Npc_Chaser) {
@@ -224,18 +249,45 @@ npc_punish_player :: proc(c: Npc_Chaser) {
     if c.assigned_player == null return;
     if !#alive(c.assigned_player.entity) return;
 
-    // Return the stolen brainrot (if any) to its origin pedestal — unlock and
-    // reset its timer so Room_Npc respawns it next tick. Destroy the carried
-    // entity since the steal failed.
+    // Return the *exact* stolen brainrot (same config_id / level / mutation) to
+    // its origin pedestal — not a random roll from spawnable_brainrot_ids.
     e, has_steal := get_effect(c.assigned_player.entity, Carry_Brainrot_Stealing_Npc_Effect);
     if has_steal && e != null {
+        saved_id: string;
+        saved_level: s64 = 1;
+        saved_mutation := Mutation.NONE;
+        if e.carried != null && #alive(e.carried.entity) {
+            saved_id       = e.carried.config_id;
+            saved_level    = e.carried.level;
+            saved_mutation = e.carried.mutation;
+        }
+
         if e.origin_room != null && #alive(e.origin_room.entity) {
             idx := e.origin_pedestal_index;
-            if idx >= 0 && idx < e.origin_room.pedestal_locked.count {
-                e.origin_room.pedestal_locked[idx] = false;
-                e.origin_room.pedestal_timers[idx] = 0;
+            if idx >= 0 && idx < e.origin_room.pedestals.count {
+                p := e.origin_room.pedestals[idx];
+                if p != null && saved_id.count > 0 {
+                    configs := get_brainrot_configs();
+                    for cfg: configs {
+                        if cfg.id != saved_id continue;
+                        new_le := spawn_npc_brainrot_on_pedestal(p, cfg);
+                        if new_le != null {
+                            new_le.level    = saved_level;
+                            new_le.mutation = saved_mutation;
+                            new_le.update_visuals();
+                        }
+                        break;
+                    }
+                }
+                if idx < e.origin_room.pedestal_locked.count {
+                    e.origin_room.pedestal_locked[idx] = false;
+                }
+                if idx < e.origin_room.pedestal_timers.count {
+                    e.origin_room.pedestal_timers[idx] = NPC_SPAWN_INTERVAL;
+                }
             }
         }
+
         if e.carried != null && #alive(e.carried.entity) e.carried.entity.destroy();
         remove_effect(c.assigned_player.entity, Carry_Brainrot_Stealing_Npc_Effect, true);
     }

@@ -1,7 +1,24 @@
 // Stealing variant of Carry_Brainrot_Effect_2. Inherits the parent's physical-
-// carry behavior; adds origin metadata so the secure-on-carpet check can
-// unlock the source NPC pedestal.
+// carry behavior; adds origin metadata so the secure-on-line path can unlock
+// the source NPC pedestal. CSL won't let us override effect_end directly
+// (Carry_Brainrot_Effect_2 already implements that interface), so the parent
+// dispatches do_steal_secure on non-interrupt end when the runtime type
+// matches this subclass.
 Carry_Brainrot_Stealing_Npc_Effect :: class : Carry_Brainrot_Effect_2 {
     origin_room:           Room_Npc;
     origin_pedestal_index: s64;
+}
+
+do_steal_secure :: proc(eff: Carry_Brainrot_Stealing_Npc_Effect) {
+    if eff == null return;
+    if eff.player == null || !#alive(eff.player.entity) return;
+    if eff.carried == null || !#alive(eff.carried.entity) return;
+
+    add_brainrot_to_inventory(eff.player, eff.carried);
+    if eff.origin_room != null && #alive(eff.origin_room.entity) {
+        if eff.origin_pedestal_index >= 0 && eff.origin_pedestal_index < eff.origin_room.pedestal_locked.count {
+            eff.origin_room.pedestal_locked[eff.origin_pedestal_index] = false;
+            eff.origin_room.pedestal_timers[eff.origin_pedestal_index] = 0;
+        }
+    }
 }

@@ -41,21 +41,19 @@ gm_on_npc_line_enter :: proc(listener: Component, player: Player) {
     _, already_moving := get_effect(player.entity, Moving_Toward_Effect);
     if already_moving return;
 
+    // Already jailed or being caught — don't re-teleport/start a new auto-walk.
+    _, has_in_room := get_effect(player.entity, In_Npc_Room_Effect);
+    _, has_catched := get_effect(player.entity, Catched_By_Npc_Effect);
+    if has_catched return;
+
     e, has_steal := get_effect(player.entity, Carry_Brainrot_Stealing_Npc_Effect);
     if has_steal && e != null && e.carried != null && #alive(e.carried.entity) {
-        le          := e.carried;
-        origin_room := e.origin_room;
-        origin_idx  := e.origin_pedestal_index;
-
-        add_brainrot_to_inventory(player, le);
+        // do_steal_secure runs in the effect's effect_end.
         remove_effect(player.entity, Carry_Brainrot_Stealing_Npc_Effect, false);
-
-        if origin_room != null && #alive(origin_room.entity) {
-            if origin_idx >= 0 && origin_idx < origin_room.pedestal_locked.count {
-                origin_room.pedestal_locked[origin_idx] = false;
-                origin_room.pedestal_timers[origin_idx] = 0;
-            }
-        }
+        return;
+    }
+    if has_in_room {
+        remove_effect(player.entity, In_Npc_Room_Effect, false);
         return;
     }
 

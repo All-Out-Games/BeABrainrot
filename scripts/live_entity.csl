@@ -482,11 +482,14 @@ LivingEntity_Npc :: class : LivingEntity {
         effect.origin_pedestal_index = idx;
         player.entity.add_passive_effect(effect);
 
-        // Stealing while jailed → re-trigger this base's chaser.
+        // Stealing while jailed → re-trigger this base's chaser at re-chase speed.
         _, has_in_room := get_effect(player.entity, In_Npc_Room_Effect);
         if has_in_room && npc_room != null {
             c := get_player_chaser_in_room(npc_room, player);
-            if c != null c.state = Npc_Chaser_State.CHASING;
+            if c != null {
+                c.state = Npc_Chaser_State.CHASING;
+                c.current_speed = c.speed_min;
+            }
         }
     }
 }

@@ -57,5 +57,12 @@ Carry_Brainrot_Effect_2 :: class : Effect_Base {
         if player != null && player.animator != null && player.animator.state_machine != null {
             player.animator.state_machine.set_bool("carryingMoving", false);
         }
+
+        // Steal-secure dispatch: stealing subclass deposits into inventory on a
+        // non-interrupt end. CSL doesn't allow the subclass to override this
+        // method directly, so we route via #type.
+        if !interrupt && this.#type == Carry_Brainrot_Stealing_Npc_Effect {
+            do_steal_secure(this.(Carry_Brainrot_Stealing_Npc_Effect));
+        }
     }
 }

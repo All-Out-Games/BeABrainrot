@@ -25,7 +25,8 @@
     "texture": "Textures/environments/Bases/floor_light.png",
     "tint": {
       "W": 0.3320973217487335
-    }
+    },
+    "editor_only": true
   }
 },
 {

@@ -254,9 +254,11 @@ auto_equip_best :: proc(player: Player) {
 
     player.equip_best_next_at = now + EQUIP_BEST_COOLDOWN;
 
-    // Phase 1: collect any pending gold from every pedestal.
+    // Phase 1: collect any pending gold from every unlocked pedestal.
     cashed_out: float = 0;
-    for p: room.pedestals {
+    for i: 0..room.pedestals.count - 1 {
+        if i >= player.pedestals_unlocked break;
+        p := room.pedestals[i];
         if p == null continue;
         if p.accumulated_gold > 0 {
             cashed_out += p.accumulated_gold;
@@ -279,10 +281,12 @@ auto_equip_best :: proc(player: Player) {
         }
     }
 
-    // Phase 2: greedy swap — for each pedestal, if the best inventory
+    // Phase 2: greedy swap — for each unlocked pedestal, if the best inventory
     // brainrot beats what's placed (or the pedestal is empty), swap.
     swaps: s64 = 0;
-    for p: room.pedestals {
+    for pi: 0..room.pedestals.count - 1 {
+        if pi >= player.pedestals_unlocked break;
+        p := room.pedestals[pi];
         if p == null continue;
 
         cur_gps: float = -1.0;

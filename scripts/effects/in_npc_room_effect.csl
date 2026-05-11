@@ -1,4 +1,32 @@
-// Tag effect: player has been placed on an NPC base's jail pedestal. Read by
-// the jail_trigger.on_exit handler to detect escapes.
+// Tag effect: player has been placed on an NPC base's jail pedestal. On start
+// it freezes the player for IN_NPC_ROOM_FREEZE_DURATION seconds so they can't
+// immediately run; the freeze auto-clears once the timer expires (the effect
+// itself stays until jail_trigger exit / line escape / re-catch).
+IN_NPC_ROOM_FREEZE_DURATION :: 2.0;
+IN_NPC_ROOM_FREEZE_REASON   :: "in_npc_room_placed";
+
 In_Npc_Room_Effect :: class : Effect_Base {
+    freeze_remaining: float;
+    freeze_applied:   bool;
+
+    effect_start :: method() {
+        if player == null return;
+        freeze_remaining = IN_NPC_ROOM_FREEZE_DURATION;
+        player.add_freeze_reason(IN_NPC_ROOM_FREEZE_REASON);
+        freeze_applied = true;
+    }
+
+    effect_update :: method(dt: float) {
+        if !freeze_applied return;
+        freeze_remaining -= dt;
+        if freeze_remaining > 0 return;
+        if player != null player.remove_freeze_reason(IN_NPC_ROOM_FREEZE_REASON);
+        freeze_applied = false;
+    }
+
+    effect_end :: method(interrupt: bool) {
+        if !freeze_applied return;
+        if player != null player.remove_freeze_reason(IN_NPC_ROOM_FREEZE_REASON);
+        freeze_applied = false;
+    }
 }

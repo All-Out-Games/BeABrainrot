@@ -220,11 +220,35 @@ Spine_Instance_Fields :: class {
     color_multiplier: v4                        #offset 120;
     scale:            v2                        #offset 80;
     speed_multiplier: float                     #offset 152;
-    color_replace_color: Color_Replace_Color #read_only("use set_color_replace_color()") #offset 192;
-    on_event_userdata:           Object #read_only("use set_on_event()") #offset 240;
-    on_animation_start_userdata: Object #read_only("use set_on_animation_start()") #offset 256;
-    on_animation_end_userdata:   Object #read_only("use set_on_animation_end()") #offset 272;
-} #gc_root #foreign_struct "Spine_Instance" #size 304
+    color_replace_color: Color_Replace_Color #read_only("use set_color_replace_color()") #offset 200;
+    on_event_userdata:           Object #read_only("use set_on_event()") #offset 248;
+    on_animation_start_userdata: Object #read_only("use set_on_animation_start()") #offset 264;
+    on_animation_end_userdata:   Object #read_only("use set_on_animation_end()") #offset 280;
+} #gc_root #foreign_struct "Spine_Instance" #size 312
+
+Attachment_Sprite_Draw_Mode :: enum {
+    BEHIND;
+    IN_FRONT;
+}
+
+Attachment_Sprite_Desc :: struct {
+    draw_mode:        Attachment_Sprite_Draw_Mode #offset 0;
+    offset:           v2                          #offset 8;
+    scale:            v2                          #offset 16;
+    rotation_degrees: float                       #offset 24;
+    color:            v4                          #offset 28;
+    default :: proc() -> Attachment_Sprite_Desc {
+        #static initted: bool;
+        #static desc: Attachment_Sprite_Desc;
+        if !initted {
+            initted = true;
+            desc.draw_mode = .IN_FRONT;
+            desc.scale = {1, 1};
+            desc.color = {1, 1, 1, 1};
+        }
+        return desc;
+    }
+} #foreign_struct "Attachment_Sprite_Desc" #size 48
 
 Spine_Instance_Base :: class : Spine_Instance_Fields {
     set_color_replace_color :: method(color: Color_Replace_Color) #foreign "spine_instance_set_color_replace_color";
@@ -232,7 +256,10 @@ Spine_Instance_Base :: class : Spine_Instance_Fields {
     set_on_event            :: method(userdata: Object, callback: proc(userdata: Object, event: Spine_Event_Data)) #foreign "spine_instance_set_on_event";
     set_on_animation_start  :: method(userdata: Object, callback: proc(userdata: Object, animation: string)) #foreign "spine_instance_set_on_animation_start";
     set_on_animation_end    :: method(userdata: Object, callback: proc(userdata: Object, animation: string)) #foreign "spine_instance_set_on_animation_end";
-} #gc_root #foreign_struct "Spine_Instance" #size 304
+    add_attachment_sprite   :: method(attachment_name: string, texture: Texture_Asset, desc: Attachment_Sprite_Desc) -> u64 #foreign "spine_instance_add_attachment_sprite";
+    clear_attachment_sprite      :: method(id: u64) #foreign "spine_instance_clear_attachment_sprite";
+    clear_all_attachment_sprites :: method() #foreign "spine_instance_clear_all_attachment_sprites";
+} #gc_root #foreign_struct "Spine_Instance" #size 312
 
 Camera :: struct {
     position:            v2            #offset 0;

@@ -351,7 +351,7 @@ tick_npc_room :: proc(r: Room_Npc, dt: float) {
 }
 
 respawn_npc_on_pedestal :: proc(r: Room_Npc, i: s64) {
-    if i < 0 || i >= r.pedestals.count return;
+    if i <= 0 || i >= r.pedestals.count return; // pedestal 0 is reserved as the jail spot — never spawn a brainrot there
     p := r.pedestals[i];
     if p == null return;
     if r.spawnable_brainrot_ids.count <= 0 return;
@@ -436,9 +436,9 @@ draw_npc_pedestal_timers :: proc(r: Room_Npc) {
         UI.push_layer(2);
         defer UI.pop_layer();
 
-        cursor_y := LABEL_LINE_HEIGHT * 5;
+        cursor_y := LABEL_LINE_HEIGHT * 6;
         secs := time_left.(s64);
-        draw_brainrot_label(base_pos + v2{0, cursor_y}, format_string("%s", {secs}), v4{1, 1, 0.3, 1});
+        draw_brainrot_label(base_pos + v2{0, cursor_y}, format_string("%s", {secs}), v4{1, 1, 0.3, 1}, 0.5, 0.35, 2.0);
     }
 }
 

@@ -143,8 +143,10 @@ draw_npc_area_topbar :: proc(local: Player) {
     BAR_HEIGHT      :: 70.0;
     BAR_PAD_TOP     :: 16.0;
     BAR_PAD_SIDE    :: 350.0;
-    BUBBLE_SIZE     :: 64.0;
-    BUBBLE_OFFSET   :: 4.0;
+    BUBBLE_SIZE          :: 64.0;
+    BUBBLE_OFFSET        :: 4.0;
+    LOCAL_BUBBLE_SCALE   :: 1.5;
+    SPINE_Y_OFFSET_FRAC  :: -0.18; // negative = down (screen Y grows up)
 
     screen := UI.get_safe_screen_rect();
     content := screen.inset_top(BAR_PAD_TOP).inset_left(BAR_PAD_SIDE).inset_right(BAR_PAD_SIDE);
@@ -184,14 +186,41 @@ draw_npc_area_topbar :: proc(local: Player) {
     bubble_tex := get_asset(Texture_Asset, "Textures/UI/PlayerPosUIBubble.png");
     if bubble_tex == null return;
 
+    // Filter: only show bubbles for players above the npc_line.
+    gm := get_game_manager();
+    have_line := false;
+    line_y: float = 0;
+    if gm != null && gm.npc_line != null && #alive(gm.npc_line) {
+        line_y = gm.npc_line.world_position.y;
+        have_line = true;
+    }
+
     for p: component_iterator(Player) {
         if p == null continue;
         if !#alive(p.entity) continue;
         py := p.entity.world_position.y;
+        if have_line && py <= line_y continue;
         t, ok := player_t_along_bar(rooms, py);
         if !ok continue;
+
+        is_local := p == local;
+        size := BUBBLE_SIZE;
+        if is_local size = BUBBLE_SIZE * LOCAL_BUBBLE_SCALE;
+
+        if is_local UI.push_layer(2);
+
         anchor := bar.subrect(t, 0, t, 0);
-        bubble := anchor.grow(0, BUBBLE_SIZE * 0.5, BUBBLE_SIZE + BUBBLE_OFFSET, BUBBLE_SIZE * 0.5);
+        bubble := anchor.grow(0, size * 0.5, size + BUBBLE_OFFSET, size * 0.5);
         UI.quad(bubble, bubble_tex);
+
+        if p.animator != null && p.animator.instance != null {
+            spine_pos := bubble.center();
+            spine_pos.y += size * SPINE_Y_OFFSET_FRAC;
+            UI.push_player_material(p);
+            UI.spine(spine_pos, p.animator.instance, v2{size * 0.7, size * 0.7}, 0);
+            UI.pop_material();
+        }
+
+        if is_local UI.pop_layer();
     }
 }

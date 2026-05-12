@@ -70,10 +70,8 @@ gm_on_npc_line_exit :: proc(listener: Component, player: Player) {
     if player == null return;
     if !#alive(player.entity) return;
 
-    _, has_catched := get_effect(player.entity, Catched_By_Npc_Effect);
-    _, has_in_room := get_effect(player.entity, In_Npc_Room_Effect);
-    if !has_catched && !has_in_room return;
-
+    // Crossing back to the player area — clear any pursuit state and snap all
+    // chasers home, whether or not the player still has Catched / InNpcRoom.
     remove_effect(player.entity, Catched_By_Npc_Effect, false);
     remove_effect(player.entity, In_Npc_Room_Effect, false);
     player.remove_freeze_reason(NPC_ESCORT_FREEZE_REASON);

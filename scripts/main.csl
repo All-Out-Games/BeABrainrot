@@ -349,7 +349,16 @@ Player :: class : Player_Base {
             }
 
             draw_selected_brainrot_above_player(this);
-            draw_navigation_topbar(this);
+            above_npc_line := false;
+            gm := get_game_manager();
+            if gm != null && gm.npc_line != null && #alive(gm.npc_line) {
+                above_npc_line = entity.world_position.y > gm.npc_line.world_position.y;
+            }
+            if above_npc_line {
+                draw_npc_area_topbar(this);
+            } else {
+                draw_navigation_topbar(this);
+            }
             draw_sell_modal(this);
             draw_rebirth_modal(this);
             draw_shop_modal(this);

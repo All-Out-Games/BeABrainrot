@@ -4,26 +4,43 @@ Npc_Chaser_State :: enum {
     ESCORTING;
 }
 
-NPC_CATCH_RADIUS_SQ      :: 0.25;   // 0.5 wu
-NPC_ARRIVED_RADIUS_SQ    :: 0.04;   // 0.2 wu
-NPC_HOME_RADIUS_SQ       :: 0.0025; // 0.05 wu
-NPC_ESCORT_FREEZE_REASON :: "escort_to_jail";
+// Global registry of every Npc_Chaser in the scene. Maintained by ao_start /
+// ao_end so we don't pay component_iterator on every reset / release.
+g_npc_chasers: [..]Npc_Chaser;
+
+NPC_CATCH_RADIUS_SQ       :: 0.25;   // 0.5 wu
+NPC_ARRIVED_RADIUS_SQ     :: 0.04;   // 0.2 wu
+NPC_HOME_RADIUS_SQ        :: 0.0025; // 0.05 wu
+NPC_CHASE_WINDUP_SPEED    :: 0.5;    // wu/s during the wind-up after a re-trigger
+NPC_CHASE_WINDUP_DURATION :: 5.0;    // seconds of wind-up before speed_min kicks in
+NPC_ESCORT_FREEZE_REASON  :: "escort_to_jail";
 
 Npc_Chaser :: class : Component {
     speed_max: float @ao_serialize; // full chase speed (initial chase, escort, idle return)
     speed_min: float @ao_serialize; // slower re-chase speed after jailbreak / re-steal (head-start for player)
 
-    home_room:       Room_Npc; // set by Room_Npc.init_npc_room via collect_chasers_recursive
-    assigned_player: Player;
-    home_position:   v2;
-    state:           Npc_Chaser_State;
-    current_speed:   float; // chosen between speed_max / speed_min on state transitions
+    home_room:              Room_Npc; // set by Room_Npc.init_npc_room via collect_chasers_recursive
+    assigned_player:        Player;
+    home_position:          v2;
+    state:                  Npc_Chaser_State;
+    current_speed:          float; // chosen between speed_max / speed_min on state transitions
+    chase_windup_remaining: float; // > 0 while a re-chase is in its slow wind-up phase
 
     ao_start :: method() {
         home_position = entity.world_position;
         if speed_max <= 0 speed_max = 8.0;
         if speed_min <= 0 speed_min = speed_max;
         current_speed = speed_max;
+        append(ref g_npc_chasers, this);
+    }
+
+    ao_end :: method() {
+        for i: 0..g_npc_chasers.count - 1 {
+            if g_npc_chasers[i] == this {
+                unordered_remove_by_index(ref g_npc_chasers, i);
+                break;
+            }
+        }
     }
 
     ao_update :: method(dt: float) {
@@ -93,6 +110,12 @@ tick_chaser_chasing :: proc(c: Npc_Chaser, dt: float) {
     if c.assigned_player == null { c.state = Npc_Chaser_State.IDLE; return; }
     if !#alive(c.assigned_player.entity) { c.state = Npc_Chaser_State.IDLE; return; }
 
+    effective_speed := c.current_speed;
+    if c.chase_windup_remaining > 0 {
+        effective_speed = NPC_CHASE_WINDUP_SPEED;
+        c.chase_windup_remaining -= dt;
+    }
+
     player_pos := c.assigned_player.entity.world_position;
     my_world := c.entity.world_position;
     diff := player_pos - my_world;
@@ -103,7 +126,7 @@ tick_chaser_chasing :: proc(c: Npc_Chaser, dt: float) {
     }
     face_along_x(c.entity, diff.x);
     n := normalize(diff);
-    nudge_local_by_world_delta(c.entity, n * c.current_speed * dt);
+    nudge_local_by_world_delta(c.entity, n * effective_speed * dt);
 }
 
 tick_chaser_escorting :: proc(c: Npc_Chaser, dt: float) {
@@ -180,7 +203,7 @@ claim_or_get_chaser_in_room :: proc(r: Room_Npc, player: Player) -> Npc_Chaser {
 
 release_chasers_for_player :: proc(player: Player) {
     if player == null return;
-    for c: component_iterator(Npc_Chaser) {
+    for c: g_npc_chasers {
         if c == null continue;
         if c.assigned_player != player continue;
         c.assigned_player = null;
@@ -190,10 +213,15 @@ release_chasers_for_player :: proc(player: Player) {
 
 reset_chasers_for_player :: proc(player: Player) {
     if player == null return;
-    for c: component_iterator(Npc_Chaser) {
+    for c: g_npc_chasers {
         if c == null continue;
         if c.assigned_player != player continue;
         c.state = Npc_Chaser_State.IDLE;
+        if #alive(c.entity) {
+            // Snap back home — line crossing should instantly reset, not slow-lerp.
+            my_world := c.entity.world_position;
+            nudge_local_by_world_delta(c.entity, c.home_position - my_world);
+        }
     }
 }
 
@@ -207,6 +235,7 @@ room_npc_on_chase_enter :: proc(listener: Component, player: Player) {
     if c.state == Npc_Chaser_State.ESCORTING return;
     c.state = Npc_Chaser_State.CHASING;
     c.current_speed = c.speed_max;
+    c.chase_windup_remaining = 0; // first chase: full speed immediately
 }
 
 room_npc_on_chase_exit :: proc(listener: Component, player: Player) {
@@ -236,11 +265,12 @@ room_npc_on_jail_exit :: proc(listener: Component, player: Player) {
     if !has_in_room return;
 
     // Jailbreak — InNpcRoom stays on the player; chaser resumes at the slower
-    // re-chase speed so the player has a chance to escape/steal.
+    // re-chase speed (after a brief wind-up at NPC_CHASE_WINDUP_SPEED).
     c := get_player_chaser_in_room(r, player);
     if c != null {
         c.state = Npc_Chaser_State.CHASING;
         c.current_speed = c.speed_min;
+        c.chase_windup_remaining = NPC_CHASE_WINDUP_DURATION;
     }
 }
 
@@ -300,9 +330,12 @@ npc_punish_player :: proc(c: Npc_Chaser) {
     }
 
     // Clear effects and unfreeze.
-    remove_effect(c.assigned_player.entity, In_Npc_Room_Effect, false);
-    remove_effect(c.assigned_player.entity, Catched_By_Npc_Effect, false);
-    c.assigned_player.remove_freeze_reason(NPC_ESCORT_FREEZE_REASON);
+    target_player := c.assigned_player;
+    remove_effect(target_player.entity, In_Npc_Room_Effect, false);
+    remove_effect(target_player.entity, Catched_By_Npc_Effect, false);
+    target_player.remove_freeze_reason(NPC_ESCORT_FREEZE_REASON);
 
-    c.state = Npc_Chaser_State.IDLE;
+    // Snap all this player's chasers back home — player is teleported away, no
+    // one should keep pursuing the empty spot.
+    reset_chasers_for_player(target_player);
 }

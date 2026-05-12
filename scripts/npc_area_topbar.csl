@@ -1,0 +1,197 @@
+// Alternate topbar shown while the player is above the npc_line. Draws a
+// horizontal track at the top of the screen split into one colored segment
+// per Room_Npc chase_trigger Y range. Studs material is applied for the
+// Lego look. Below the bar, every player whose Y is in the NPC area gets a
+// PlayerPosUIBubble drawn at their position on the track.
+
+// Distinct per-segment tints — cycled by index across rooms.
+NPC_AREA_SEGMENT_COLORS: [8]v4 = {
+    {0.96, 0.42, 0.42, 1.0},
+    {0.96, 0.71, 0.30, 1.0},
+    {0.95, 0.90, 0.36, 1.0},
+    {0.45, 0.83, 0.50, 1.0},
+    {0.36, 0.70, 0.96, 1.0},
+    {0.66, 0.46, 0.91, 1.0},
+    {0.96, 0.46, 0.78, 1.0},
+    {0.55, 0.55, 0.55, 1.0},
+};
+
+// Studs material tuned for screen-space UI (the world-space variants in
+// scripts/studs.csl use a density of 20 which is in world units; for UI the
+// shader's `local_pos` is in pixels, so we need a much lower density.)
+// Currently unused — the bar uses shop_v2's box_panel shader instead. Keep
+// this around in case you want to flip back to the Lego look.
+NPC_AREA_STUDS_MATERIAL: Material;
+get_npc_area_studs_material :: proc() -> Material {
+    if NPC_AREA_STUDS_MATERIAL == null {
+        shader := get_asset(Shader_Asset, "shaders/studs.aosl");
+        if shader == null return null;
+        NPC_AREA_STUDS_MATERIAL = Material.create(shader);
+        NPC_AREA_STUDS_MATERIAL.set_float("stud_density",     0.04);
+        NPC_AREA_STUDS_MATERIAL.set_float("stud_size",        0.5);
+        NPC_AREA_STUDS_MATERIAL.set_float("light_strength",   0.35);
+        NPC_AREA_STUDS_MATERIAL.set_float("crevice_strength", 0.1);
+    }
+    return NPC_AREA_STUDS_MATERIAL;
+}
+
+// Build a Shop2_Box (box_panel shader config) from a base color — used for
+// each segment of the NPC area bar. Gives the gradient + dot-pattern look
+// from the shop without the outline / bottom band so adjacent segments
+// blend cleanly.
+npc_area_box_for_color :: proc(c: v4) -> Shop2_Box {
+    // Flat fill (same color top + bottom) — no gradient dimming. Dots use a
+    // darker tint of the same color so they read as accents without washing
+    // out the base.
+    b := shop2_default_box(c, c);
+    b.dot_cell       = 14.0;
+    b.dot_min_radius = 0.05;
+    b.dot_max_radius = 0.22;
+    b.dot_alpha      = 0.30;
+    b.band_color     = v4{c.x * 0.55, c.y * 0.55, c.z * 0.55, 1.0};
+    b.band_h         = 0;
+    b.outline_px     = 3.0;
+    b.outline_color  = v4{0, 0, 0, 1};
+    b.corner_radius  = 0;
+    return b;
+}
+
+// Collect Room_Npc instances that have a valid chase trigger, sorted by the
+// trigger's center Y ascending (so the bar reads "low → high" left to right).
+collect_sorted_npc_rooms :: proc(out: ref [..]Room_Npc) {
+    for r: component_iterator(Room_Npc) {
+        if r == null continue;
+        if r.chase_trigger == null continue;
+        if !#alive(r.chase_trigger.corner_a) continue;
+        if !#alive(r.chase_trigger.corner_b) continue;
+        append(ref out, r);
+    }
+    // Insertion sort by chase_trigger center Y.
+    for i: 1..out.count - 1 {
+        cur := out[i];
+        cur_c := room_npc_center_y(cur);
+        j := i - 1;
+        while j >= 0 && room_npc_center_y(out[j]) > cur_c {
+            out[j+1] = out[j];
+            j -= 1;
+        }
+        out[j+1] = cur;
+    }
+}
+
+room_npc_center_y :: proc(r: Room_Npc) -> float {
+    ay := r.chase_trigger.corner_a.world_position.y;
+    by := r.chase_trigger.corner_b.world_position.y;
+    return (ay + by) * 0.5;
+}
+
+// Map a player's world Y onto the bar's [0..1] X axis using equal-width
+// "glued" segments — one per Room_Npc, in sorted order. If the player is
+// inside a base's Y range, the bubble interpolates inside that base's slot;
+// if they're in a gap between bases, snap to the nearer slot edge.
+player_t_along_bar :: proc(rooms: [..]Room_Npc, py: float) -> float, bool {
+    if rooms.count <= 0 return 0, false;
+    N := rooms.count.(float);
+
+    // Inside a base?
+    for i: 0..rooms.count - 1 {
+        r := rooms[i];
+        ay := r.chase_trigger.corner_a.world_position.y;
+        by := r.chase_trigger.corner_b.world_position.y;
+        z_min := min(ay, by);
+        z_max := max(ay, by);
+        if py >= z_min && py <= z_max {
+            range := z_max - z_min;
+            local: float = 0.5;
+            if range > 0 local = (py - z_min) / range;
+            return (i.(float) + local) / N, true;
+        }
+    }
+
+    // In a gap — clamp to the edge of the nearest base.
+    best_i: s64 = 0;
+    best_dist: float = -1.0;
+    py_lt_first := py < min(rooms[0].chase_trigger.corner_a.world_position.y, rooms[0].chase_trigger.corner_b.world_position.y);
+    last := rooms.count - 1;
+    py_gt_last := py > max(rooms[last].chase_trigger.corner_a.world_position.y, rooms[last].chase_trigger.corner_b.world_position.y);
+    if py_lt_first return 0, true;
+    if py_gt_last return 1, true;
+    for i: 0..rooms.count - 1 {
+        d := abs(py - room_npc_center_y(rooms[i]));
+        if best_dist < 0 || d < best_dist {
+            best_dist = d;
+            best_i = i;
+        }
+    }
+    // Snap to the edge of the nearest base on the side of py.
+    cc := room_npc_center_y(rooms[best_i]);
+    if py < cc return best_i.(float) / N, true;
+    return (best_i.(float) + 1.0) / N, true;
+}
+
+draw_npc_area_topbar :: proc(local: Player) {
+    if local == null return;
+    if !#alive(local.entity) return;
+
+    rooms: [..]Room_Npc;
+    collect_sorted_npc_rooms(ref rooms);
+    if rooms.count == 0 return;
+
+    // Build the bar rect via scale-aware rect methods (raw pixel offsets would
+    // misbehave on non-1080p screens). Values below are "pixels at 1080p" and
+    // are auto-scaled by inset_*/cut_top.
+    BAR_HEIGHT      :: 70.0;
+    BAR_PAD_TOP     :: 16.0;
+    BAR_PAD_SIDE    :: 350.0;
+    BUBBLE_SIZE     :: 64.0;
+    BUBBLE_OFFSET   :: 4.0;
+
+    screen := UI.get_safe_screen_rect();
+    content := screen.inset_top(BAR_PAD_TOP).inset_left(BAR_PAD_SIDE).inset_right(BAR_PAD_SIDE);
+    bar := content.cut_top(BAR_HEIGHT);
+
+    UI.push_screen_draw_context();
+    defer UI.pop_draw_context();
+
+    // Solid black backdrop drawn behind the segments — fills any seams between
+    // adjacent boxes.
+    white := get_asset(Texture_Asset, "$AO/white.png");
+    UI.quad(bar, white, v4{0, 0, 0, 1});
+
+    // Equal-width "glued" segments — one per Room_Npc, no gaps in the UI even
+    // though there are gaps between bases in the world.
+    N := rooms.count.(float);
+    for i: 0..rooms.count - 1 {
+        t0 := i.(float) / N;
+        t1 := (i.(float) + 1.0) / N;
+        seg := bar.subrect(t0, 0, t1, 1);
+        color := NPC_AREA_SEGMENT_COLORS[i % NPC_AREA_SEGMENT_COLORS.count];
+        draw_box(seg, npc_area_box_for_color(color));
+
+        // // Studs alternative — uncomment to use the Lego-stud look instead.
+        // // Note: density must be tied to bar height for resolution-independence.
+        // studs := get_npc_area_studs_material();
+        // if studs != null {
+        //     bar_h_px := bar.max.y - bar.min.y;
+        //     if bar_h_px > 0 studs.set_float("stud_density", 2.0 / bar_h_px);
+        //     UI.push_material(studs);
+        //     UI.quad(seg, white, color);
+        //     UI.pop_material();
+        // }
+    }
+
+    // PlayerPosUIBubble under the bar for every player currently in the NPC area.
+    bubble_tex := get_asset(Texture_Asset, "Textures/UI/PlayerPosUIBubble.png");
+    if bubble_tex == null return;
+
+    for p: component_iterator(Player) {
+        if p == null continue;
+        if !#alive(p.entity) continue;
+        py := p.entity.world_position.y;
+        t, ok := player_t_along_bar(rooms, py);
+        if !ok continue;
+        anchor := bar.subrect(t, 0, t, 0);
+        bubble := anchor.grow(0, BUBBLE_SIZE * 0.5, BUBBLE_SIZE + BUBBLE_OFFSET, BUBBLE_SIZE * 0.5);
+        UI.quad(bubble, bubble_tex);
+    }
+}

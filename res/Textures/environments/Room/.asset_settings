@@ -1,5 +1,23 @@
 [
   {
+    "id": "Textures/environments/Room/Sidewalk/sidewalk_bottom.png",
+    "texture": {
+      "wrap_repeat": true
+    }
+  },
+  {
+    "id": "Textures/environments/Room/Sidewalk/sidewalk_top.png",
+    "texture": {
+      "wrap_repeat": true
+    }
+  },
+  {
+    "id": "Textures/environments/Room/topsides.png",
+    "texture": {
+      "wrap_repeat": true
+    }
+  },
+  {
     "id": "Textures/environments/Room/scifi_vertical_wall.png"
   },
   {

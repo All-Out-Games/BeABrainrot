@@ -366,10 +366,16 @@ LivingEntity :: class : Interactable {
     }
 
     update_visuals :: method() {
-        mult := 1.0 + (level - 1).(float) * SCALE_PER_LEVEL;
-        s := LIVING_ENTITY_MIN_SCALE * base_scale * mult;
-        if s > LIVING_ENTITY_MAX_SCALE s = LIVING_ENTITY_MAX_SCALE;
-        entity.set_local_scale({s, s});
+        if this.#type == LivingEntity_Npc {
+            // NPC brainrots stay at scale 1 regardless of level — only their
+            // mutation material updates.
+            entity.set_local_scale({1, 1});
+        } else {
+            mult := 1.0 + (level - 1).(float) * SCALE_PER_LEVEL;
+            s := LIVING_ENTITY_MIN_SCALE * base_scale * mult;
+            if s > LIVING_ENTITY_MAX_SCALE s = LIVING_ENTITY_MAX_SCALE;
+            entity.set_local_scale({s, s});
+        }
 
         if sprite != null {
             mat := get_mutation_material(mutation);

@@ -37,14 +37,14 @@ the begin/end phase, so:
 ## Workaround we landed on (for `shop_v3.csl`)
 
 Use UIK only for layout, then run a **post-end shader pass** that reads the
-resolved rect of each panel via the `Interact_Handle` it returned and paints
+resolved rect of each panel via the `Interact_Result` it returned and paints
 our shader-backed quad ourselves.
 
 Key pieces:
 
 - Every shaded panel uses `panel_begin_interactive(id, desc)` so we get an
-  `Interact_Handle`. The handle resolves to `Interact_Result.rect` — the
-  actual screen-space rect (already exists at `generated.csl_engine:550`).
+  `Interact_Result`, whose `.rect` field is the actual post-layout
+  screen-space rect (see `core.csl_engine:557`).
 - Every shaded panel sets `desc.show_background = false` so UIK doesn't
   paint its own fill on top.
 - `UIK.modal(rect, layer, backdrop_color)` is called with a fully
@@ -64,7 +64,7 @@ UIK.panel_end();
 UIK.end();
 
 // post-end shader pass
-banner_rect := UIK.resolve(banner_h).rect;
+banner_rect := banner_h.rect;
 push_box_panel_material_with_rect(banner_rect, banner_box);
 UI.quad(banner_rect, white_sprite, {1,1,1,1});
 UI.pop_material();

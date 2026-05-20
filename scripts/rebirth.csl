@@ -224,7 +224,7 @@ draw_rebirth_modal :: proc(player: Player) {
     }
     UIK.panel_end();
 
-    draw_rebirth_preview_card(format_string("Rebirth %", {player.rebirth_level + 1}), format_string("%0x Money", {format_float(next_mult, decimals=1)}), .BUTTON_BASIC_YELLOW1, money_icon);
+    draw_rebirth_preview_card(format_string("Rebirth %", {player.rebirth_level + 1}), format_string("%0x Money", {format_float(next_mult, decimals=1)}), .BUTTON_BASIC_YELLOW, money_icon);
 
     UIK.panel_end(); // preview
 

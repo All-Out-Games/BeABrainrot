@@ -84,12 +84,12 @@ try_buy_speed_upgrade_sparks :: proc(player: Player, amount: s64) -> bool {
 }
 
 Speed_Upgrade_Row_Handles :: struct {
-    cash: UIK.Interact_Handle;
-    sparks: UIK.Interact_Handle;
+    cash: Interact_Result;
+    sparks: Interact_Result;
 }
 
 Speed_Upgrade_Handles :: struct {
-    exit: UIK.Interact_Handle;
+    exit: Interact_Result;
     row_1: Speed_Upgrade_Row_Handles;
     row_5: Speed_Upgrade_Row_Handles;
     row_10: Speed_Upgrade_Row_Handles;
@@ -140,7 +140,7 @@ draw_speed_upgrade_row :: proc(player: Player, amount: s64, id_suffix: string) -
     cash_desc.panel.height = UIK.pixels(55);
     handles.cash = UIK.button(format_string("speed_buy_cash_%", {id_suffix}), format_cash(cash_cost), cash_desc);
 
-    sparks_desc := UIK.widget_desc_button_auto_default(.BUTTON_BASIC_YELLOW1);
+    sparks_desc := UIK.widget_desc_button_auto_default(.BUTTON_BASIC_YELLOW);
     sparks_desc.panel.width = UIK.flex(1);
     sparks_desc.panel.height = UIK.pixels(55);
     handles.sparks = UIK.button(format_string("speed_buy_sparks_%", {id_suffix}), format_string("% Sparks", {sparks_cost}), sparks_desc);
@@ -221,7 +221,7 @@ draw_speed_upgrade_toggle_button :: proc(player: Player) {
     }
     equip_h := UIK.button("equip_best", equip_label, equip_desc);
 
-    shop_desc := UIK.widget_desc_button_default(.BUTTON_BASIC_YELLOW1);
+    shop_desc := UIK.widget_desc_button_default(.BUTTON_BASIC_YELLOW);
     shop_desc.panel.width = UIK.flex(1);
     shop_desc.panel.height = UIK.pixels(90);
     shop_h := UIK.button("shop_toggle", "SHOP", shop_desc);

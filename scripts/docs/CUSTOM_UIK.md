@@ -27,10 +27,9 @@ and paint our shader-backed quads from CSL.
 
 ### How to get a panel's resolved rect
 
-`UIK.panel_begin_interactive(id, desc)` returns an `Interact_Handle`. The
-struct it resolves into (`UIK.resolve(handle)`) has a `rect: Rect` field
-(see `generated.csl_engine:550`). That rect is the post-layout screen-space
-rectangle of the panel.
+`UIK.panel_begin_interactive(id, desc)` returns an `Interact_Result`, which
+has a `rect: Rect` field directly (see `core.csl_engine:557`). That rect is
+the post-layout screen-space rectangle of the panel.
 
 ```csl
 banner_h := UIK.panel_begin_interactive("banner", banner_desc);
@@ -38,7 +37,7 @@ banner_h := UIK.panel_begin_interactive("banner", banner_desc);
 UIK.panel_end();
 UIK.end();
 
-banner_rect := UIK.resolve(banner_h).rect;
+banner_rect := banner_h.rect;
 ```
 
 > First frame after the modal opens, the rect can be uninitialised. Check

@@ -434,7 +434,7 @@ draw_sell_modal :: proc(player: Player) {
     body.gap = 8;
     UIK.panel_begin(body);
 
-    sell_handles: [..]UIK.Interact_Handle;
+    sell_handles: [..]Interact_Result;
     sell_handle_indices: [..]s64;
 
     list_panel := UIK.layout_column();

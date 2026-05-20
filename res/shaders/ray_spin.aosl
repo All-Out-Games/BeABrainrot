@@ -1,0 +1,69 @@
+!!inputs {
+    texture albedo ALBEDO
+    texture image            // the ray-burst texture to spin
+    float4 rect_px           // screen-space rect of the quad: (minX,minY,maxX,maxY) in pixels
+    float spin_speed         // rotation rate in radians/second
+    float fill_scale         // burst size vs min(panel dimension); 1 = inscribed, >1 overflows
+}
+
+!!pipeline {
+    Pixel_Format: RGBA8_SRGB
+    Blend_Enabled: true
+    Depth_Enabled: true
+    Blend_Src: ONE
+    Blend_Dst: ONE_MINUS_SRC_ALPHA
+    Blend_Op: ADD
+    Alpha_Blend_Src: ONE
+    Alpha_Blend_Dst: ONE
+    Alpha_Blend_Op: ADD
+    Blend_Color: (1, 1, 1, 1)
+}
+
+!!vs
+struct vs_out {
+    float4 color: COLOR0;
+    float2 uv: UV;
+    float2 screen_uv: TEXCOORD0;
+    float4 pos: SV_Position;
+};
+vs_out vs_main(vs_in inp) {
+    vs_out outp;
+    outp.pos = mul(mvp, float4(inp.pos.xy, 0, 1.0f));
+    outp.uv = inp.uv;
+    outp.screen_uv = (outp.pos.xy / outp.pos.w + float2(1,1)) * 0.5f;
+    outp.color = inp.color;
+    return outp;
+}
+
+!!ps
+float4 ps_main(float4 vtxColor: COLOR0, float2 uv: UV, float2 screen_uv: TEXCOORD0): SV_Target0
+{
+    // Pixel position inside the panel rect that UIK feeds us via rect_px.
+    float2 svpos_px = screen_uv * resolution_time.xy;
+    float2 rectMin  = rect_px.xy;
+    float2 rectMax  = rect_px.zw;
+    float2 rectSize = max(rectMax - rectMin, 1e-6.xx);
+    float2 center   = (rectMin + rectMax) * 0.5f;
+
+    // Rotate the sample coordinate around the panel center. resolution_time.z
+    // is elapsed time in seconds (same source box_panel.aosl uses for hue).
+    float  ang = resolution_time.z * spin_speed;
+    float  c   = cos(ang);
+    float  s   = sin(ang);
+    float2 p   = svpos_px - center;
+    float2 rp  = float2(p.x * c - p.y * s, p.x * s + p.y * c);
+
+    // Map into the burst texture: a centered square sized by the smaller
+    // panel dimension, scaled by fill_scale so it can overflow the panel.
+    float  half_dim = min(rectSize.x, rectSize.y) * 0.5f * max(fill_scale, 1e-3f);
+    float2 uv_img   = rp / (2.0f * half_dim) + 0.5f;
+
+    // Discard anything outside the texture so rotation doesn't clamp-smear.
+    float2 inMin = step(0.0f, uv_img);
+    float2 inMax = step(uv_img, 1.0f);
+    float  mask  = inMin.x * inMin.y * inMax.x * inMax.y;
+
+    float4 tex = image.Sample(image_smp, saturate(uv_img));
+    float  a   = tex.a * mask * vtxColor.a;
+    return float4(tex.rgb * vtxColor.rgb * a, a);
+}

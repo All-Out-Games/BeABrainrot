@@ -1,0 +1,208 @@
+GLSL
+Vertex Shader:
+#version 300 es
+precision highp float;
+precision highp int;
+
+struct type_params
+{
+    mat4 mvp;
+    vec4 resolution_time;
+    int matrix_image_size;
+};
+
+uniform type_params params;
+
+layout(location = 0) in vec2 in_var_POS;
+layout(location = 1) in vec2 in_var_UV;
+layout(location = 3) in vec4 in_var_COLOR;
+out vec4 var_COLOR0;
+out vec2 var_UV;
+
+void main()
+{
+    var_COLOR0 = in_var_COLOR;
+    var_UV = in_var_UV;
+    gl_Position = vec4(in_var_POS, 0.0, 1.0) * params.mvp;
+}
+
+
+
+Fragment Shader:
+#version 300 es
+precision highp float;
+precision highp int;
+
+struct type_user_input
+{
+    vec4 top_color;
+    vec4 bottom_color;
+    vec4 sprite_uv;
+    float dot_cell_px;
+    float dot_min_radius;
+    float dot_max_radius;
+    float dot_alpha;
+    float bottom_band_h;
+    vec3 _ao_pad0;
+    vec4 bottom_band_color;
+    float outline_px;
+    vec3 _ao_pad1;
+    vec4 outline_color;
+    float corner_radius_px;
+    float rainbow_strength;
+    float rainbow_speed;
+    float rainbow_hue_span;
+};
+
+uniform type_user_input user_input;
+
+struct type_params
+{
+    mat4 mvp;
+    vec4 resolution_time;
+    int matrix_image_size;
+};
+
+uniform type_params params;
+
+uniform highp sampler2D albedo;
+
+in vec4 var_COLOR0;
+in vec2 var_UV;
+layout(location = 0) out vec4 out_var_SV_Target0;
+
+void main()
+{
+    vec4 _80 = texture(albedo, var_UV);
+    bvec3 _293 = isnan(user_input.top_color.xyz);
+    bvec3 _294 = isnan(vec3(0.0));
+    vec3 _295 = max(user_input.top_color.xyz, vec3(0.0));
+    vec3 _296 = vec3(_293.x ? vec3(0.0).x : _295.x, _293.y ? vec3(0.0).y : _295.y, _293.z ? vec3(0.0).z : _295.z);
+    bvec3 _298 = isnan(user_input.bottom_color.xyz);
+    bvec3 _299 = isnan(vec3(0.0));
+    vec3 _300 = max(user_input.bottom_color.xyz, vec3(0.0));
+    vec3 _301 = vec3(_298.x ? vec3(0.0).x : _300.x, _298.y ? vec3(0.0).y : _300.y, _298.z ? vec3(0.0).z : _300.z);
+    bvec3 _303 = isnan(user_input.bottom_band_color.xyz);
+    bvec3 _304 = isnan(vec3(0.0));
+    vec3 _305 = max(user_input.bottom_band_color.xyz, vec3(0.0));
+    vec3 _306 = vec3(_303.x ? vec3(0.0).x : _305.x, _303.y ? vec3(0.0).y : _305.y, _303.z ? vec3(0.0).z : _305.z);
+    vec3 _96 = pow(vec3(_304.x ? user_input.bottom_band_color.xyz.x : _306.x, _304.y ? user_input.bottom_band_color.xyz.y : _306.y, _304.z ? user_input.bottom_band_color.xyz.z : _306.z), vec3(2.2000000476837158203125));
+    bvec3 _308 = isnan(user_input.outline_color.xyz);
+    bvec3 _309 = isnan(vec3(0.0));
+    vec3 _310 = max(user_input.outline_color.xyz, vec3(0.0));
+    vec3 _311 = vec3(_308.x ? vec3(0.0).x : _310.x, _308.y ? vec3(0.0).y : _310.y, _308.z ? vec3(0.0).z : _310.z);
+    vec2 _106 = user_input.sprite_uv.zw - user_input.sprite_uv.xy;
+    bool _113;
+    if (_106.x > 9.9999997473787516355514526367188e-05)
+    {
+        _113 = _106.y > 9.9999997473787516355514526367188e-05;
+    }
+    else
+    {
+        _113 = false;
+    }
+    vec2 _119;
+    if (_113)
+    {
+        _119 = (var_UV - user_input.sprite_uv.xy) / _106;
+    }
+    else
+    {
+        _119 = var_UV;
+    }
+    vec2 _120 = clamp(_119, vec2(0.0), vec2(1.0));
+    float _121 = _120.x;
+    float _122 = dFdx(_121);
+    float _123 = abs(_122);
+    float _125 = 1.0 / (isnan(9.9999999392252902907785028219223e-09) ? _123 : (isnan(_123) ? 9.9999999392252902907785028219223e-09 : max(_123, 9.9999999392252902907785028219223e-09)));
+    float _126 = _120.y;
+    float _127 = dFdy(_126);
+    float _128 = abs(_127);
+    float _130 = 1.0 / (isnan(9.9999999392252902907785028219223e-09) ? _128 : (isnan(_128) ? 9.9999999392252902907785028219223e-09 : max(_128, 9.9999999392252902907785028219223e-09)));
+    float _132 = _126 * _130;
+    vec2 _133 = vec2(_121 * _125, _132);
+    float _136 = params.resolution_time.y * 0.000925925909541547298431396484375;
+    float _137 = isnan(_136) ? 0.5 : (isnan(0.5) ? _136 : max(0.5, _136));
+    vec3 _139 = mix(pow(vec3(_294.x ? user_input.top_color.xyz.x : _296.x, _294.y ? user_input.top_color.xyz.y : _296.y, _294.z ? user_input.top_color.xyz.z : _296.z), vec3(2.2000000476837158203125)), pow(vec3(_299.x ? user_input.bottom_color.xyz.x : _301.x, _299.y ? user_input.bottom_color.xyz.y : _301.y, _299.z ? user_input.bottom_color.xyz.z : _301.z), vec3(2.2000000476837158203125)), vec3(_126));
+    vec3 _202;
+    if (user_input.rainbow_strength > 0.0)
+    {
+        vec3 _194;
+        do
+        {
+            float _165 = fract(((_121 * _125 + _132) / (_125 + _130)) * ((user_input.rainbow_hue_span > 0.0) ? user_input.rainbow_hue_span : 1.0) + (params.resolution_time.z * user_input.rainbow_speed));
+            float _167 = floor(_165 * 6.0);
+            float _169 = _165 * 6.0 + (-_167);
+            float _170 = (-0.85000002384185791015625) * _169 + 1.0;
+            float _172 = (-0.85000002384185791015625) * (1.0 - _169) + 1.0;
+            if (_167 < 1.0)
+            {
+                _194 = vec3(1.0, _172, 0.14999997615814208984375);
+                break;
+            }
+            if (_167 < 2.0)
+            {
+                _194 = vec3(_170, 1.0, 0.14999997615814208984375);
+                break;
+            }
+            if (_167 < 3.0)
+            {
+                _194 = vec3(0.14999997615814208984375, 1.0, _172);
+                break;
+            }
+            if (_167 < 4.0)
+            {
+                _194 = vec3(0.14999997615814208984375, _170, 1.0);
+                break;
+            }
+            if (_167 < 5.0)
+            {
+                _194 = vec3(_172, 0.14999997615814208984375, 1.0);
+                break;
+            }
+            _194 = vec3(1.0, 0.14999997615814208984375, _170);
+            break;
+        } while(false);
+        vec3 _196 = _194 * mix(1.0, 0.85000002384185791015625, _126);
+        bvec3 _328 = isnan(_196);
+        bvec3 _329 = isnan(vec3(0.0));
+        vec3 _330 = max(_196, vec3(0.0));
+        vec3 _331 = vec3(_328.x ? vec3(0.0).x : _330.x, _328.y ? vec3(0.0).y : _330.y, _328.z ? vec3(0.0).z : _330.z);
+        _202 = mix(_139, pow(vec3(_329.x ? _196.x : _331.x, _329.y ? _196.y : _331.y, _329.z ? _196.z : _331.z), vec3(2.2000000476837158203125)), vec3(clamp(user_input.rainbow_strength, 0.0, 1.0)));
+    }
+    else
+    {
+        _202 = _139;
+    }
+    float _205 = user_input.dot_cell_px * _137;
+    float _206 = isnan(_205) ? 1.0 : (isnan(1.0) ? _205 : max(1.0, _205));
+    float _219 = clamp(mix(user_input.dot_min_radius, user_input.dot_max_radius, pow(clamp(_126, 0.0, 1.0), 2.599999904632568359375)), 0.0, 0.5);
+    float _220 = 2.0 / _206;
+    float _232 = user_input.bottom_band_h * _137;
+    float _233 = isnan(_232) ? 0.0 : (isnan(0.0) ? _232 : max(0.0, _232));
+    vec3 _244 = mix(mix(_202, _96, vec3((1.0 - smoothstep(_219 - _220, _219 + _220, length(fract(_133 / vec2(_206)) - vec2(0.5)))) * user_input.dot_alpha)), _96, vec3((1.0 - smoothstep(_233 - 1.0, _233 + 1.0, (-_126) * _130 + _130)) * user_input.bottom_band_color.w));
+    vec2 _246 = vec2(_125, _130) * 0.5;
+    float _249 = user_input.corner_radius_px * _137;
+    float _250 = isnan(_249) ? 0.0 : (isnan(0.0) ? _249 : max(0.0, _249));
+    vec2 _255 = (abs(_133 - _246) - _246) + vec2(_250);
+    bvec2 _348 = isnan(_255);
+    bvec2 _349 = isnan(vec2(0.0));
+    vec2 _350 = max(_255, vec2(0.0));
+    vec2 _351 = vec2(_348.x ? vec2(0.0).x : _350.x, _348.y ? vec2(0.0).y : _350.y);
+    float _258 = _255.x;
+    float _259 = _255.y;
+    float _260 = isnan(_259) ? _258 : (isnan(_258) ? _259 : max(_258, _259));
+    float _263 = (length(vec2(_349.x ? _255.x : _351.x, _349.y ? _255.y : _351.y)) + (isnan(0.0) ? _260 : (isnan(_260) ? 0.0 : min(_260, 0.0)))) - _250;
+    vec3 _279;
+    if (user_input.outline_px > 0.0)
+    {
+        _279 = mix(_244, pow(vec3(_309.x ? user_input.outline_color.xyz.x : _311.x, _309.y ? user_input.outline_color.xyz.y : _311.y, _309.z ? user_input.outline_color.xyz.z : _311.z), vec3(2.2000000476837158203125)), vec3((1.0 - smoothstep(user_input.outline_px * _137 + (-1.0), user_input.outline_px * _137 + 1.0, -_263)) * user_input.outline_color.w));
+    }
+    else
+    {
+        _279 = _244;
+    }
+    float _284 = ((var_COLOR0 * _80).w * mix(user_input.top_color.w, user_input.bottom_color.w, _126)) * (1.0 - smoothstep(-1.0, 1.0, _263));
+    out_var_SV_Target0 = vec4(_279 * _284, _284);
+}
+

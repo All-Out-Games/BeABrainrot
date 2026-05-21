@@ -1,0 +1,396 @@
+MSL(OSX)
+Vertex Shader:
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct type_params
+{
+    float4x4 mvp;
+    float4 resolution_time;
+    int matrix_image_size;
+};
+
+struct vs_main_out
+{
+    float4 out_var_COLOR0 [[user(locn0)]];
+    float2 out_var_UV [[user(locn1)]];
+    float4 gl_Position [[position]];
+};
+
+struct vs_main_in
+{
+    float2 in_var_POS [[attribute(0)]];
+    float2 in_var_UV [[attribute(1)]];
+    float4 in_var_COLOR [[attribute(3)]];
+};
+
+vertex vs_main_out vs_main(vs_main_in in [[stage_in]], constant type_params& params [[buffer(0)]])
+{
+    vs_main_out out = {};
+    out.out_var_COLOR0 = in.in_var_COLOR;
+    out.out_var_UV = in.in_var_UV;
+    out.gl_Position = params.mvp * float4(in.in_var_POS, 0.0, 1.0);
+    return out;
+}
+
+
+
+Fragment Shader:
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct type_user_input
+{
+    float4 top_color;
+    float4 bottom_color;
+    float4 sprite_uv;
+    float dot_cell_px;
+    float dot_min_radius;
+    float dot_max_radius;
+    float dot_alpha;
+    float bottom_band_h;
+    packed_float3 _ao_pad0;
+    float4 bottom_band_color;
+    float outline_px;
+    packed_float3 _ao_pad1;
+    float4 outline_color;
+    float corner_radius_px;
+    float rainbow_strength;
+    float rainbow_speed;
+    float rainbow_hue_span;
+};
+
+struct type_params
+{
+    float4x4 mvp;
+    float4 resolution_time;
+    int matrix_image_size;
+};
+
+struct ps_main_out
+{
+    float4 out_var_SV_Target0 [[color(0)]];
+};
+
+struct ps_main_in
+{
+    float4 in_var_COLOR0 [[user(locn0)]];
+    float2 in_var_UV [[user(locn1)]];
+};
+
+fragment ps_main_out ps_main(ps_main_in in [[stage_in]], constant type_params& params [[buffer(0)]], constant type_user_input& user_input [[buffer(1)]], texture2d<float> albedo [[texture(0)]], sampler albedo_smp [[sampler(0)]])
+{
+    ps_main_out out = {};
+    float4 _80 = albedo.sample(albedo_smp, in.in_var_UV);
+    float3 _96 = powr(precise::max(user_input.bottom_band_color.xyz, float3(0.0)), float3(2.2000000476837158203125));
+    float2 _106 = user_input.sprite_uv.zw - user_input.sprite_uv.xy;
+    bool _113;
+    if (_106.x > 9.9999997473787516355514526367188e-05)
+    {
+        _113 = _106.y > 9.9999997473787516355514526367188e-05;
+    }
+    else
+    {
+        _113 = false;
+    }
+    float2 _119;
+    if (_113)
+    {
+        _119 = (in.in_var_UV - user_input.sprite_uv.xy) / _106;
+    }
+    else
+    {
+        _119 = in.in_var_UV;
+    }
+    float2 _120 = fast::clamp(_119, float2(0.0), float2(1.0));
+    float _121 = _120.x;
+    float _122 = dfdx(_121);
+    float _125 = 1.0 / precise::max(abs(_122), 9.9999999392252902907785028219223e-09);
+    float _126 = _120.y;
+    float _127 = dfdy(_126);
+    float _130 = 1.0 / precise::max(abs(_127), 9.9999999392252902907785028219223e-09);
+    float _132 = _126 * _130;
+    float2 _133 = float2(_121 * _125, _132);
+    float _137 = precise::max(0.5, params.resolution_time.y * 0.000925925909541547298431396484375);
+    float3 _139 = mix(powr(precise::max(user_input.top_color.xyz, float3(0.0)), float3(2.2000000476837158203125)), powr(precise::max(user_input.bottom_color.xyz, float3(0.0)), float3(2.2000000476837158203125)), float3(_126));
+    float3 _202;
+    if (user_input.rainbow_strength > 0.0)
+    {
+        float3 _194;
+        do
+        {
+            float _165 = fract(fma(fma(_121, _125, _132) / (_125 + _130), (user_input.rainbow_hue_span > 0.0) ? user_input.rainbow_hue_span : 1.0, params.resolution_time.z * user_input.rainbow_speed));
+            float _167 = floor(_165 * 6.0);
+            float _169 = fma(_165, 6.0, -_167);
+            float _170 = fma(-0.85000002384185791015625, _169, 1.0);
+            float _172 = fma(-0.85000002384185791015625, 1.0 - _169, 1.0);
+            if (_167 < 1.0)
+            {
+                _194 = float3(1.0, _172, 0.14999997615814208984375);
+                break;
+            }
+            if (_167 < 2.0)
+            {
+                _194 = float3(_170, 1.0, 0.14999997615814208984375);
+                break;
+            }
+            if (_167 < 3.0)
+            {
+                _194 = float3(0.14999997615814208984375, 1.0, _172);
+                break;
+            }
+            if (_167 < 4.0)
+            {
+                _194 = float3(0.14999997615814208984375, _170, 1.0);
+                break;
+            }
+            if (_167 < 5.0)
+            {
+                _194 = float3(_172, 0.14999997615814208984375, 1.0);
+                break;
+            }
+            _194 = float3(1.0, 0.14999997615814208984375, _170);
+            break;
+        } while(false);
+        _202 = mix(_139, powr(precise::max(_194 * mix(1.0, 0.85000002384185791015625, _126), float3(0.0)), float3(2.2000000476837158203125)), float3(fast::clamp(user_input.rainbow_strength, 0.0, 1.0)));
+    }
+    else
+    {
+        _202 = _139;
+    }
+    float _206 = precise::max(1.0, user_input.dot_cell_px * _137);
+    float _219 = fast::clamp(mix(user_input.dot_min_radius, user_input.dot_max_radius, powr(fast::clamp(_126, 0.0, 1.0), 2.599999904632568359375)), 0.0, 0.5);
+    float _220 = 2.0 / _206;
+    float _233 = precise::max(0.0, user_input.bottom_band_h * _137);
+    float3 _244 = mix(mix(_202, _96, float3((1.0 - smoothstep(_219 - _220, _219 + _220, length(fract(_133 / float2(_206)) - float2(0.5)))) * user_input.dot_alpha)), _96, float3((1.0 - smoothstep(_233 - 1.0, _233 + 1.0, fma(-_126, _130, _130))) * user_input.bottom_band_color.w));
+    float2 _246 = float2(_125, _130) * 0.5;
+    float _250 = precise::max(0.0, user_input.corner_radius_px * _137);
+    float2 _255 = (abs(_133 - _246) - _246) + float2(_250);
+    float _263 = (length(precise::max(_255, float2(0.0))) + precise::min(precise::max(_255.x, _255.y), 0.0)) - _250;
+    float3 _279;
+    if (user_input.outline_px > 0.0)
+    {
+        _279 = mix(_244, powr(precise::max(user_input.outline_color.xyz, float3(0.0)), float3(2.2000000476837158203125)), float3((1.0 - smoothstep(fma(user_input.outline_px, _137, -1.0), fma(user_input.outline_px, _137, 1.0), -_263)) * user_input.outline_color.w));
+    }
+    else
+    {
+        _279 = _244;
+    }
+    float _284 = ((in.in_var_COLOR0 * _80).w * mix(user_input.top_color.w, user_input.bottom_color.w, _126)) * (1.0 - smoothstep(-1.0, 1.0, _263));
+    out.out_var_SV_Target0 = float4(_279 * _284, _284);
+    return out;
+}
+
+
+MSL(iOS)
+Vertex Shader:
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct type_params
+{
+    float4x4 mvp;
+    float4 resolution_time;
+    int matrix_image_size;
+};
+
+struct vs_main_in
+{
+    float2 in_var_POS [[attribute(0)]];
+    float2 in_var_UV [[attribute(1)]];
+    float4 in_var_COLOR [[attribute(3)]];
+};
+
+struct vs_main_out
+{
+    float4 out_out_var_COLOR0 [[user(locn0)]];
+    float2 out_out_var_UV [[user(locn1)]];
+    float4 out_gl_Position [[position]];
+};
+
+struct vs_main_in_1
+{
+    float2 in_in_var_POS [[attribute(0)]];
+    float2 in_in_var_UV [[attribute(1)]];
+    float4 in_in_var_COLOR [[attribute(3)]];
+};
+
+vertex vs_main_out vs_main(vs_main_in_1 in [[stage_in]], constant type_params& params [[buffer(0)]])
+{
+    vs_main_out out = {};
+    vs_main_out out_1 = {};
+    out.out.out_var_COLOR0 = in.in.in_var_COLOR;
+    out.out.out_var_UV = in.in.in_var_UV;
+    out.gl_Position = params.mvp * float4(in.in.in_var_POS, 0.0, 1.0);
+    return out_1;
+}
+
+
+
+Fragment Shader:
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct type_user_input
+{
+    float4 top_color;
+    float4 bottom_color;
+    float4 sprite_uv;
+    float dot_cell_px;
+    float dot_min_radius;
+    float dot_max_radius;
+    float dot_alpha;
+    float bottom_band_h;
+    packed_float3 _ao_pad0;
+    float4 bottom_band_color;
+    float outline_px;
+    packed_float3 _ao_pad1;
+    float4 outline_color;
+    float corner_radius_px;
+    float rainbow_strength;
+    float rainbow_speed;
+    float rainbow_hue_span;
+};
+
+struct type_params
+{
+    float4x4 mvp;
+    float4 resolution_time;
+    int matrix_image_size;
+};
+
+struct ps_main_out
+{
+    float4 out_var_SV_Target0 [[color(0)]];
+};
+
+struct ps_main_in
+{
+    float4 in_var_COLOR0 [[user(locn0)]];
+    float2 in_var_UV [[user(locn1)]];
+};
+
+struct ps_main_out_1
+{
+    float4 out_out_var_SV_Target0 [[color(0)]];
+};
+
+struct ps_main_in_1
+{
+    float4 in_in_var_COLOR0 [[user(locn0)]];
+    float2 in_in_var_UV [[user(locn1)]];
+};
+
+fragment ps_main_out_1 ps_main(ps_main_in_1 in [[stage_in]], constant type_params& params [[buffer(0)]], constant type_user_input& user_input [[buffer(1)]], texture2d<float> albedo [[texture(0)]], sampler albedo_smp [[sampler(0)]])
+{
+    ps_main_out out = {};
+    ps_main_out_1 out_1 = {};
+    float4 _80 = albedo.sample(albedo_smp, in.in.in_var_UV);
+    float3 _96 = powr(precise::max(user_input.bottom_band_color.xyz, float3(0.0)), float3(2.2000000476837158203125));
+    float2 _106 = user_input.sprite_uv.zw - user_input.sprite_uv.xy;
+    bool _113;
+    if (_106.x > 9.9999997473787516355514526367188e-05)
+    {
+        _113 = _106.y > 9.9999997473787516355514526367188e-05;
+    }
+    else
+    {
+        _113 = false;
+    }
+    float2 _119;
+    if (_113)
+    {
+        _119 = (in.in.in_var_UV - user_input.sprite_uv.xy) / _106;
+    }
+    else
+    {
+        _119 = in.in.in_var_UV;
+    }
+    float2 _120 = fast::clamp(_119, float2(0.0), float2(1.0));
+    float _121 = _120.x;
+    float _122 = dfdx(_121);
+    float _125 = 1.0 / precise::max(abs(_122), 9.9999999392252902907785028219223e-09);
+    float _126 = _120.y;
+    float _127 = dfdy(_126);
+    float _130 = 1.0 / precise::max(abs(_127), 9.9999999392252902907785028219223e-09);
+    float _132 = _126 * _130;
+    float2 _133 = float2(_121 * _125, _132);
+    float _137 = precise::max(0.5, params.resolution_time.y * 0.000925925909541547298431396484375);
+    float3 _139 = mix(powr(precise::max(user_input.top_color.xyz, float3(0.0)), float3(2.2000000476837158203125)), powr(precise::max(user_input.bottom_color.xyz, float3(0.0)), float3(2.2000000476837158203125)), float3(_126));
+    float3 _202;
+    if (user_input.rainbow_strength > 0.0)
+    {
+        float3 _194;
+        do
+        {
+            float _165 = fract(fma(fma(_121, _125, _132) / (_125 + _130), (user_input.rainbow_hue_span > 0.0) ? user_input.rainbow_hue_span : 1.0, params.resolution_time.z * user_input.rainbow_speed));
+            float _167 = floor(_165 * 6.0);
+            float _169 = fma(_165, 6.0, -_167);
+            float _170 = fma(-0.85000002384185791015625, _169, 1.0);
+            float _172 = fma(-0.85000002384185791015625, 1.0 - _169, 1.0);
+            if (_167 < 1.0)
+            {
+                _194 = float3(1.0, _172, 0.14999997615814208984375);
+                break;
+            }
+            if (_167 < 2.0)
+            {
+                _194 = float3(_170, 1.0, 0.14999997615814208984375);
+                break;
+            }
+            if (_167 < 3.0)
+            {
+                _194 = float3(0.14999997615814208984375, 1.0, _172);
+                break;
+            }
+            if (_167 < 4.0)
+            {
+                _194 = float3(0.14999997615814208984375, _170, 1.0);
+                break;
+            }
+            if (_167 < 5.0)
+            {
+                _194 = float3(_172, 0.14999997615814208984375, 1.0);
+                break;
+            }
+            _194 = float3(1.0, 0.14999997615814208984375, _170);
+            break;
+        } while(false);
+        _202 = mix(_139, powr(precise::max(_194 * mix(1.0, 0.85000002384185791015625, _126), float3(0.0)), float3(2.2000000476837158203125)), float3(fast::clamp(user_input.rainbow_strength, 0.0, 1.0)));
+    }
+    else
+    {
+        _202 = _139;
+    }
+    float _206 = precise::max(1.0, user_input.dot_cell_px * _137);
+    float _219 = fast::clamp(mix(user_input.dot_min_radius, user_input.dot_max_radius, powr(fast::clamp(_126, 0.0, 1.0), 2.599999904632568359375)), 0.0, 0.5);
+    float _220 = 2.0 / _206;
+    float _233 = precise::max(0.0, user_input.bottom_band_h * _137);
+    float3 _244 = mix(mix(_202, _96, float3((1.0 - smoothstep(_219 - _220, _219 + _220, length(fract(_133 / float2(_206)) - float2(0.5)))) * user_input.dot_alpha)), _96, float3((1.0 - smoothstep(_233 - 1.0, _233 + 1.0, fma(-_126, _130, _130))) * user_input.bottom_band_color.w));
+    float2 _246 = float2(_125, _130) * 0.5;
+    float _250 = precise::max(0.0, user_input.corner_radius_px * _137);
+    float2 _255 = (abs(_133 - _246) - _246) + float2(_250);
+    float _263 = (length(precise::max(_255, float2(0.0))) + precise::min(precise::max(_255.x, _255.y), 0.0)) - _250;
+    float3 _279;
+    if (user_input.outline_px > 0.0)
+    {
+        _279 = mix(_244, powr(precise::max(user_input.outline_color.xyz, float3(0.0)), float3(2.2000000476837158203125)), float3((1.0 - smoothstep(fma(user_input.outline_px, _137, -1.0), fma(user_input.outline_px, _137, 1.0), -_263)) * user_input.outline_color.w));
+    }
+    else
+    {
+        _279 = _244;
+    }
+    float _284 = ((in.in.in_var_COLOR0 * _80).w * mix(user_input.top_color.w, user_input.bottom_color.w, _126)) * (1.0 - smoothstep(-1.0, 1.0, _263));
+    out.out.out_var_SV_Target0 = float4(_279 * _284, _284);
+    return out_1;
+}
+
+

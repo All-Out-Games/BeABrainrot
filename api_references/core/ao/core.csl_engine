@@ -136,6 +136,7 @@ Rigidbody :: class : Component {
 
 Navmesh :: class : Component {
     try_find_closest_point_on_navmesh :: method(to_point: v2, result: ref v2, triangle_hint: ref s64) -> bool #foreign "navmesh_try_find_closest_point_on_navmesh";
+    try_raycast :: method(position: v2, direction: v2) -> v2, bool #foreign "navmesh_try_raycast";
     rebuild_immediately :: method() -> bool #foreign "navmesh_rebuild_immediately";
     mark_for_rebuild :: method() #foreign "navmesh_mark_for_rebuild";
 } #foreign_struct "Navmesh"
@@ -1585,7 +1586,9 @@ core_purchase_handler :: proc(player: Player, id: string) -> bool {
     #if #exists(ao_purchase_handler) {
         return ao_purchase_handler(player, id);
     }
-    return false;
+
+    product := Purchasing.get_product(id);
+    return product.id.count > 0 && !product.consumable;
 }
 
 Economy :: struct {

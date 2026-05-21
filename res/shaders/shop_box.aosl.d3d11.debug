@@ -1,0 +1,243 @@
+HLSL:
+Vertex Shader:
+cbuffer user_input: register(b1) {
+float4 top_color;
+float4 bottom_color;
+float4 sprite_uv;
+float dot_cell_px;
+float dot_min_radius;
+float dot_max_radius;
+float dot_alpha;
+float bottom_band_h;
+float3 _ao_pad0;
+float4 bottom_band_color;
+float outline_px;
+float3 _ao_pad1;
+float4 outline_color;
+float corner_radius_px;
+float rainbow_strength;
+float rainbow_speed;
+float rainbow_hue_span;
+};
+
+#define MATRIX_TEXTURE_PROVIDED
+
+struct vs_in {
+    float2 pos: POS;
+    float2 uv: UV;
+    float2 uv2: UV1;
+    float4 color: COLOR;
+    int matrix_index: MATRIX_INDEX;
+};
+
+
+cbuffer params: register(b0) {
+    float4x4 mvp;
+    float4 resolution_time;
+    int matrix_image_size;
+};
+#define FLIP_IF_GL(y) do { } while (0);
+
+Texture2D<float4> matrices: register(t0);
+sampler matrices_smp: register(s0);
+
+#ifdef MATRIX_TEXTURE_PROVIDED
+int3 create_pixel_coord(int index) {
+    int x = index % matrix_image_size;
+    int y = index / matrix_image_size;
+    return int3(x, y, 0);
+}
+float4x4 final_mvp(vs_in inp) {
+    float4 _0 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 0));
+    float4 _1 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 1));
+    float4 _2 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 2));
+    float4 _3 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 3));
+    float4x4 model_matrix = float4x4(_0, _1, _2, _3);
+    #ifdef AO_WEB
+    model_matrix = transpose(model_matrix);
+    #endif
+    return mul(mvp, model_matrix);
+}
+#endif
+
+float4 bc7_correct_alpha(float4 color) {
+    // map 254 to 255. this is because bc7 is lossy in the alpha channel and an opaque pixel often outputs as 254 alpha.
+    if (color.a > 0.995f && color.a <= 1.0f) color.a = 1.0f;
+    return color;
+}
+
+struct vs_out {
+    float4 color: COLOR0;
+    float2 uv: UV;
+    float4 pos: SV_Position;
+};
+vs_out vs_main(vs_in inp) {
+    vs_out outp;
+    outp.pos   = mul(mvp, float4(inp.pos.xy, 0, 1.0f));
+    outp.uv    = inp.uv;
+    outp.color = inp.color;
+    return outp;
+}
+
+
+
+Fragment Shader:
+cbuffer user_input: register(b1) {
+float4 top_color;
+float4 bottom_color;
+float4 sprite_uv;
+float dot_cell_px;
+float dot_min_radius;
+float dot_max_radius;
+float dot_alpha;
+float bottom_band_h;
+float3 _ao_pad0;
+float4 bottom_band_color;
+float outline_px;
+float3 _ao_pad1;
+float4 outline_color;
+float corner_radius_px;
+float rainbow_strength;
+float rainbow_speed;
+float rainbow_hue_span;
+};
+
+Texture2D<float4> albedo: register(t0);
+sampler albedo_smp: register(s0);
+
+#define MATRIX_TEXTURE_PROVIDED
+
+struct vs_in {
+    float2 pos: POS;
+    float2 uv: UV;
+    float2 uv2: UV1;
+    float4 color: COLOR;
+    int matrix_index: MATRIX_INDEX;
+};
+
+
+cbuffer params: register(b0) {
+    float4x4 mvp;
+    float4 resolution_time;
+    int matrix_image_size;
+};
+#define FLIP_IF_GL(y) do { } while (0);
+
+Texture2D<float4> matrices: register(t0);
+sampler matrices_smp: register(s0);
+
+#ifdef MATRIX_TEXTURE_PROVIDED
+int3 create_pixel_coord(int index) {
+    int x = index % matrix_image_size;
+    int y = index / matrix_image_size;
+    return int3(x, y, 0);
+}
+float4x4 final_mvp(vs_in inp) {
+    float4 _0 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 0));
+    float4 _1 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 1));
+    float4 _2 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 2));
+    float4 _3 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 3));
+    float4x4 model_matrix = float4x4(_0, _1, _2, _3);
+    #ifdef AO_WEB
+    model_matrix = transpose(model_matrix);
+    #endif
+    return mul(mvp, model_matrix);
+}
+#endif
+
+float4 bc7_correct_alpha(float4 color) {
+    // map 254 to 255. this is because bc7 is lossy in the alpha channel and an opaque pixel often outputs as 254 alpha.
+    if (color.a > 0.995f && color.a <= 1.0f) color.a = 1.0f;
+    return color;
+}
+
+float3 to_linear(float3 c) { return pow(max(c, 0.0f), 2.2f); }
+
+float3 hsv_to_rgb(float h, float s, float v) {
+    h = frac(h) * 6.0f;
+    float i = floor(h);
+    float f = h - i;
+    float p = v * (1.0f - s);
+    float q = v * (1.0f - s * f);
+    float t = v * (1.0f - s * (1.0f - f));
+    if (i < 1.0f) return float3(v, t, p);
+    if (i < 2.0f) return float3(q, v, p);
+    if (i < 3.0f) return float3(p, v, t);
+    if (i < 4.0f) return float3(p, q, v);
+    if (i < 5.0f) return float3(t, p, v);
+    return float3(v, p, q);
+}
+
+float4 ps_main(float4 vtxColor: COLOR0, float2 uv: UV): SV_Target0 {
+    float4 base = vtxColor * albedo.Sample(albedo_smp, uv);
+
+    float3 top_lin      = to_linear(top_color.rgb);
+    float3 bot_lin      = to_linear(bottom_color.rgb);
+    float3 band_rgb_lin = to_linear(bottom_band_color.rgb);
+    float3 outl_rgb_lin = to_linear(outline_color.rgb);
+
+    // Normalize the atlas uv to a true 0..1 panel coordinate. Fall back to raw
+    // uv if sprite_uv was never supplied (degenerate range).
+    float2 uv_range = sprite_uv.zw - sprite_uv.xy;
+    float2 luv = ((uv_range.x > 1e-4f) && (uv_range.y > 1e-4f))
+        ? ((uv - sprite_uv.xy) / uv_range)
+        : uv;
+    luv = saturate(luv);
+
+    // Panel size in pixels: luv spans 0..1 across the panel, so the panel is
+    // 1/ddx(luv.x) pixels wide. px = position in the panel, in pixels.
+    float  panelW = 1.0f / max(abs(ddx(luv.x)), 1e-8f);
+    float  panelH = 1.0f / max(abs(ddy(luv.y)), 1e-8f);
+    float2 px     = float2(luv.x * panelW, luv.y * panelH);
+
+    float ui_scale = max(0.5f, resolution_time.y / 1080.0f);
+
+    // Vertical gradient (luv.y: 0 = top, 1 = bottom).
+    float t = luv.y;
+    float3 grad_rgb = lerp(top_lin, bot_lin, t);
+    float  grad_a   = lerp(top_color.a, bottom_color.a, t);
+
+    // Optional diagonal rainbow (TL -> BR).
+    if (rainbow_strength > 0.0f) {
+        float diag = (px.x + px.y) / (panelW + panelH);
+        float span = (rainbow_hue_span > 0.0f) ? rainbow_hue_span : 1.0f;
+        float hue  = diag * span + resolution_time.z * rainbow_speed;
+        float3 rainbow = hsv_to_rgb(hue, 0.85f, 1.0f);
+        float bright = lerp(1.0f, 0.85f, t);
+        grad_rgb = lerp(grad_rgb, to_linear(rainbow * bright), saturate(rainbow_strength));
+    }
+
+    // Procedural halftone — one dot per square cell, growing toward the bottom.
+    float cell = max(1.0f, dot_cell_px * ui_scale);
+    float2 local = frac(px / cell) - 0.5f;
+    float  d = length(local) * 2.0f;
+    float  radius = lerp(dot_min_radius, dot_max_radius, pow(saturate(luv.y), 2.6f));
+    radius = clamp(radius, 0.0f, 0.5f);
+    float  aa = 2.0f / cell;
+    float  dot_a = 1.0f - smoothstep(radius - aa, radius + aa, d * 0.5f);
+    float3 rgb = lerp(grad_rgb, band_rgb_lin, dot_a * dot_alpha);
+
+    // Bottom accent band.
+    float band = max(0.0f, bottom_band_h * ui_scale);
+    float dist_from_bottom = panelH - px.y;
+    float band_t = 1.0f - smoothstep(band - 1.0f, band + 1.0f, dist_from_bottom);
+    rgb = lerp(rgb, band_rgb_lin, band_t * bottom_band_color.a);
+
+    // Rounded-rect SDF in panel-pixel space.
+    float2 center = float2(panelW, panelH) * 0.5f;
+    float  cr     = max(0.0f, corner_radius_px * ui_scale);
+    float2 q      = abs(px - center) - center + float2(cr, cr);
+    float  sdf    = length(max(q, 0.0f)) + min(max(q.x, q.y), 0.0f) - cr;
+
+    // Outline, just inside the edge.
+    if (outline_px > 0.0f) {
+        float ow = outline_px * ui_scale;
+        float on_edge = 1.0f - smoothstep(ow - 1.0f, ow + 1.0f, -sdf);
+        rgb = lerp(rgb, outl_rgb_lin, on_edge * outline_color.a);
+    }
+
+    float box_alpha = 1.0f - smoothstep(-1.0f, 1.0f, sdf);
+    float a = base.a * grad_a * box_alpha;
+    return float4(rgb * a, a);
+}
+

@@ -1,34 +1,25 @@
-// Shop v3 — UIK layout with box_panel shader backgrounds applied directly
-// through Panel_Desc.background_material_override. One Material per box
-// style; UIK feeds each panel's resolved rect to the shader's rect_px, so
-// there is no post-end shader pass anymore (only rotated sale badges,
-// which UIK can't rotate, remain post-end).
+// Shop v3 — UIK layout with box_panel / ray_spin shader backgrounds applied
+// through Panel_Desc.background_material_override.
+//
+// panel_begin_interactive().rect only resolves for an interactive panel that
+// is NOT nested inside another interactive panel. So the shell is a plain
+// (non-interactive) native modal, and the banner + cards are the only
+// interactive panels — none nested in another — so each gets a real rect,
+// which is fed to its material as rect_px every frame.
+//
+// box_panel.aosl is shared with shop_v2 (it takes rect_px).
 //
 // Toggle with /shop3.
 
-// Modal backdrop preset — flat faded black (alpha 0.8), no dots, no band.
-shop3_box_modal_bg :: proc() -> Shop2_Box {
-    b := shop2_default_box(v4{0, 0, 0, 0.8}, v4{0, 0, 0, 0.8});
-    b.dot_alpha     = 0.0;
-    b.band_color    = v4{0, 0, 0, 0};
-    b.outline_px    = 5.0;
-    b.outline_color = v4{0, 0, 0, 1};
-    b.corner_radius = 14.0;
-    return b;
-}
+// ===== Materials ===== (one per panel — UIK batches draws at UIK.end()).
 
-// ===== Per-style box materials =====
-// UIK batches every panel-background draw at UIK.end(), so we can't swap
-// uniforms per draw the way the old post-end pass did. Instead each box
-// style gets its own Material instance, configured once. rect_px is NOT
-// set here — UIK supplies it per-panel from the resolved panel rect.
-
-SHOP3_MAT_MODAL:   Material;
 SHOP3_MAT_ORANGE:  Material;
 SHOP3_MAT_YELLOW:  Material;
 SHOP3_MAT_RAINBOW: Material;
 SHOP3_MAT_PURPLE:  Material;
-SHOP3_MAT_RAY:     Material; // spinning sun-ray burst behind card icons
+SHOP3_MAT_RAY_A:   Material; // spinning ray burst behind each card icon
+SHOP3_MAT_RAY_B:   Material;
+SHOP3_MAT_RAY_C:   Material;
 SHOP3_MATS_READY:  bool;
 
 shop3_make_box_material :: proc(box: Shop2_Box) -> Material {
@@ -52,57 +43,62 @@ shop3_make_box_material :: proc(box: Shop2_Box) -> Material {
     return mat;
 }
 
+shop3_make_ray_material :: proc() -> Material {
+    shader := get_asset(Shader_Asset, "shaders/ray_spin.aosl");
+    if shader == null return null;
+    mat := Material.create(shader);
+    mat.set_float("spin_speed", 0.44); // ~25 deg/sec, matches v2
+    mat.set_float("fill_scale", 1.6);  // overflow the media panel
+    return mat;
+}
+
 shop3_ensure_materials :: proc() -> bool {
     if SHOP3_MATS_READY return true;
-    SHOP3_MAT_MODAL   = shop3_make_box_material(shop3_box_modal_bg());
     SHOP3_MAT_ORANGE  = shop3_make_box_material(shop2_box_orange());
     SHOP3_MAT_YELLOW  = shop3_make_box_material(shop2_box_yellow());
     SHOP3_MAT_RAINBOW = shop3_make_box_material(shop2_box_rainbow());
     SHOP3_MAT_PURPLE  = shop3_make_box_material(shop2_box_purple());
-    if SHOP3_MAT_MODAL == null return false; // shader not loaded yet
-
-    // Spinning ray-burst material — one shared instance; UIK feeds rect_px
-    // per card so the burst stays centred in each media panel.
-    ray_shader := get_asset(Shader_Asset, "shaders/ray_spin.aosl");
-    if ray_shader != null {
-        SHOP3_MAT_RAY = Material.create(ray_shader);
-        burst := get_asset(Texture_Asset, "Textures/UI/ray_burst_2.png");
-        if burst != null SHOP3_MAT_RAY.set_texture("image", burst);
-        SHOP3_MAT_RAY.set_float("spin_speed", 0.44); // ~25 deg/sec, matches v2
-        SHOP3_MAT_RAY.set_float("fill_scale", 1.6);  // overflow the media panel
-    }
-
+    if SHOP3_MAT_ORANGE == null return false; // shader still loading
+    SHOP3_MAT_RAY_A = shop3_make_ray_material();
+    SHOP3_MAT_RAY_B = shop3_make_ray_material();
+    SHOP3_MAT_RAY_C = shop3_make_ray_material();
     SHOP3_MATS_READY = true;
     return true;
+}
+
+// Feed a panel's resolved screen rect to its background material as rect_px.
+shop3_feed_rect :: proc(mat: Material, r: Rect) {
+    if mat == null return;
+    mat.set_float4("rect_px", v4{r.min.x, r.min.y, r.max.x, r.max.y});
 }
 
 draw_shop_v3 :: proc(player: Player) {
     if player == null return;
     if !player.show_shop_v3 return;
-    if !shop3_ensure_materials() return; // box_panel shader still loading
+    if !shop3_ensure_materials() return; // shaders still loading
 
     UIK.begin(UIK.modal(UIK.rect_window(), 20));
 
-    // Shell panel — its background is the faded-black modal box, painted by
-    // UIK through the override material. tint must be opaque white so the
-    // layout panel's default alpha-0 tint doesn't zero out the shader draw.
-    shell := UIK.layout_column();
-    shell.gap                         = 10;
-    shell.padding                     = v4{16, 16, 16, 16};
-    shell.tint                        = v4{1, 1, 1, 1};
-    shell.background_material_override = SHOP3_MAT_MODAL;
+    // Shell — a plain native modal panel (NOT interactive), so the banner and
+    // cards inside it are not nested in an interactive panel.
+    shell := UIK.panel_modal(.BLACK);
+    shell.gap     = 10;
+    shell.padding = v4{16, 16, 16, 16};
     UIK.panel_begin(shell);
 
     exit_handle := UIK.title_area(UIK.title_area_desc("Store"));
 
     // ---- Subscription banner ----
     banner_desc := UIK.layout_row();
-    banner_desc.height                        = UIK.pixels(220);
-    banner_desc.gap                           = 16;
-    banner_desc.padding                       = v4{14, 14, 14, 14};
-    banner_desc.tint                          = v4{1, 1, 1, 1};
-    banner_desc.background_material_override   = SHOP3_MAT_ORANGE;
-    UIK.panel_begin(banner_desc);
+    banner_desc.height                       = UIK.pixels(220);
+    banner_desc.gap                          = 16;
+    banner_desc.padding                      = v4{14, 14, 14, 14};
+    banner_desc.show_background              = true;
+    banner_desc.tint                         = v4{1, 1, 1, 1};
+    banner_desc.background_sprite_override   = core_globals.white_sprite;
+    banner_desc.background_material_override = SHOP3_MAT_ORANGE;
+    h_banner := UIK.panel_begin_interactive("shop3_banner", banner_desc);
+    shop3_feed_rect(SHOP3_MAT_ORANGE, h_banner.rect);
 
     icon_panel := UIK.layout_centered(UIK.pixels(180), UIK.flex(1));
     UIK.panel_begin(icon_panel);
@@ -135,7 +131,8 @@ draw_shop_v3 :: proc(player: Player) {
     UIK.text("Trade Tokens", UIK.text_title());
     UIK.spacer(UIK.pixels(1), UIK.pixels(4));
 
-    // ---- Cards row ----
+    // ---- Cards row (plain panel, so the cards inside are not nested in an
+    //      interactive panel) ----
     cards_row := UIK.layout_row();
     cards_row.gap = 12;
     UIK.panel_begin(cards_row);
@@ -144,30 +141,14 @@ draw_shop_v3 :: proc(player: Player) {
     coins_500  := get_asset(Texture_Asset, "Textures/UI/gold_coin_stacks_c55048.png");
     chest_2000 := get_asset(Texture_Asset, "Textures/UI/open-treasure-chest_1c03dc.png");
 
-    h100  := draw_shop_v3_card("100 Trade Tokens",   100,  coins_100,  "shop3_buy_100",  SHOP3_MAT_YELLOW);
-    h500  := draw_shop_v3_card("500 Trade Tokens",   500,  coins_500,  "shop3_buy_500",  SHOP3_MAT_RAINBOW);
-    h2000 := draw_shop_v3_card("2,000 Trade Tokens", 2000, chest_2000, "shop3_buy_2000", SHOP3_MAT_PURPLE);
+    h100  := draw_shop_v3_card("100 Trade Tokens",   100,  coins_100,  "shop3_buy_100",  SHOP3_MAT_YELLOW,  SHOP3_MAT_RAY_A);
+    h500  := draw_shop_v3_card("500 Trade Tokens",   500,  coins_500,  "shop3_buy_500",  SHOP3_MAT_RAINBOW, SHOP3_MAT_RAY_B);
+    h2000 := draw_shop_v3_card("2,000 Trade Tokens", 2000, chest_2000, "shop3_buy_2000", SHOP3_MAT_PURPLE,  SHOP3_MAT_RAY_C);
 
     UIK.panel_end(); // cards_row
 
     UIK.panel_end(); // shell
     UIK.end();
-
-    // ===== Post-end: rotated sale badges =====
-    // UIK can't rotate text, so these stay a manual draw. Layer 25 keeps
-    // them above UIK content (drawn at the modal layer, 20).
-    UI.push_screen_draw_context();
-    UI.push_layer(25);
-    c500 := h500.rect;
-    if c500.max.x > c500.min.x {
-        draw_shop_v3_badge(c500, "+25 Free");
-    }
-    c2000 := h2000.rect;
-    if c2000.max.x > c2000.min.x {
-        draw_shop_v3_badge(c2000, "+100 Free");
-    }
-    UI.pop_layer();
-    UI.pop_draw_context();
 
     if UIK.clicked(exit_handle) {
         player.show_shop_v3 = false;
@@ -179,37 +160,32 @@ draw_shop_v3 :: proc(player: Player) {
     if UIK.clicked(h2000) {}
 }
 
-draw_shop_v3_badge :: proc(card_rect: Rect, label: string) {
-    badge_anchor := card_rect.top_right_rect().offset(-110, -70);
-    badge_rect := badge_anchor.grow(40, 90, 40, 90);
-    ts := UI.default_text_settings();
-    ts.size              = 36;
-    ts.color             = v4{1.00, 0.92, 0.20, 1};
-    ts.do_outline        = true;
-    ts.outline_thickness = 4.0;
-    ts.outline_color     = v4{0, 0, 0, 1};
-    UI.push_matrix(Matrix4.rotate_about_point(badge_rect.center(), -18.0));
-    UI.text(badge_rect, ts, label);
-    UI.pop_matrix();
-}
-
-draw_shop_v3_card :: proc(name: string, price: s64, icon: Texture_Asset, button_id: string, bg_mat: Material) -> Interact_Result {
+draw_shop_v3_card :: proc(name: string, price: s64, icon: Texture_Asset, button_id: string, bg_mat: Material, ray_mat: Material) -> Interact_Result {
     card_desc := UIK.layout_column();
     card_desc.gap                         = 6;
     card_desc.padding                     = v4{14, 14, 14, 14};
     card_desc.cross_align                 = .CENTER;
+    card_desc.show_background              = true;
     card_desc.tint                        = v4{1, 1, 1, 1};
+    card_desc.background_sprite_override   = core_globals.white_sprite;
     card_desc.background_material_override = bg_mat;
     handle := UIK.panel_begin_interactive(button_id, card_desc);
+    // Feed the card rect to both the box material and the ray material — the
+    // ray's media panel is nested inside this (interactive) card, so it can't
+    // get its own rect; the ray simply centers in the card instead.
+    shop3_feed_rect(bg_mat,  handle.rect);
+    shop3_feed_rect(ray_mat, handle.rect);
 
     UIK.text(name, UIK.text_button());
 
-    // The rotating sun-ray burst is the media panel's background material
-    // (ray_spin.aosl spins the texture in-shader), so UIK draws it directly
-    // under the icon — correct z-order, animated, no post-end pass.
+    // Rotating sun-ray burst — ray_spin draws it procedurally from the card
+    // rect (already fed to ray_mat). The media panel is plain; the white
+    // sprite is just a carrier so draw_panel_image doesn't early-return.
     media := UIK.layout_centered(UIK.flex(1), UIK.flex(1));
-    media.tint                       = v4{1, 0.95, 0.55, 0.85};
-    media.background_material_override = SHOP3_MAT_RAY;
+    media.show_background              = true;
+    media.tint                        = v4{1, 0.95, 0.55, 0.85};
+    media.background_sprite_override   = core_globals.white_sprite;
+    media.background_material_override = ray_mat;
     UIK.panel_begin(media);
     if icon != null UIK.image_fitted(icon, UIK.image_desc(.CONTAIN));
     UIK.panel_end();

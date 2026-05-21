@@ -1,13 +1,17 @@
+// ray_spin — procedural rotating sun-ray burst, drawn as a UIK
+// background_material_override. The rays are computed from the panel centre
+// (no texture sampling), so it needs only rect_px — the card's screen rect,
+// fed from CSL — and sidesteps atlas-uv handling entirely.
+
 !!inputs {
-    texture albedo ALBEDO
-    texture image            // the ray-burst texture to spin
-    float4 rect_px           // screen-space rect of the quad: (minX,minY,maxX,maxY) in pixels
-    float spin_speed         // rotation rate in radians/second
-    float fill_scale         // burst size vs min(panel dimension); 1 = inscribed, >1 overflows
+    texture albedo ALBEDO    // unused by the effect; a UI draw still needs a bound texture
+    float4 rect_px           // card screen rect (minX, minY, maxX, maxY)
+    float spin_speed         // rotation rate, radians/second
+    float fill_scale         // burst radius vs half the smaller rect dimension
 }
 
 !!pipeline {
-    Pixel_Format: RGBA8_SRGB
+    Pixel_Format: HDR
     Blend_Enabled: true
     Depth_Enabled: true
     Blend_Src: ONE
@@ -23,47 +27,44 @@
 struct vs_out {
     float4 color: COLOR0;
     float2 uv: UV;
-    float2 screen_uv: TEXCOORD0;
+    float2 shadow_uv: TEXCOORD0;
     float4 pos: SV_Position;
 };
 vs_out vs_main(vs_in inp) {
     vs_out outp;
-    outp.pos = mul(mvp, float4(inp.pos.xy, 0, 1.0f));
-    outp.uv = inp.uv;
-    outp.screen_uv = (outp.pos.xy / outp.pos.w + float2(1,1)) * 0.5f;
-    outp.color = inp.color;
+    outp.pos       = mul(mvp, float4(inp.pos.xy, 0, 1.0f));
+    outp.uv        = inp.uv;
+    outp.color     = inp.color;
+    outp.shadow_uv = (outp.pos.xy + float2(1,1)) / 2;
     return outp;
 }
 
 !!ps
-float4 ps_main(float4 vtxColor: COLOR0, float2 uv: UV, float2 screen_uv: TEXCOORD0): SV_Target0
-{
-    // Pixel position inside the panel rect that UIK feeds us via rect_px.
-    float2 svpos_px = screen_uv * resolution_time.xy;
+float3 to_linear(float3 c) { return pow(max(c, 0.0f), 2.2f); }
+
+float4 ps_main(float4 vtxColor: COLOR0, float2 uv: UV, float2 shadow_uv: TEXCOORD0): SV_Target0 {
+    float2 svpos_px = shadow_uv * resolution_time.xy;
     float2 rectMin  = rect_px.xy;
     float2 rectMax  = rect_px.zw;
-    float2 rectSize = max(rectMax - rectMin, 1e-6.xx);
     float2 center   = (rectMin + rectMax) * 0.5f;
 
-    // Rotate the sample coordinate around the panel center. resolution_time.z
-    // is elapsed time in seconds (same source box_panel.aosl uses for hue).
-    float  ang = resolution_time.z * spin_speed;
-    float  c   = cos(ang);
-    float  s   = sin(ang);
     float2 p   = svpos_px - center;
-    float2 rp  = float2(p.x * c - p.y * s, p.x * s + p.y * c);
+    float  r   = length(p);
+    float  ang = atan2(p.y, p.x) + resolution_time.z * spin_speed;
 
-    // Map into the burst texture: a centered square sized by the smaller
-    // panel dimension, scaled by fill_scale so it can overflow the panel.
-    float  half_dim = min(rectSize.x, rectSize.y) * 0.5f * max(fill_scale, 1e-3f);
-    float2 uv_img   = rp / (2.0f * half_dim) + 0.5f;
+    // Alternating sun-ray wedges — smooth and seam-free across the wrap.
+    float spokes = 12.0f;
+    float sp     = frac(ang * spokes / 6.2831853f);
+    float tri    = abs(sp - 0.5f) * 2.0f;
+    float wedge  = smoothstep(0.42f, 0.78f, tri);
 
-    // Discard anything outside the texture so rotation doesn't clamp-smear.
-    float2 inMin = step(0.0f, uv_img);
-    float2 inMax = step(uv_img, 1.0f);
-    float  mask  = inMin.x * inMin.y * inMax.x * inMax.y;
+    // Radial fade from the centre outward.
+    float maxR   = min(rectMax.x - rectMin.x, rectMax.y - rectMin.y) * 0.5f * max(fill_scale, 1e-3f);
+    float radial = saturate(1.0f - r / max(maxR, 1.0f));
+    radial = pow(radial, 1.3f);
 
-    float4 tex = image.Sample(image_smp, saturate(uv_img));
-    float  a   = tex.a * mask * vtxColor.a;
-    return float4(tex.rgb * vtxColor.rgb * a, a);
+    float  a   = wedge * radial * vtxColor.a;
+    // keep `albedo` referenced so the image-binding count matches the desc
+    float3 col = to_linear(vtxColor.rgb) + albedo.Sample(albedo_smp, uv).rgb * 0.0f;
+    return float4(col * a, a);
 }

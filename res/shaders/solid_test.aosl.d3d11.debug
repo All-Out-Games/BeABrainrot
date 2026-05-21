@@ -1,0 +1,146 @@
+HLSL:
+Vertex Shader:
+#define MATRIX_TEXTURE_PROVIDED
+
+struct vs_in {
+    float2 pos: POS;
+    float2 uv: UV;
+    float2 uv2: UV1;
+    float4 color: COLOR;
+    int matrix_index: MATRIX_INDEX;
+};
+
+
+cbuffer params: register(b0) {
+    float4x4 mvp;
+    float4 resolution_time;
+    int matrix_image_size;
+};
+#define FLIP_IF_GL(y) do { } while (0);
+
+Texture2D<float4> matrices: register(t0);
+sampler matrices_smp: register(s0);
+
+#ifdef MATRIX_TEXTURE_PROVIDED
+int3 create_pixel_coord(int index) {
+    int x = index % matrix_image_size;
+    int y = index / matrix_image_size;
+    return int3(x, y, 0);
+}
+float4x4 final_mvp(vs_in inp) {
+    float4 _0 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 0));
+    float4 _1 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 1));
+    float4 _2 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 2));
+    float4 _3 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 3));
+    float4x4 model_matrix = float4x4(_0, _1, _2, _3);
+    #ifdef AO_WEB
+    model_matrix = transpose(model_matrix);
+    #endif
+    return mul(mvp, model_matrix);
+}
+#endif
+
+float4 bc7_correct_alpha(float4 color) {
+    // map 254 to 255. this is because bc7 is lossy in the alpha channel and an opaque pixel often outputs as 254 alpha.
+    if (color.a > 0.995f && color.a <= 1.0f) color.a = 1.0f;
+    return color;
+}
+
+struct vs_out {
+    float4 color: COLOR0;
+    float2 uv: UV;
+    float2 shadow_uv: TEXCOORD0;
+    float4 pos: SV_Position;
+};
+vs_out vs_main(vs_in inp) {
+    vs_out outp;
+    outp.pos       = mul(mvp, float4(inp.pos.xy, 0, 1.0f));
+    outp.uv        = inp.uv;
+    outp.color     = inp.color;
+    outp.shadow_uv = (outp.pos.xy + float2(1,1)) / 2;
+    return outp;
+}
+
+
+
+Fragment Shader:
+Texture2D<float4> albedo: register(t0);
+sampler albedo_smp: register(s0);
+
+#define MATRIX_TEXTURE_PROVIDED
+
+struct vs_in {
+    float2 pos: POS;
+    float2 uv: UV;
+    float2 uv2: UV1;
+    float4 color: COLOR;
+    int matrix_index: MATRIX_INDEX;
+};
+
+
+cbuffer params: register(b0) {
+    float4x4 mvp;
+    float4 resolution_time;
+    int matrix_image_size;
+};
+#define FLIP_IF_GL(y) do { } while (0);
+
+Texture2D<float4> matrices: register(t0);
+sampler matrices_smp: register(s0);
+
+#ifdef MATRIX_TEXTURE_PROVIDED
+int3 create_pixel_coord(int index) {
+    int x = index % matrix_image_size;
+    int y = index / matrix_image_size;
+    return int3(x, y, 0);
+}
+float4x4 final_mvp(vs_in inp) {
+    float4 _0 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 0));
+    float4 _1 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 1));
+    float4 _2 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 2));
+    float4 _3 = matrices.Load(create_pixel_coord(inp.matrix_index.x*4 + 3));
+    float4x4 model_matrix = float4x4(_0, _1, _2, _3);
+    #ifdef AO_WEB
+    model_matrix = transpose(model_matrix);
+    #endif
+    return mul(mvp, model_matrix);
+}
+#endif
+
+float4 bc7_correct_alpha(float4 color) {
+    // map 254 to 255. this is because bc7 is lossy in the alpha channel and an opaque pixel often outputs as 254 alpha.
+    if (color.a > 0.995f && color.a <= 1.0f) color.a = 1.0f;
+    return color;
+}
+
+float4 ps_main(float4 vtxColor: COLOR0, float2 uv: UV, float2 shadow_uv: TEXCOORD0): SV_Target0 {
+    float4 a = albedo.Sample(albedo_smp, uv);
+
+    float2 svpos_px = shadow_uv * resolution_time.xy;
+
+    // Reconstruct the panel rect from the quad's 0..1 uv + screen derivatives.
+    float duvx = ddx(uv.x);
+    float duvy = ddy(uv.y);
+    if (abs(duvx) < 1e-8f || abs(duvy) < 1e-8f) {
+        return float4(1.0f, 0.0f, 0.0f, 1.0f) + a * 0.0f; // RED: uv not linear
+    }
+    float rectW = abs(ddx(svpos_px.x) / duvx);
+    float rectH = abs(ddy(svpos_px.y) / duvy);
+    float minX  = svpos_px.x - uv.x * rectW;
+    float maxY  = svpos_px.y + uv.y * rectH;
+    float2 rectMin = float2(minX,         maxY - rectH);
+    float2 rectMax = float2(minX + rectW, maxY);
+
+    // box_panel's rounded-rect SDF, in screen pixels.
+    float2 rcenter  = (rectMin + rectMax) * 0.5f;
+    float2 rhalf    = (rectMax - rectMin) * 0.5f;
+    float  ui_scale = max(0.5f, resolution_time.y / 1080.0f);
+    float  cr       = 14.0f * ui_scale;
+    float2 qsdf     = abs(svpos_px - rcenter) - rhalf + float2(cr, cr);
+    float  sdf      = length(max(qsdf, 0.0f)) + min(max(qsdf.x, qsdf.y), 0.0f) - cr;
+    float  box_alpha = 1.0f - smoothstep(-1.0f, 1.0f, sdf);
+
+    float3 col = float3(0.0f, 1.0f, 0.0f); // GREEN
+    return float4(col * box_alpha, box_alpha) + a * 0.0f;
+}
+

@@ -30,11 +30,11 @@ struct vs_main_in
 vertex vs_main_out vs_main(vs_main_in in [[stage_in]], constant type_params& params [[buffer(0)]])
 {
     vs_main_out out = {};
-    float4 _39 = params.mvp * float4(in.in_var_POS, 0.0, 1.0);
+    float4 _40 = params.mvp * float4(in.in_var_POS, 0.0, 1.0);
     out.out_var_COLOR0 = in.in_var_COLOR;
     out.out_var_UV = in.in_var_UV;
-    out.out_var_TEXCOORD0 = ((_39.xy / float2(_39.w)) + float2(1.0)) * 0.5;
-    out.gl_Position = _39;
+    out.out_var_TEXCOORD0 = (_40.xy + float2(1.0)) * float2(0.5);
+    out.gl_Position = _40;
     return out;
 }
 
@@ -71,22 +71,12 @@ struct ps_main_in
     float2 in_var_TEXCOORD0 [[user(locn2)]];
 };
 
-fragment ps_main_out ps_main(ps_main_in in [[stage_in]], constant type_params& params [[buffer(0)]], constant type_user_input& user_input [[buffer(1)]], texture2d<float> image [[texture(1)]], sampler image_smp [[sampler(1)]])
+fragment ps_main_out ps_main(ps_main_in in [[stage_in]], constant type_params& params [[buffer(0)]], constant type_user_input& user_input [[buffer(1)]])
 {
     ps_main_out out = {};
-    float2 _57 = precise::max(user_input.rect_px.zw - user_input.rect_px.xy, float2(9.9999999747524270787835121154785e-07));
-    float _64 = params.resolution_time.z * user_input.spin_speed;
-    float _65 = cos(_64);
-    float _66 = sin(_64);
-    float2 _68 = fma(in.in_var_TEXCOORD0, params.resolution_time.xy, -((user_input.rect_px.xy + user_input.rect_px.zw) * 0.5));
-    float _69 = _68.x;
-    float _70 = _68.y;
-    float2 _88 = (float2(fma(_69, _65, -(_70 * _66)), fma(_69, _66, _70 * _65)) / float2(2.0 * ((precise::min(_57.x, _57.y) * 0.5) * precise::max(user_input.fill_scale, 0.001000000047497451305389404296875)))) + float2(0.5);
-    float2 _89 = step(float2(0.0), _88);
-    float2 _90 = step(_88, float2(1.0));
-    float4 _102 = image.sample(image_smp, fast::clamp(_88, float2(0.0), float2(1.0)));
-    float _106 = (_102.w * (((_89.x * _89.y) * _90.x) * _90.y)) * in.in_var_COLOR0.w;
-    out.out_var_SV_Target0 = float4((_102.xyz * in.in_var_COLOR0.xyz) * _106, _106);
+    float2 _54 = fma(in.in_var_TEXCOORD0, params.resolution_time.xy, -((user_input.rect_px.xy + user_input.rect_px.zw) * 0.5));
+    float _89 = (smoothstep(0.4199999868869781494140625, 0.7799999713897705078125, abs(fract(fma(params.resolution_time.z, user_input.spin_speed, precise::atan2(_54.y, _54.x)) * 1.909859180450439453125) - 0.5) * 2.0) * powr(fast::clamp(1.0 - (length(_54) / precise::max((precise::min(user_input.rect_px.z - user_input.rect_px.x, user_input.rect_px.w - user_input.rect_px.y) * 0.5) * precise::max(user_input.fill_scale, 0.001000000047497451305389404296875), 1.0)), 0.0, 1.0), 1.2999999523162841796875)) * in.in_var_COLOR0.w;
+    out.out_var_SV_Target0 = float4(powr(precise::max(in.in_var_COLOR0.xyz, float3(0.0)), float3(2.2000000476837158203125)) * _89, _89);
     return out;
 }
 
@@ -131,11 +121,11 @@ vertex vs_main_out vs_main(vs_main_in_1 in [[stage_in]], constant type_params& p
 {
     vs_main_out out = {};
     vs_main_out out_1 = {};
-    float4 _39 = params.mvp * float4(in.in.in_var_POS, 0.0, 1.0);
+    float4 _40 = params.mvp * float4(in.in.in_var_POS, 0.0, 1.0);
     out.out.out_var_COLOR0 = in.in.in_var_COLOR;
     out.out.out_var_UV = in.in.in_var_UV;
-    out.out.out_var_TEXCOORD0 = ((_39.xy / float2(_39.w)) + float2(1.0)) * 0.5;
-    out.gl_Position = _39;
+    out.out.out_var_TEXCOORD0 = (_40.xy + float2(1.0)) * float2(0.5);
+    out.gl_Position = _40;
     return out_1;
 }
 
@@ -183,23 +173,13 @@ struct ps_main_in_1
     float2 in_in_var_TEXCOORD0 [[user(locn2)]];
 };
 
-fragment ps_main_out_1 ps_main(ps_main_in_1 in [[stage_in]], constant type_params& params [[buffer(0)]], constant type_user_input& user_input [[buffer(1)]], texture2d<float> image [[texture(1)]], sampler image_smp [[sampler(1)]])
+fragment ps_main_out_1 ps_main(ps_main_in_1 in [[stage_in]], constant type_params& params [[buffer(0)]], constant type_user_input& user_input [[buffer(1)]])
 {
     ps_main_out out = {};
     ps_main_out_1 out_1 = {};
-    float2 _57 = precise::max(user_input.rect_px.zw - user_input.rect_px.xy, float2(9.9999999747524270787835121154785e-07));
-    float _64 = params.resolution_time.z * user_input.spin_speed;
-    float _65 = cos(_64);
-    float _66 = sin(_64);
-    float2 _68 = fma(in.in.in_var_TEXCOORD0, params.resolution_time.xy, -((user_input.rect_px.xy + user_input.rect_px.zw) * 0.5));
-    float _69 = _68.x;
-    float _70 = _68.y;
-    float2 _88 = (float2(fma(_69, _65, -(_70 * _66)), fma(_69, _66, _70 * _65)) / float2(2.0 * ((precise::min(_57.x, _57.y) * 0.5) * precise::max(user_input.fill_scale, 0.001000000047497451305389404296875)))) + float2(0.5);
-    float2 _89 = step(float2(0.0), _88);
-    float2 _90 = step(_88, float2(1.0));
-    float4 _102 = image.sample(image_smp, fast::clamp(_88, float2(0.0), float2(1.0)));
-    float _106 = (_102.w * (((_89.x * _89.y) * _90.x) * _90.y)) * in.in.in_var_COLOR0.w;
-    out.out.out_var_SV_Target0 = float4((_102.xyz * in.in.in_var_COLOR0.xyz) * _106, _106);
+    float2 _54 = fma(in.in.in_var_TEXCOORD0, params.resolution_time.xy, -((user_input.rect_px.xy + user_input.rect_px.zw) * 0.5));
+    float _89 = (smoothstep(0.4199999868869781494140625, 0.7799999713897705078125, abs(fract(fma(params.resolution_time.z, user_input.spin_speed, precise::atan2(_54.y, _54.x)) * 1.909859180450439453125) - 0.5) * 2.0) * powr(fast::clamp(1.0 - (length(_54) / precise::max((precise::min(user_input.rect_px.z - user_input.rect_px.x, user_input.rect_px.w - user_input.rect_px.y) * 0.5) * precise::max(user_input.fill_scale, 0.001000000047497451305389404296875), 1.0)), 0.0, 1.0), 1.2999999523162841796875)) * in.in.in_var_COLOR0.w;
+    out.out.out_var_SV_Target0 = float4(powr(precise::max(in.in.in_var_COLOR0.xyz, float3(0.0)), float3(2.2000000476837158203125)) * _89, _89);
     return out_1;
 }
 

@@ -1,0 +1,98 @@
+GLSL
+Vertex Shader:
+#version 300 es
+precision highp float;
+precision highp int;
+
+struct type_params
+{
+    mat4 mvp;
+    vec4 resolution_time;
+    int matrix_image_size;
+};
+
+uniform type_params params;
+
+layout(location = 0) in vec2 in_var_POS;
+layout(location = 1) in vec2 in_var_UV;
+layout(location = 3) in vec4 in_var_COLOR;
+out vec4 var_COLOR0;
+out vec2 var_UV;
+out vec2 var_TEXCOORD0;
+
+void main()
+{
+    vec4 _40 = vec4(in_var_POS, 0.0, 1.0) * params.mvp;
+    var_COLOR0 = in_var_COLOR;
+    var_UV = in_var_UV;
+    var_TEXCOORD0 = (_40.xy + vec2(1.0)) * vec2(0.5);
+    gl_Position = _40;
+}
+
+
+
+Fragment Shader:
+#version 300 es
+precision highp float;
+precision highp int;
+
+struct type_params
+{
+    mat4 mvp;
+    vec4 resolution_time;
+    int matrix_image_size;
+};
+
+uniform type_params params;
+
+in vec2 var_UV;
+in vec2 var_TEXCOORD0;
+layout(location = 0) out vec4 out_var_SV_Target0;
+
+void main()
+{
+    vec4 _106;
+    do
+    {
+        vec2 _46 = var_TEXCOORD0 * params.resolution_time.xy;
+        float _48 = dFdx(var_UV.x);
+        float _50 = dFdy(var_UV.y);
+        bool _58;
+        if (!(abs(_48) < 9.9999999392252902907785028219223e-09))
+        {
+            _58 = abs(_50) < 9.9999999392252902907785028219223e-09;
+        }
+        else
+        {
+            _58 = true;
+        }
+        if (_58)
+        {
+            _106 = vec4(1.0, 0.0, 0.0, 1.0);
+            break;
+        }
+        float _61 = _46.x;
+        float _64 = abs(dFdx(_61) / _48);
+        float _65 = _46.y;
+        float _68 = abs(dFdy(_65) / _50);
+        float _70 = (-var_UV.x) * _64 + _61;
+        float _71 = var_UV.y * _68 + _65;
+        vec2 _73 = vec2(_70, _71 - _68);
+        vec2 _75 = vec2(_70 + _64, _71);
+        float _82 = params.resolution_time.y * 0.000925925909541547298431396484375;
+        float _83 = isnan(_82) ? 0.5 : (isnan(0.5) ? _82 : max(0.5, _82));
+        vec2 _90 = (abs(var_TEXCOORD0 * params.resolution_time.xy + (-((_73 + _75) * 0.5))) - ((_75 - _73) * 0.5)) + vec2(14.0 * _83);
+        bvec2 _113 = isnan(_90);
+        bvec2 _114 = isnan(vec2(0.0));
+        vec2 _115 = max(_90, vec2(0.0));
+        vec2 _116 = vec2(_113.x ? vec2(0.0).x : _115.x, _113.y ? vec2(0.0).y : _115.y);
+        float _93 = _90.x;
+        float _94 = _90.y;
+        float _95 = isnan(_94) ? _93 : (isnan(_93) ? _94 : max(_93, _94));
+        float _100 = 1.0 - smoothstep(-1.0, 1.0, (-14.0) * _83 + (length(vec2(_114.x ? _90.x : _116.x, _114.y ? _90.y : _116.y)) + (isnan(0.0) ? _95 : (isnan(_95) ? 0.0 : min(_95, 0.0)))));
+        _106 = vec4(vec3(0.0, 1.0, 0.0) * _100, _100);
+        break;
+    } while(false);
+    out_var_SV_Target0 = _106;
+}
+

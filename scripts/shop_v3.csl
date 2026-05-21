@@ -79,12 +79,12 @@ draw_shop_v3 :: proc(player: Player) {
 
     UIK.begin(UIK.modal(UIK.rect_window(), 20));
 
-    // Shell — a plain native modal panel (NOT interactive), so the banner and
-    // cards inside it are not nested in an interactive panel.
+    // Shell — interactive native modal panel. The banner and cards are nested
+    // inside it; their Interact_Result.rect resolves fine (engine nesting fix).
     shell := UIK.panel_modal(.BLACK);
     shell.gap     = 10;
     shell.padding = v4{16, 16, 16, 16};
-    UIK.panel_begin(shell);
+    UIK.panel_begin_interactive("shop3_shell", shell);
 
     exit_handle := UIK.title_area(UIK.title_area_desc("Store"));
 
@@ -150,14 +150,79 @@ draw_shop_v3 :: proc(player: Player) {
     UIK.panel_end(); // shell
     UIK.end();
 
+    // Rotated sale badges — drawn after UIK.end(): UIK text can't rotate, but
+    // legacy UI.text + a rotation matrix can. Layer 25 sits above UIK content.
+    // h500/h2000.rect are last frame's card rects (zero on frame 1 — skipped).
+    UI.push_screen_draw_context();
+    UI.push_layer(25);
+    c500 := h500.rect;
+    if c500.max.x > c500.min.x {
+        draw_shop_v3_badge(c500, "+25 Free");
+    }
+    c2000 := h2000.rect;
+    if c2000.max.x > c2000.min.x {
+        draw_shop_v3_badge(c2000, "+100 Free");
+    }
+    UI.pop_layer();
+    UI.pop_draw_context();
+
     if UIK.clicked(exit_handle) {
         player.show_shop_v3 = false;
+        player.shop3_popup_text = "";
         return;
     }
     if UIK.clicked(sub_handle) {}
-    if UIK.clicked(h100) {}
-    if UIK.clicked(h500) {}
-    if UIK.clicked(h2000) {}
+    if UIK.clicked(h100)  player.shop3_popup_text = "100 Trade Tokens";
+    if UIK.clicked(h500)  player.shop3_popup_text = "500 Trade Tokens";
+    if UIK.clicked(h2000) player.shop3_popup_text = "2,000 Trade Tokens";
+
+    draw_shop_v3_popup(player);
+}
+
+// Card-click test popup — confirms a card click registered.
+draw_shop_v3_popup :: proc(player: Player) {
+    if player.shop3_popup_text == "" return;
+
+    UIK.begin(UIK.modal(UIK.rect_window_small(), 30));
+
+    shell := UIK.panel_modal(.BLUE);
+    UIK.panel_begin(shell);
+
+    exit_result := UIK.title_area(UIK.title_area_desc("Card Clicked"));
+    if exit_result.clicked {
+        player.shop3_popup_text = "";
+    }
+
+    UIK.spacer(UIK.pixels(1), UIK.flex(1));
+    UIK.text(format_string("You clicked:\n%", {player.shop3_popup_text}), UIK.text_body());
+    UIK.spacer(UIK.pixels(1), UIK.flex(1));
+
+    ok_desc := UIK.widget_desc_button_default(.BUTTON_BASIC_GREEN);
+    ok_desc.panel.width  = UIK.flex(1);
+    ok_desc.panel.height = UIK.pixels(90);
+    ok_result := UIK.button("shop3_popup_ok", "OK", ok_desc);
+    if ok_result.clicked {
+        player.shop3_popup_text = "";
+    }
+
+    UIK.panel_end();
+    UIK.end();
+}
+
+// Rotated "sale" sticker at a card's top-right corner. Legacy UI.* draw, so
+// it must be called after UIK.end() inside a screen draw context.
+draw_shop_v3_badge :: proc(card_rect: Rect, label: string) {
+    badge_anchor := card_rect.top_right_rect().offset(-110, -70);
+    badge_rect   := badge_anchor.grow(40, 90, 40, 90);
+    ts := UI.default_text_settings();
+    ts.size              = 36;
+    ts.color             = v4{1.00, 0.92, 0.20, 1};
+    ts.do_outline        = true;
+    ts.outline_thickness = 4.0;
+    ts.outline_color     = v4{0, 0, 0, 1};
+    UI.push_matrix(Matrix4.rotate_about_point(badge_rect.center(), -18.0));
+    UI.text(badge_rect, ts, label);
+    UI.pop_matrix();
 }
 
 draw_shop_v3_card :: proc(name: string, price: s64, icon: Texture_Asset, button_id: string, bg_mat: Material, ray_mat: Material) -> Interact_Result {
@@ -175,6 +240,7 @@ draw_shop_v3_card :: proc(name: string, price: s64, icon: Texture_Asset, button_
     // get its own rect; the ray simply centers in the card instead.
     shop3_feed_rect(bg_mat,  handle.rect);
     shop3_feed_rect(ray_mat, handle.rect);
+    bg_mat.set_float("press", handle.active_t_eased); // darken the card while held
 
     UIK.text(name, UIK.text_button());
 

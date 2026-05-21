@@ -65,6 +65,7 @@ struct type_user_input
     float rainbow_strength;
     float rainbow_speed;
     float rainbow_hue_span;
+    float press;
 };
 
 struct type_params
@@ -89,78 +90,79 @@ struct ps_main_in
 fragment ps_main_out ps_main(ps_main_in in [[stage_in]], constant type_params& params [[buffer(0)]], constant type_user_input& user_input [[buffer(1)]], texture2d<float> albedo [[texture(0)]], sampler albedo_smp [[sampler(0)]])
 {
     ps_main_out out = {};
-    float4 _78 = albedo.sample(albedo_smp, in.in_var_UV);
-    float3 _94 = powr(precise::max(user_input.bottom_band_color.xyz, float3(0.0)), float3(2.2000000476837158203125));
-    float _111 = precise::max(1.0, user_input.rect_px.w - user_input.rect_px.y);
-    float2 _113 = fma(in.in_var_TEXCOORD0, params.resolution_time.xy, -user_input.rect_px.xy);
-    float _114 = _113.y;
-    float _117 = 1.0 - fast::clamp(_114 / _111, 0.0, 1.0);
-    float3 _119 = mix(powr(precise::max(user_input.top_color.xyz, float3(0.0)), float3(2.2000000476837158203125)), powr(precise::max(user_input.bottom_color.xyz, float3(0.0)), float3(2.2000000476837158203125)), float3(_117));
-    float3 _188;
+    float4 _80 = albedo.sample(albedo_smp, in.in_var_UV);
+    float3 _96 = powr(precise::max(user_input.bottom_band_color.xyz, float3(0.0)), float3(2.2000000476837158203125));
+    float _113 = precise::max(1.0, user_input.rect_px.w - user_input.rect_px.y);
+    float2 _115 = fma(in.in_var_TEXCOORD0, params.resolution_time.xy, -user_input.rect_px.xy);
+    float _116 = _115.y;
+    float _119 = 1.0 - fast::clamp(_116 / _113, 0.0, 1.0);
+    float3 _121 = mix(powr(precise::max(user_input.top_color.xyz, float3(0.0)), float3(2.2000000476837158203125)), powr(precise::max(user_input.bottom_color.xyz, float3(0.0)), float3(2.2000000476837158203125)), float3(_119));
+    float3 _190;
     if (user_input.rainbow_strength > 0.0)
     {
-        float3 _180;
+        float3 _182;
         do
         {
-            float _151 = fract(fma((_113.x + (_111 - _114)) / (precise::max(1.0, user_input.rect_px.z - user_input.rect_px.x) + _111), (user_input.rainbow_hue_span > 0.0) ? user_input.rainbow_hue_span : 1.0, params.resolution_time.z * user_input.rainbow_speed));
-            float _153 = floor(_151 * 6.0);
-            float _155 = fma(_151, 6.0, -_153);
-            float _156 = fma(-0.85000002384185791015625, _155, 1.0);
-            float _158 = fma(-0.85000002384185791015625, 1.0 - _155, 1.0);
-            if (_153 < 1.0)
+            float _153 = fract(fma((_115.x + (_113 - _116)) / (precise::max(1.0, user_input.rect_px.z - user_input.rect_px.x) + _113), (user_input.rainbow_hue_span > 0.0) ? user_input.rainbow_hue_span : 1.0, params.resolution_time.z * user_input.rainbow_speed));
+            float _155 = floor(_153 * 6.0);
+            float _157 = fma(_153, 6.0, -_155);
+            float _158 = fma(-0.85000002384185791015625, _157, 1.0);
+            float _160 = fma(-0.85000002384185791015625, 1.0 - _157, 1.0);
+            if (_155 < 1.0)
             {
-                _180 = float3(1.0, _158, 0.14999997615814208984375);
+                _182 = float3(1.0, _160, 0.14999997615814208984375);
                 break;
             }
-            if (_153 < 2.0)
+            if (_155 < 2.0)
             {
-                _180 = float3(_156, 1.0, 0.14999997615814208984375);
+                _182 = float3(_158, 1.0, 0.14999997615814208984375);
                 break;
             }
-            if (_153 < 3.0)
+            if (_155 < 3.0)
             {
-                _180 = float3(0.14999997615814208984375, 1.0, _158);
+                _182 = float3(0.14999997615814208984375, 1.0, _160);
                 break;
             }
-            if (_153 < 4.0)
+            if (_155 < 4.0)
             {
-                _180 = float3(0.14999997615814208984375, _156, 1.0);
+                _182 = float3(0.14999997615814208984375, _158, 1.0);
                 break;
             }
-            if (_153 < 5.0)
+            if (_155 < 5.0)
             {
-                _180 = float3(_158, 0.14999997615814208984375, 1.0);
+                _182 = float3(_160, 0.14999997615814208984375, 1.0);
                 break;
             }
-            _180 = float3(1.0, 0.14999997615814208984375, _156);
+            _182 = float3(1.0, 0.14999997615814208984375, _158);
             break;
         } while(false);
-        _188 = mix(_119, powr(precise::max(_180 * mix(0.85000002384185791015625, 1.0, _117), float3(0.0)), float3(2.2000000476837158203125)), float3(fast::clamp(user_input.rainbow_strength, 0.0, 1.0)));
+        _190 = mix(_121, powr(precise::max(_182 * mix(0.85000002384185791015625, 1.0, _119), float3(0.0)), float3(2.2000000476837158203125)), float3(fast::clamp(user_input.rainbow_strength, 0.0, 1.0)));
     }
     else
     {
-        _188 = _119;
+        _190 = _121;
     }
-    float _192 = precise::max(0.5, params.resolution_time.y * 0.000925925909541547298431396484375);
-    float _196 = precise::max(1.0, user_input.dot_cell_px * _192);
-    float _209 = fast::clamp(mix(user_input.dot_min_radius, user_input.dot_max_radius, powr(fast::clamp(_117, 0.0, 1.0), 2.599999904632568359375)), 0.0, 0.5);
-    float _210 = 2.0 / _196;
-    float _223 = precise::max(0.0, user_input.bottom_band_h * _192);
-    float3 _234 = mix(mix(_188, _94, float3((1.0 - smoothstep(_209 - _210, _209 + _210, length(fract(_113 / float2(_196)) - float2(0.5)))) * user_input.dot_alpha)), _94, float3((1.0 - smoothstep(_223 - 1.0, _223 + 1.0, (in.in_var_TEXCOORD0 * params.resolution_time.xy).y - user_input.rect_px.y)) * user_input.bottom_band_color.w));
-    float _242 = precise::max(0.0, user_input.corner_radius_px * _192);
-    float2 _248 = (abs(fma(in.in_var_TEXCOORD0, params.resolution_time.xy, -((user_input.rect_px.xy + user_input.rect_px.zw) * 0.5))) - ((user_input.rect_px.zw - user_input.rect_px.xy) * 0.5)) + float2(_242);
-    float _256 = (length(precise::max(_248, float2(0.0))) + precise::min(precise::max(_248.x, _248.y), 0.0)) - _242;
-    float3 _272;
+    float _194 = precise::max(0.5, params.resolution_time.y * 0.000925925909541547298431396484375);
+    float _198 = precise::max(1.0, user_input.dot_cell_px * _194);
+    float _211 = fast::clamp(mix(user_input.dot_min_radius, user_input.dot_max_radius, powr(fast::clamp(_119, 0.0, 1.0), 2.599999904632568359375)), 0.0, 0.5);
+    float _212 = 2.0 / _198;
+    float _225 = precise::max(0.0, user_input.bottom_band_h * _194);
+    float3 _236 = mix(mix(_190, _96, float3((1.0 - smoothstep(_211 - _212, _211 + _212, length(fract(_115 / float2(_198)) - float2(0.5)))) * user_input.dot_alpha)), _96, float3((1.0 - smoothstep(_225 - 1.0, _225 + 1.0, (in.in_var_TEXCOORD0 * params.resolution_time.xy).y - user_input.rect_px.y)) * user_input.bottom_band_color.w));
+    float _244 = precise::max(0.0, user_input.corner_radius_px * _194);
+    float2 _250 = (abs(fma(in.in_var_TEXCOORD0, params.resolution_time.xy, -((user_input.rect_px.xy + user_input.rect_px.zw) * 0.5))) - ((user_input.rect_px.zw - user_input.rect_px.xy) * 0.5)) + float2(_244);
+    float _258 = (length(precise::max(_250, float2(0.0))) + precise::min(precise::max(_250.x, _250.y), 0.0)) - _244;
+    float3 _274;
     if (user_input.outline_px > 0.0)
     {
-        _272 = mix(_234, powr(precise::max(user_input.outline_color.xyz, float3(0.0)), float3(2.2000000476837158203125)), float3((1.0 - smoothstep(fma(user_input.outline_px, _192, -1.0), fma(user_input.outline_px, _192, 1.0), -_256)) * user_input.outline_color.w));
+        _274 = mix(_236, powr(precise::max(user_input.outline_color.xyz, float3(0.0)), float3(2.2000000476837158203125)), float3((1.0 - smoothstep(fma(user_input.outline_px, _194, -1.0), fma(user_input.outline_px, _194, 1.0), -_258)) * user_input.outline_color.w));
     }
     else
     {
-        _272 = _234;
+        _274 = _236;
     }
-    float _277 = ((in.in_var_COLOR0 * _78).w * mix(user_input.top_color.w, user_input.bottom_color.w, _117)) * (1.0 - smoothstep(-1.0, 1.0, _256));
-    out.out_var_SV_Target0 = float4(_272 * _277, _277);
+    float _285 = ((in.in_var_COLOR0 * _80).w * mix(user_input.top_color.w, user_input.bottom_color.w, _119)) * (1.0 - smoothstep(-1.0, 1.0, _258));
+    float3 _286 = mix(_274, float3(0.0), float3(fast::clamp(user_input.press, 0.0, 1.0) * 0.449999988079071044921875)) * _285;
+    out.out_var_SV_Target0 = float4(_286, _285);
     return out;
 }
 
@@ -240,6 +242,7 @@ struct type_user_input
     float rainbow_strength;
     float rainbow_speed;
     float rainbow_hue_span;
+    float press;
 };
 
 struct type_params
@@ -277,78 +280,79 @@ fragment ps_main_out_1 ps_main(ps_main_in_1 in [[stage_in]], constant type_param
 {
     ps_main_out out = {};
     ps_main_out_1 out_1 = {};
-    float4 _78 = albedo.sample(albedo_smp, in.in.in_var_UV);
-    float3 _94 = powr(precise::max(user_input.bottom_band_color.xyz, float3(0.0)), float3(2.2000000476837158203125));
-    float _111 = precise::max(1.0, user_input.rect_px.w - user_input.rect_px.y);
-    float2 _113 = fma(in.in.in_var_TEXCOORD0, params.resolution_time.xy, -user_input.rect_px.xy);
-    float _114 = _113.y;
-    float _117 = 1.0 - fast::clamp(_114 / _111, 0.0, 1.0);
-    float3 _119 = mix(powr(precise::max(user_input.top_color.xyz, float3(0.0)), float3(2.2000000476837158203125)), powr(precise::max(user_input.bottom_color.xyz, float3(0.0)), float3(2.2000000476837158203125)), float3(_117));
-    float3 _188;
+    float4 _80 = albedo.sample(albedo_smp, in.in.in_var_UV);
+    float3 _96 = powr(precise::max(user_input.bottom_band_color.xyz, float3(0.0)), float3(2.2000000476837158203125));
+    float _113 = precise::max(1.0, user_input.rect_px.w - user_input.rect_px.y);
+    float2 _115 = fma(in.in.in_var_TEXCOORD0, params.resolution_time.xy, -user_input.rect_px.xy);
+    float _116 = _115.y;
+    float _119 = 1.0 - fast::clamp(_116 / _113, 0.0, 1.0);
+    float3 _121 = mix(powr(precise::max(user_input.top_color.xyz, float3(0.0)), float3(2.2000000476837158203125)), powr(precise::max(user_input.bottom_color.xyz, float3(0.0)), float3(2.2000000476837158203125)), float3(_119));
+    float3 _190;
     if (user_input.rainbow_strength > 0.0)
     {
-        float3 _180;
+        float3 _182;
         do
         {
-            float _151 = fract(fma((_113.x + (_111 - _114)) / (precise::max(1.0, user_input.rect_px.z - user_input.rect_px.x) + _111), (user_input.rainbow_hue_span > 0.0) ? user_input.rainbow_hue_span : 1.0, params.resolution_time.z * user_input.rainbow_speed));
-            float _153 = floor(_151 * 6.0);
-            float _155 = fma(_151, 6.0, -_153);
-            float _156 = fma(-0.85000002384185791015625, _155, 1.0);
-            float _158 = fma(-0.85000002384185791015625, 1.0 - _155, 1.0);
-            if (_153 < 1.0)
+            float _153 = fract(fma((_115.x + (_113 - _116)) / (precise::max(1.0, user_input.rect_px.z - user_input.rect_px.x) + _113), (user_input.rainbow_hue_span > 0.0) ? user_input.rainbow_hue_span : 1.0, params.resolution_time.z * user_input.rainbow_speed));
+            float _155 = floor(_153 * 6.0);
+            float _157 = fma(_153, 6.0, -_155);
+            float _158 = fma(-0.85000002384185791015625, _157, 1.0);
+            float _160 = fma(-0.85000002384185791015625, 1.0 - _157, 1.0);
+            if (_155 < 1.0)
             {
-                _180 = float3(1.0, _158, 0.14999997615814208984375);
+                _182 = float3(1.0, _160, 0.14999997615814208984375);
                 break;
             }
-            if (_153 < 2.0)
+            if (_155 < 2.0)
             {
-                _180 = float3(_156, 1.0, 0.14999997615814208984375);
+                _182 = float3(_158, 1.0, 0.14999997615814208984375);
                 break;
             }
-            if (_153 < 3.0)
+            if (_155 < 3.0)
             {
-                _180 = float3(0.14999997615814208984375, 1.0, _158);
+                _182 = float3(0.14999997615814208984375, 1.0, _160);
                 break;
             }
-            if (_153 < 4.0)
+            if (_155 < 4.0)
             {
-                _180 = float3(0.14999997615814208984375, _156, 1.0);
+                _182 = float3(0.14999997615814208984375, _158, 1.0);
                 break;
             }
-            if (_153 < 5.0)
+            if (_155 < 5.0)
             {
-                _180 = float3(_158, 0.14999997615814208984375, 1.0);
+                _182 = float3(_160, 0.14999997615814208984375, 1.0);
                 break;
             }
-            _180 = float3(1.0, 0.14999997615814208984375, _156);
+            _182 = float3(1.0, 0.14999997615814208984375, _158);
             break;
         } while(false);
-        _188 = mix(_119, powr(precise::max(_180 * mix(0.85000002384185791015625, 1.0, _117), float3(0.0)), float3(2.2000000476837158203125)), float3(fast::clamp(user_input.rainbow_strength, 0.0, 1.0)));
+        _190 = mix(_121, powr(precise::max(_182 * mix(0.85000002384185791015625, 1.0, _119), float3(0.0)), float3(2.2000000476837158203125)), float3(fast::clamp(user_input.rainbow_strength, 0.0, 1.0)));
     }
     else
     {
-        _188 = _119;
+        _190 = _121;
     }
-    float _192 = precise::max(0.5, params.resolution_time.y * 0.000925925909541547298431396484375);
-    float _196 = precise::max(1.0, user_input.dot_cell_px * _192);
-    float _209 = fast::clamp(mix(user_input.dot_min_radius, user_input.dot_max_radius, powr(fast::clamp(_117, 0.0, 1.0), 2.599999904632568359375)), 0.0, 0.5);
-    float _210 = 2.0 / _196;
-    float _223 = precise::max(0.0, user_input.bottom_band_h * _192);
-    float3 _234 = mix(mix(_188, _94, float3((1.0 - smoothstep(_209 - _210, _209 + _210, length(fract(_113 / float2(_196)) - float2(0.5)))) * user_input.dot_alpha)), _94, float3((1.0 - smoothstep(_223 - 1.0, _223 + 1.0, (in.in.in_var_TEXCOORD0 * params.resolution_time.xy).y - user_input.rect_px.y)) * user_input.bottom_band_color.w));
-    float _242 = precise::max(0.0, user_input.corner_radius_px * _192);
-    float2 _248 = (abs(fma(in.in.in_var_TEXCOORD0, params.resolution_time.xy, -((user_input.rect_px.xy + user_input.rect_px.zw) * 0.5))) - ((user_input.rect_px.zw - user_input.rect_px.xy) * 0.5)) + float2(_242);
-    float _256 = (length(precise::max(_248, float2(0.0))) + precise::min(precise::max(_248.x, _248.y), 0.0)) - _242;
-    float3 _272;
+    float _194 = precise::max(0.5, params.resolution_time.y * 0.000925925909541547298431396484375);
+    float _198 = precise::max(1.0, user_input.dot_cell_px * _194);
+    float _211 = fast::clamp(mix(user_input.dot_min_radius, user_input.dot_max_radius, powr(fast::clamp(_119, 0.0, 1.0), 2.599999904632568359375)), 0.0, 0.5);
+    float _212 = 2.0 / _198;
+    float _225 = precise::max(0.0, user_input.bottom_band_h * _194);
+    float3 _236 = mix(mix(_190, _96, float3((1.0 - smoothstep(_211 - _212, _211 + _212, length(fract(_115 / float2(_198)) - float2(0.5)))) * user_input.dot_alpha)), _96, float3((1.0 - smoothstep(_225 - 1.0, _225 + 1.0, (in.in.in_var_TEXCOORD0 * params.resolution_time.xy).y - user_input.rect_px.y)) * user_input.bottom_band_color.w));
+    float _244 = precise::max(0.0, user_input.corner_radius_px * _194);
+    float2 _250 = (abs(fma(in.in.in_var_TEXCOORD0, params.resolution_time.xy, -((user_input.rect_px.xy + user_input.rect_px.zw) * 0.5))) - ((user_input.rect_px.zw - user_input.rect_px.xy) * 0.5)) + float2(_244);
+    float _258 = (length(precise::max(_250, float2(0.0))) + precise::min(precise::max(_250.x, _250.y), 0.0)) - _244;
+    float3 _274;
     if (user_input.outline_px > 0.0)
     {
-        _272 = mix(_234, powr(precise::max(user_input.outline_color.xyz, float3(0.0)), float3(2.2000000476837158203125)), float3((1.0 - smoothstep(fma(user_input.outline_px, _192, -1.0), fma(user_input.outline_px, _192, 1.0), -_256)) * user_input.outline_color.w));
+        _274 = mix(_236, powr(precise::max(user_input.outline_color.xyz, float3(0.0)), float3(2.2000000476837158203125)), float3((1.0 - smoothstep(fma(user_input.outline_px, _194, -1.0), fma(user_input.outline_px, _194, 1.0), -_258)) * user_input.outline_color.w));
     }
     else
     {
-        _272 = _234;
+        _274 = _236;
     }
-    float _277 = ((in.in.in_var_COLOR0 * _78).w * mix(user_input.top_color.w, user_input.bottom_color.w, _117)) * (1.0 - smoothstep(-1.0, 1.0, _256));
-    out.out.out_var_SV_Target0 = float4(_272 * _277, _277);
+    float _285 = ((in.in.in_var_COLOR0 * _80).w * mix(user_input.top_color.w, user_input.bottom_color.w, _119)) * (1.0 - smoothstep(-1.0, 1.0, _258));
+    float3 _286 = mix(_274, float3(0.0), float3(fast::clamp(user_input.press, 0.0, 1.0) * 0.449999988079071044921875)) * _285;
+    out.out.out_var_SV_Target0 = float4(_286, _285);
     return out_1;
 }
 

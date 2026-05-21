@@ -24,11 +24,16 @@ Entity :: class {
     destroy                    :: method()                                                                                                                              #foreign "entity_destroy";
     add_component_raw          :: method(t: typeid, userdata: Object = {}, on_before_start: proc(component: Component, userdata: Object) = {}) -> Component             #foreign "entity_add_component";
     get_component_raw          :: method(t: typeid) -> Component                                                                                                        #foreign "entity_get_component";
+    remove_component_raw       :: method(t: typeid)                                                                                                                     #foreign "entity_mark_component_for_removal";
     add_component :: proc(entity: Entity, $T: typeid, userdata: Object = {}, on_before_start: proc(component: Component, userdata: Object) = {}) -> T {
         return add_component_raw(entity, T, userdata, on_before_start).(T);
     }
     get_component :: proc(entity: Entity, $T: typeid) -> T {
         return get_component_raw(entity, T).(T);
+    }
+    // Defers removal until end-of-frame cleanup. The component remains addressable until that pass runs.
+    remove_component :: proc(entity: Entity, $T: typeid) {
+        remove_component_raw(entity, T);
     }
     get_first_component :: method() -> Component #foreign "entity_get_first_component";
     get_last_component  :: method() -> Component #foreign "entity_get_last_component";
@@ -77,6 +82,8 @@ Component :: class {
     get_next_component_on_entity :: method() -> Component #foreign "component_get_next_component_on_entity";
     get_enabled :: method() -> bool #foreign "component_get_enabled";
     set_enabled :: method(new_value: bool) #foreign "component_set_enabled";
+    // Defers removal until end-of-frame cleanup. The component remains addressable until that pass runs.
+    remove_component :: method() #foreign "component_mark_for_removal";
     #interface ao_start                   :: proc(using this: Component);
     #interface ao_update                  :: proc(using this: Component, dt: float);
     #interface ao_late_update             :: proc(using this: Component, dt: float);
@@ -115,6 +122,9 @@ Sprite_Renderer :: class : Component {
 } #foreign_struct "Sprite_Renderer"
 
 Collider :: class : Component {
+    on_trigger_start_proc_index: (proc(self: Collider, other: Collider)) #foreign "on_trigger_start_proc_index";
+    on_trigger_stay_proc_index: (proc(self: Collider, other: Collider)) #foreign "on_trigger_stay_proc_index";
+    on_trigger_end_proc_index: (proc(self: Collider, other: Collider)) #foreign "on_trigger_end_proc_index";
     overlaps_point :: method(point: v2) -> bool #foreign "collider_overlaps_point";
     overlaps :: method(other: Collider) -> bool #foreign "collider_overlaps";
 } #foreign_struct "Collider"

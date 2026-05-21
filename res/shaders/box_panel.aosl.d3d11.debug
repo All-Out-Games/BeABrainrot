@@ -18,6 +18,7 @@ float corner_radius_px;
 float rainbow_strength;
 float rainbow_speed;
 float rainbow_hue_span;
+float press;
 };
 
 #define MATRIX_TEXTURE_PROVIDED
@@ -102,6 +103,7 @@ float corner_radius_px;
 float rainbow_strength;
 float rainbow_speed;
 float rainbow_hue_span;
+float press;
 };
 
 Texture2D<float4> albedo: register(t0);
@@ -253,6 +255,9 @@ float4 ps_main(float4 vtxColor: COLOR0, float2 uv: UV, float2 shadow_uv: TEXCOOR
         float on_edge = 1.0f - smoothstep(ow - 1.0f, ow + 1.0f, -sdf);
         rgb = lerp(rgb, outl_rgb_lin, on_edge * outline_color.a);
     }
+
+    // Press feedback — darken toward black while the panel is held down.
+    rgb = lerp(rgb, float3(0.0f, 0.0f, 0.0f), saturate(press) * 0.45f);
 
     // Mask everything outside the rounded box.
     float box_alpha = 1.0f - smoothstep(-1.0f, 1.0f, sdf);

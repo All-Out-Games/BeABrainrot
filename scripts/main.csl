@@ -274,6 +274,7 @@ Player :: class : Player_Base {
     debug_show_le: bool;
     show_shop_v2: bool;
     show_shop_v3: bool;
+    shop3_popup_text: string; // non-empty while the card-click test popup is open
     default_camera_size: float;
 
     ao_start :: method() {

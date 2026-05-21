@@ -15,6 +15,7 @@
     float rainbow_strength     // 0 = use top/bottom gradient, 1 = horizontal rainbow
     float rainbow_speed        // hue scroll speed (0 = static)
     float rainbow_hue_span     // how much of the hue wheel to cover diagonally (1 = full rainbow, 0.4 = partial)
+    float press                // 0..1 press-down amount — darkens the panel (default 0 = no effect)
 }
 
 !!pipeline {
@@ -147,6 +148,9 @@ float4 ps_main(float4 vtxColor: COLOR0, float2 uv: UV, float2 shadow_uv: TEXCOOR
         float on_edge = 1.0f - smoothstep(ow - 1.0f, ow + 1.0f, -sdf);
         rgb = lerp(rgb, outl_rgb_lin, on_edge * outline_color.a);
     }
+
+    // Press feedback — darken toward black while the panel is held down.
+    rgb = lerp(rgb, float3(0.0f, 0.0f, 0.0f), saturate(press) * 0.45f);
 
     // Mask everything outside the rounded box.
     float box_alpha = 1.0f - smoothstep(-1.0f, 1.0f, sdf);

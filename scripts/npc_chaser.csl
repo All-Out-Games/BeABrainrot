@@ -53,6 +53,13 @@ Npc_Chaser :: class : Component {
         }
     }
 
+    ao_late_update :: method(dt: float) {
+        // Each client only sees its own chaser per room — hide the rest by
+        // zeroing renderer tint alpha (chase logic still runs). Visual-only,
+        // so it's fine to derive from the client-local player.
+        set_chaser_subtree_visible(entity, chaser_is_displayed_for_local(this));
+    }
+
     on_catch :: method() {
         if assigned_player == null return;
         if !#alive(assigned_player.entity) return;
@@ -148,6 +155,7 @@ tick_chaser_escorting :: proc(c: Npc_Chaser, dt: float) {
         nudge_local_by_world_delta(c.assigned_player.entity, player_diff);
         remove_effect(c.assigned_player.entity, Catched_By_Npc_Effect, false);
         eff := new(In_Npc_Room_Effect);
+        eff.jailer_room = c.home_room;
         c.assigned_player.entity.add_passive_effect(eff);
         c.assigned_player.remove_freeze_reason(NPC_ESCORT_FREEZE_REASON);
         c.state = Npc_Chaser_State.IDLE;
@@ -173,6 +181,44 @@ collect_chasers_recursive :: proc(r: Room_Npc, e: Entity) {
         collect_chasers_recursive(r, current);
         current = current.get_next_sibling();
     }
+}
+
+// Hide/show every renderer in an entity subtree by setting tint alpha. Chase
+// logic keeps running on a hidden chaser — only the visual is suppressed.
+set_chaser_subtree_visible :: proc(e: Entity, visible: bool) {
+    a: float = 0.0;
+    if visible a = 1.0;
+
+    sr := e.get_component(Sprite_Renderer);
+    if sr != null {
+        col := sr.color;
+        col.w = a;
+        sr.color = col;
+    }
+    sa := e.get_component(Spine_Animator);
+    if sa != null {
+        t := sa.get_tint();
+        t.w = a;
+        sa.set_tint(t);
+    }
+
+    current := e.get_first_child();
+    while current != null {
+        set_chaser_subtree_visible(current, visible);
+        current = current.get_next_sibling();
+    }
+}
+
+// True if this chaser is the one the local client should see for its room:
+// the local player's claimed chaser, or slot 0 if they haven't claimed one.
+chaser_is_displayed_for_local :: proc(c: Npc_Chaser) -> bool {
+    local, has_local := Game.get_local_player();
+    if !has_local return false;
+    if c.home_room == null return false;
+    mine := get_player_chaser_in_room(c.home_room, local);
+    if mine != null return mine == c;
+    if c.home_room.chasers.count > 0 return c.home_room.chasers[0] == c;
+    return false;
 }
 
 get_player_chaser_in_room :: proc(r: Room_Npc, player: Player) -> Npc_Chaser {
@@ -225,11 +271,22 @@ reset_chasers_for_player :: proc(player: Player) {
     }
 }
 
+// While a player is jailed (In_Npc_Room_Effect), only the base that jailed
+// them is allowed to chase. Before being jailed, any base may chase.
+npc_room_may_chase :: proc(player: Player, r: Room_Npc) -> bool {
+    e, jailed := get_effect(player.entity, In_Npc_Room_Effect);
+    if !jailed return true;
+    if e == null return true;
+    if e.jailer_room == null return true;
+    return e.jailer_room == r;
+}
+
 room_npc_on_chase_enter :: proc(listener: Component, player: Player) {
     if listener == null return;
     if player == null return;
     r := listener.(Room_Npc);
     if r == null return;
+    if !npc_room_may_chase(player, r) return;
     c := claim_or_get_chaser_in_room(r, player);
     if c == null return;
     if c.state == Npc_Chaser_State.ESCORTING return;
@@ -263,11 +320,13 @@ room_npc_on_jail_exit :: proc(listener: Component, player: Player) {
 
     _, has_in_room := get_effect(player.entity, In_Npc_Room_Effect);
     if !has_in_room return;
+    if !npc_room_may_chase(player, r) return;
 
     // Jailbreak — InNpcRoom stays on the player; chaser resumes at the slower
-    // re-chase speed (after a brief wind-up at NPC_CHASE_WINDUP_SPEED).
+    // re-chase speed. The wind-up only applies when starting from IDLE (so
+    // re-crossing the jail collider mid-chase doesn't keep slowing it).
     c := get_player_chaser_in_room(r, player);
-    if c != null {
+    if c != null && c.state == Npc_Chaser_State.IDLE {
         c.state = Npc_Chaser_State.CHASING;
         c.current_speed = c.speed_min;
         c.chase_windup_remaining = NPC_CHASE_WINDUP_DURATION;

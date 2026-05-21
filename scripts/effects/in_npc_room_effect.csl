@@ -6,6 +6,7 @@ IN_NPC_ROOM_FREEZE_DURATION :: 2.0;
 IN_NPC_ROOM_FREEZE_REASON   :: "in_npc_room_placed";
 
 In_Npc_Room_Effect :: class : Effect_Base {
+    jailer_room:      Room_Npc; // the base that placed the player — only it may chase
     freeze_remaining: float;
     freeze_applied:   bool;
 

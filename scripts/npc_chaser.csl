@@ -80,21 +80,30 @@ Npc_Chaser :: class : Component {
     }
 }
 
-// Apply a world-space step to entity by translating its local_position.
-// Works for parents with translation only (no rotation/scale).
-nudge_local_by_world_delta :: proc(e: Entity, world_delta: v2) {
-    e.set_local_position(e.local_position + world_delta);
+// Transform a direction/delta vector (no translation) by a Matrix4's linear
+// part — column-major, same indexing convention as transform_point_2d.
+transform_delta_2d :: proc(m: Matrix4, d: v2) -> v2 {
+    rx := d.x * m.elements[0][0] + d.y * m.elements[1][0];
+    ry := d.x * m.elements[0][1] + d.y * m.elements[1][1];
+    return v2{rx, ry};
 }
 
-// Flip the entity along X so it faces the direction it's moving. Assumes the
-// default sprite faces right (positive scale.x). For default-faces-left rigs,
-// flip the scene scale once and it'll keep working.
+// Flip the entity along X so it faces the world direction it's moving. There's
+// no set_world_scale, so the facing is still done via local_scale — convert the
+// world dx into the parent's local space so a mirrored parent (scale.x = -1)
+// doesn't reverse the facing.
 face_along_x :: proc(e: Entity, world_dx: float) {
     if abs(world_dx) < 0.001 return;
+    local_dx := world_dx;
+    parent := e.get_parent();
+    if parent != null && #alive(parent) {
+        local_dx = transform_delta_2d(parent.inverse_model_matrix, v2{world_dx, 0}).x;
+    }
+    if abs(local_dx) < 0.0001 return;
     s := e.local_scale;
     abs_x := abs(s.x);
     target_x := abs_x;
-    if world_dx < 0 target_x = -abs_x;
+    if local_dx < 0 target_x = -abs_x;
     if s.x == target_x return;
     e.set_local_scale(v2{target_x, s.y});
 }
@@ -106,11 +115,11 @@ tick_chaser_idle :: proc(c: Npc_Chaser, dt: float) {
     step := c.speed_max * dt;
     face_along_x(c.entity, diff.x);
     if length_squared(diff) <= step * step {
-        nudge_local_by_world_delta(c.entity, diff);
+        c.entity.set_world_position(c.home_position);
         return;
     }
     n := normalize(diff);
-    nudge_local_by_world_delta(c.entity, n * step);
+    c.entity.set_world_position(my_world + n * step);
 }
 
 tick_chaser_chasing :: proc(c: Npc_Chaser, dt: float) {
@@ -133,7 +142,7 @@ tick_chaser_chasing :: proc(c: Npc_Chaser, dt: float) {
     }
     face_along_x(c.entity, diff.x);
     n := normalize(diff);
-    nudge_local_by_world_delta(c.entity, n * effective_speed * dt);
+    c.entity.set_world_position(my_world + n * effective_speed * dt);
 }
 
 tick_chaser_escorting :: proc(c: Npc_Chaser, dt: float) {
@@ -151,8 +160,7 @@ tick_chaser_escorting :: proc(c: Npc_Chaser, dt: float) {
 
     if length_squared(diff) < NPC_ARRIVED_RADIUS_SQ {
         // Arrived → place player on pedestal.
-        player_diff := target - c.assigned_player.entity.world_position;
-        nudge_local_by_world_delta(c.assigned_player.entity, player_diff);
+        c.assigned_player.entity.set_world_position(target);
         remove_effect(c.assigned_player.entity, Catched_By_Npc_Effect, false);
         eff := new(In_Npc_Room_Effect);
         eff.jailer_room = c.home_room;
@@ -166,8 +174,8 @@ tick_chaser_escorting :: proc(c: Npc_Chaser, dt: float) {
     step := c.speed_max * dt;
     n := normalize(diff);
     world_step := n * step;
-    nudge_local_by_world_delta(c.entity, world_step);
-    nudge_local_by_world_delta(c.assigned_player.entity, world_step);
+    c.entity.set_world_position(my_world + world_step);
+    c.assigned_player.entity.set_world_position(c.assigned_player.entity.world_position + world_step);
 }
 
 collect_chasers_recursive :: proc(r: Room_Npc, e: Entity) {
@@ -265,8 +273,7 @@ reset_chasers_for_player :: proc(player: Player) {
         c.state = Npc_Chaser_State.IDLE;
         if #alive(c.entity) {
             // Snap back home — line crossing should instantly reset, not slow-lerp.
-            my_world := c.entity.world_position;
-            nudge_local_by_world_delta(c.entity, c.home_position - my_world);
+            c.entity.set_world_position(c.home_position);
         }
     }
 }
@@ -383,9 +390,7 @@ npc_punish_player :: proc(c: Npc_Chaser) {
 
     // Teleport player back to their own base.
     if c.assigned_player.my_room != null && #alive(c.assigned_player.my_room.entity) {
-        target_world := c.assigned_player.my_room.entity.world_position;
-        player_diff := target_world - c.assigned_player.entity.world_position;
-        nudge_local_by_world_delta(c.assigned_player.entity, player_diff);
+        c.assigned_player.entity.set_world_position(c.assigned_player.my_room.entity.world_position);
     }
 
     // Clear effects and unfreeze.

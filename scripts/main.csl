@@ -31,10 +31,16 @@ push_cash_popup :: proc(player: Player, amount: float, is_loss: bool) {
 
 deposit_cash :: proc(player: Player, amount: float) {
     if amount <= 0 return;
-    final := amount * get_rebirth_multiplier(player, "money");
-    player.cash += final;
+    player.cash += amount;
     Save.set_f64(player, CASH_SAVE_KEY, player.cash.(f64));
-    push_cash_popup(player, final, false);
+    push_cash_popup(player, amount, false);
+}
+
+// Round-up to the nearest integer (CSL has no built-in ceil for float).
+ceil_float :: proc(x: float) -> float {
+    i := x.(s64).(float);
+    if i < x return i + 1.0;
+    return i;
 }
 
 withdraw_cash :: proc(player: Player, amount: float) -> bool {
@@ -306,6 +312,8 @@ Player :: class : Player_Base {
     show_shop_v3: bool;
     shop3_popup_text: string; // non-empty while the card-click test popup is open
     default_camera_size: float;
+    show_skin_shop: bool;
+    equipped_skin_id: string;
 
     ao_start :: method() {
         speed = Save.get_int(this, SPEED_SAVE_KEY, BASE_SPEED);
@@ -401,6 +409,7 @@ Player :: class : Player_Base {
             draw_shop_modal(this);
             draw_shop_v2(this);
             draw_shop_v3(this);
+            draw_skin_shop(this);
             draw_debug_living_entity(this);
         }
         if is_local() {

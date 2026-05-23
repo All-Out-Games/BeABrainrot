@@ -287,7 +287,7 @@ LivingEntity :: class : Interactable {
         e := (level - 1).(float);
         g := base_gps * pow(GPS_PER_LEVEL_MULT, e);
         g *= get_mutation_gps_multiplier(mutation);
-        return g;
+        return ceil_float(g);
     }
 
     can_use :: method(player: Player) -> bool {

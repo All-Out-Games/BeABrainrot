@@ -1,0 +1,120 @@
+// Skin Shop — list of brainrot characters the player can equip as their skin.
+// Each card shows the brainrot icon, name, a speed multiplier blurb, and an
+// Equip / Equipped button. (Rebirth-gating / sparks-cost variant will be added
+// later — currently all entries are treated as unlocked.)
+
+SKIN_SHOP_CARD_HEIGHT :: 130.0;
+SKIN_SHOP_ICON_SIZE   :: 96.0;
+SKIN_SHOP_BTN_WIDTH   :: 200.0;
+SKIN_SHOP_BTN_HEIGHT  :: 84.0;
+
+skin_shop_speed_mult_for :: proc(c: Brainrot_Config) -> float {
+    // Placeholder ramp by rarity — tune per-skin later.
+    if c.rarity == Rarity.RARE      return 1.05;
+    if c.rarity == Rarity.EPIC      return 1.10;
+    if c.rarity == Rarity.LEGENDARY return 1.15;
+    if c.rarity == Rarity.MYTHIC    return 1.20;
+    if c.rarity == Rarity.CELESTIAL return 1.25;
+    if c.rarity == Rarity.SECRET    return 1.30;
+    if c.rarity == Rarity.DIVINE    return 1.40;
+    if c.rarity == Rarity.OG        return 1.50;
+    return 1.0;
+}
+
+draw_skin_shop :: proc(player: Player) {
+    if player == null return;
+    if !player.show_skin_shop return;
+
+    configs := get_brainrot_configs();
+    n := configs.count;
+    if n <= 0 return;
+
+    UIK.begin(UIK.modal(UIK.rect_window(), 15));
+
+    shell := UIK.panel_modal(.BLACK);
+    shell.gap = 0;
+    UIK.panel_begin(shell);
+
+    title_desc  := UIK.title_area_desc("Skin Shop");
+    exit_handle := UIK.title_area(title_desc);
+
+    list_panel := UIK.layout_column();
+    list_panel.width   = UIK.flex(1);
+    list_panel.height  = UIK.flex(1);
+    list_panel.gap     = 8;
+    list_panel.padding = v4{12, 12, 12, 12};
+    UIK.list_begin("skin_shop_scroll", list_panel);
+
+    // Allocate one handle per card.
+    handles: [..]Interact_Result;
+    reserve(ref handles, n);
+
+    for i: 0..n - 1 {
+        cfg := configs[i];
+
+        card := UIK.layout_row();
+        card.width            = UIK.flex(1);
+        card.height           = UIK.pixels(SKIN_SHOP_CARD_HEIGHT);
+        card.gap              = 12;
+        card.padding          = v4{8, 12, 8, 12};
+        card.cross_align      = .CENTER;
+        card.show_background  = true;
+        UIK.panel_begin(card);
+
+        // Icon tile.
+        icon_box := UIK.layout_centered(UIK.pixels(SKIN_SHOP_ICON_SIZE), UIK.pixels(SKIN_SHOP_ICON_SIZE));
+        UIK.panel_begin(icon_box);
+        if cfg.sprite_path.count > 0 {
+            tex := get_asset(Texture_Asset, cfg.sprite_path);
+            if tex != null UIK.image_fitted(tex, UIK.image_desc(.CONTAIN));
+        }
+        UIK.panel_end();
+
+        // Name + speed.
+        info := UIK.layout_column();
+        info.width      = UIK.flex(1);
+        info.height     = UIK.flex(1);
+        info.gap        = 4;
+        info.main_align = .CENTER;
+        UIK.panel_begin(info);
+        UIK.text(cfg.display_name, UIK.text_title());
+        speed := skin_shop_speed_mult_for(cfg);
+        UIK.text(format_string("% speed", {format_float(speed, decimals=2)}), UIK.text_body());
+        UIK.panel_end();
+
+        // Button.
+        is_equipped := player.equipped_skin_id == cfg.id;
+        label := "Equip";
+        bg    := UIK.Panel_Background_Kind.BUTTON_BASIC_GREEN;
+        if is_equipped {
+            label = "Equipped";
+            bg    = UIK.Panel_Background_Kind.BUTTON_BASIC_GREY;
+        }
+        bd := UIK.widget_desc_button_auto_default(bg);
+        bd.panel.width  = UIK.pixels(SKIN_SHOP_BTN_WIDTH);
+        bd.panel.height = UIK.pixels(SKIN_SHOP_BTN_HEIGHT);
+        h := UIK.button(format_string("skin_equip_%", {cfg.id}), label, bd);
+        append(ref handles, h);
+
+        UIK.panel_end(); // card
+    }
+
+    UIK.list_end();
+    UIK.panel_end(); // shell
+    UIK.end();
+
+    if UIK.clicked(exit_handle) {
+        player.show_skin_shop = false;
+        return;
+    }
+    for i: 0..handles.count - 1 {
+        if UIK.clicked(handles[i]) {
+            player.equipped_skin_id = configs[i].id;
+        }
+    }
+}
+
+skin_shop :: proc(player: Player) {
+    if player == null return;
+    player.show_skin_shop = !player.show_skin_shop;
+} @chat_command

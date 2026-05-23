@@ -93,10 +93,17 @@ Pedestal :: class : Interactable {
             gps_tick_timer = 0;
         }
 
-        if placed_brainrot != null {
+        // NPC base pedestals are display-only — no income generation.
+        is_npc_room := room != null && room.#type == Room_Npc;
+        if placed_brainrot != null && !is_npc_room {
             gps_tick_timer += dt;
             while gps_tick_timer >= 1.0 {
-                accumulated_gold += placed_brainrot.get_gps();
+                base := placed_brainrot.get_gps();
+                amount := base;
+                if room != null && #alive(room.owner) {
+                    amount = ceil_float(base * get_rebirth_multiplier(room.owner, "money"));
+                }
+                accumulated_gold += amount;
                 gps_tick_timer -= 1.0;
             }
         }

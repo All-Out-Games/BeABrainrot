@@ -25,17 +25,17 @@ Rebirth_Reward :: class {
 }
 
 Rebirth_Level :: class {
-    level:         s64;
-    required_cash: float;
-    rewards:       [..]Rebirth_Reward;
+    level:          s64;
+    required_speed: s64;
+    rewards:        [..]Rebirth_Reward;
 }
 
 ALL_REBIRTH_LEVELS: [..]Rebirth_Level;
 
-register_rebirth_level :: proc(level: s64, required_cash: float) -> Rebirth_Level {
+register_rebirth_level :: proc(level: s64, required_speed: s64) -> Rebirth_Level {
     lvl := new(Rebirth_Level);
-    lvl.level = level;
-    lvl.required_cash = required_cash;
+    lvl.level          = level;
+    lvl.required_speed = required_speed;
     append(ref ALL_REBIRTH_LEVELS, lvl);
     return lvl;
 }
@@ -109,14 +109,14 @@ REBIRTH_SAVE_KEY :: "rebirth_level";
 can_rebirth :: proc(player: Player) -> bool {
     nxt := get_rebirth_level(player.rebirth_level);
     if nxt == null return false;
-    if player.cash < nxt.required_cash return false;
+    if player.speed < nxt.required_speed return false;
     return true;
 }
 
 do_rebirth :: proc(player: Player) -> bool {
     nxt := get_rebirth_level(player.rebirth_level);
     if nxt == null return false;
-    if player.cash < nxt.required_cash return false;
+    if player.speed < nxt.required_speed return false;
 
     grant_total: float = 0;
     pedestal_total: s64 = 0;
@@ -156,17 +156,14 @@ do_rebirth :: proc(player: Player) -> bool {
 // ----- Default progression. Tune freely; the system doesn't care about specific stat ids. -----
 
 register_default_rebirth_levels :: proc() {
-    // Each level: 5x cash cost, +0.5x money multiplier, scaling cash grant.
-    cost: float = 1000000.0;
-    grant: float = 5000.0;
+    // Each level requires the player to upgrade their speed stat past a
+    // threshold. +0.5x money multiplier per level, +1 pedestal slot.
     i: s64 = 0;
     while i < 25 {
-        lvl := register_rebirth_level(i, cost);
+        required_speed: s64 = BASE_SPEED + (i + 1) * 2;
+        lvl := register_rebirth_level(i, required_speed);
         add_rebirth_multiplier(lvl, "money", 0.5, "+0.5x money");
-        add_rebirth_cash_grant(lvl, grant, format_string("+% bonus", {format_cash(grant)}));
         add_rebirth_pedestal_grant(lvl, 1, "+1 Pedestal");
-        cost  *= 5.0;
-        grant *= 4.0;
         i += 1;
     }
 }
@@ -228,10 +225,10 @@ draw_rebirth_modal :: proc(player: Player) {
 
     UIK.panel_end(); // preview
 
-    // ----- Progress bar (cash / required) with overlay label -----
+    // ----- Progress bar (speed / required) with overlay label -----
     nxt := get_rebirth_level(player.rebirth_level);
     if nxt != null {
-        progress := player.cash / nxt.required_cash;
+        progress := player.speed.(float) / nxt.required_speed.(float);
         if progress > 1.0 progress = 1.0;
         if progress < 0.0 progress = 0.0;
 
@@ -244,8 +241,8 @@ draw_rebirth_modal :: proc(player: Player) {
         UIK.progress_bar(UIK.panel_progress_bar(.PROGRESS_BAR_STYLE_1, progress, bar_color, UIK.flex(1), UIK.flex(1)));
 
         UIK.overlay_begin(.CENTER, {0, 0});
-        cash_label := UIK.text_title();
-        UIK.text(format_string("% / %", {format_cash(player.cash), format_cash(nxt.required_cash)}), cash_label);
+        speed_label := UIK.text_title();
+        UIK.text(format_string("Speed: %0/%", {player.speed, nxt.required_speed}), speed_label);
         UIK.overlay_end();
 
         UIK.panel_end(); // bar_stack
@@ -323,4 +320,15 @@ draw_rebirth_preview_card :: proc(title: string, body_label: string, bg: UIK.Pan
 // Chat command for testing.
 rebirth_cmd :: proc(player: Player) {
     player.show_rebirth_modal = !player.show_rebirth_modal;
+} @chat_command
+
+set_rebirth :: proc(player: Player, level: s64 = 0) {
+    if player == null return;
+    if level < 0 level = 0;
+    max := get_max_rebirth_level();
+    if level > max + 1 level = max + 1;
+    player.rebirth_level = level;
+    Save.set_int(player, REBIRTH_SAVE_KEY, level);
+    mult := get_rebirth_multiplier(player, "money");
+    Notifier.notify(player, "Rebirth set to % (%0x money)", {level, format_float(mult, decimals=1)});
 } @chat_command

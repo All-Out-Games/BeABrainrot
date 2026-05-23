@@ -5,8 +5,9 @@
 Carry_Brainrot_Effect_2 :: class : Effect_Base {
     carried: LivingEntity;
 
-    saved_position: v2;
-    saved_radius:   float;
+    saved_position:          v2;
+    saved_radius:            float;
+    previous_brainrot_floor: s64;
 
     effect_start :: method() {
         if carried != null && #alive(carried.entity) {
@@ -16,6 +17,10 @@ Carry_Brainrot_Effect_2 :: class : Effect_Base {
             carried.radius = 0;
             carried.state = Brainrot_State.CLAIMED;
             carried.owner = player;
+
+            if carried.floor_renderer != null {
+                previous_brainrot_floor = carried.floor_renderer.floor;
+            }
         }
         if player != null && player.animator != null && player.animator.state_machine != null {
             player.animator.state_machine.set_bool("carryingMoving", true);
@@ -40,6 +45,13 @@ Carry_Brainrot_Effect_2 :: class : Effect_Base {
             }
         }
         carried.entity.set_local_position(held_pos);
+
+        // Keep the carried brainrot rendered on the carrier's current floor so
+        // it doesn't fade out when the player walks between floors.
+        if carried.floor_renderer != null && carried.floor_renderer.floor != player.current_floor {
+            carried.floor_renderer.floor = player.current_floor;
+            carried.floor_renderer.apply_layer();
+        }
     }
 
     effect_end :: method(interrupt: bool) {
@@ -52,6 +64,10 @@ Carry_Brainrot_Effect_2 :: class : Effect_Base {
                 }
                 carried.state = Brainrot_State.NOT_CLAIMED;
                 carried.owner = null;
+                if carried.floor_renderer != null {
+                    carried.floor_renderer.floor = previous_brainrot_floor;
+                    carried.floor_renderer.apply_layer();
+                }
             }
         }
         if player != null && player.animator != null && player.animator.state_machine != null {

@@ -12,7 +12,7 @@ NPC_CATCH_RADIUS_SQ       :: 0.25;   // 0.5 wu
 NPC_ARRIVED_RADIUS_SQ     :: 0.04;   // 0.2 wu
 NPC_HOME_RADIUS_SQ        :: 0.0025; // 0.05 wu
 NPC_CHASE_WINDUP_SPEED    :: 0.5;    // wu/s during the wind-up after a re-trigger
-NPC_CHASE_WINDUP_DURATION :: 5.0;    // seconds of wind-up before speed_min kicks in
+NPC_CHASE_WINDUP_DURATION :: 2.5;    // seconds of wind-up before speed_min kicks in
 NPC_ESCORT_FREEZE_REASON  :: "escort_to_jail";
 
 Npc_Chaser :: class : Component {
@@ -125,6 +125,9 @@ tick_chaser_idle :: proc(c: Npc_Chaser, dt: float) {
 tick_chaser_chasing :: proc(c: Npc_Chaser, dt: float) {
     if c.assigned_player == null { c.state = Npc_Chaser_State.IDLE; return; }
     if !#alive(c.assigned_player.entity) { c.state = Npc_Chaser_State.IDLE; return; }
+    // Pause the chase while the player is on an upper floor (mid-jump or in an
+    // upper room). Stays in CHASING so it picks back up when they're on 0.
+    if c.assigned_player.current_floor != 0 return;
 
     effective_speed := c.current_speed;
     if c.chase_windup_remaining > 0 {

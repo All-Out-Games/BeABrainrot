@@ -40,6 +40,8 @@ shop3_make_box_material :: proc(box: Shop2_Box) -> Material {
     mat.set_float ("rainbow_strength",  box.rainbow);
     mat.set_float ("rainbow_speed",     box.rainbow_speed);
     mat.set_float ("rainbow_hue_span",  box.rainbow_hue_span);
+    mat.set_float ("shine_strength",    0.0);
+    mat.set_float ("shine_speed",       1.0);
     return mat;
 }
 

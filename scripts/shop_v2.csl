@@ -78,6 +78,8 @@ draw_box :: proc(rect: Rect, box: Shop2_Box) {
     mat.set_float ("rainbow_strength",  box.rainbow);
     mat.set_float ("rainbow_speed",     box.rainbow_speed);
     mat.set_float ("rainbow_hue_span",  box.rainbow_hue_span);
+    mat.set_float ("shine_strength",    0.0);
+    mat.set_float ("shine_speed",       1.0);
     UI.push_material(mat);
     UI.quad(rect, core_globals.white_sprite, v4{1, 1, 1, 1});
     UI.pop_material();

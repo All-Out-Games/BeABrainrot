@@ -1,7 +1,6 @@
 // Skin Shop — list of brainrot characters the player can equip as their skin.
-// Each card shows the brainrot icon, name, a speed multiplier blurb, and an
-// Equip / Equipped button. (Rebirth-gating / sparks-cost variant will be added
-// later — currently all entries are treated as unlocked.)
+// Unlocked skins show an Equip/Equipped button; locked skins show a two-button
+// overlay (Rebirth N to wait OR robux price to purchase the product).
 
 SKIN_SHOP_CARD_HEIGHT :: 130.0;
 SKIN_SHOP_ICON_SIZE   :: 96.0;
@@ -45,58 +44,112 @@ draw_skin_shop :: proc(player: Player) {
     list_panel.padding = v4{12, 12, 12, 12};
     UIK.list_begin("skin_shop_scroll", list_panel);
 
-    // Allocate one handle per card.
-    handles: [..]Interact_Result;
-    reserve(ref handles, n);
+    // Track each kind of button independently so resolve only touches handles
+    // that were actually created (UIK panics on uninitialised handles).
+    equip_h:    [..]Interact_Result;
+    equip_ids:  [..]string;
+    rebirth_h:  [..]Interact_Result;
+    rebirth_n:  [..]s64;
+    buy_h:      [..]Interact_Result;
+    buy_pids:   [..]string;
 
     for i: 0..n - 1 {
         cfg := configs[i];
+        unlocked := is_skin_unlocked(player, i);
 
-        card := UIK.layout_row();
-        card.width            = UIK.flex(1);
-        card.height           = UIK.pixels(SKIN_SHOP_CARD_HEIGHT);
-        card.gap              = 12;
-        card.padding          = v4{8, 12, 8, 12};
-        card.cross_align      = .CENTER;
-        card.show_background  = true;
-        UIK.panel_begin(card);
+        if unlocked {
+            card := UIK.layout_row();
+            card.width            = UIK.flex(1);
+            card.height           = UIK.pixels(SKIN_SHOP_CARD_HEIGHT);
+            card.gap              = 12;
+            card.padding          = v4{8, 12, 8, 12};
+            card.cross_align      = .CENTER;
+            card.show_background  = true;
+            UIK.panel_begin(card);
 
-        // Icon tile.
-        icon_box := UIK.layout_centered(UIK.pixels(SKIN_SHOP_ICON_SIZE), UIK.pixels(SKIN_SHOP_ICON_SIZE));
-        UIK.panel_begin(icon_box);
-        if cfg.sprite_path.count > 0 {
-            tex := get_asset(Texture_Asset, cfg.sprite_path);
-            if tex != null UIK.image_fitted(tex, UIK.image_desc(.CONTAIN));
+            icon_box := UIK.layout_centered(UIK.pixels(SKIN_SHOP_ICON_SIZE), UIK.pixels(SKIN_SHOP_ICON_SIZE));
+            UIK.panel_begin(icon_box);
+            if cfg.sprite_path.count > 0 {
+                tex := get_asset(Texture_Asset, cfg.sprite_path);
+                if tex != null UIK.image_fitted(tex, UIK.image_desc(.CONTAIN));
+            }
+            UIK.panel_end();
+
+            info := UIK.layout_column();
+            info.width      = UIK.flex(1);
+            info.height     = UIK.flex(1);
+            info.gap        = 4;
+            info.main_align = .CENTER;
+            UIK.panel_begin(info);
+            UIK.text(cfg.display_name, UIK.text_title());
+            speed := skin_shop_speed_mult_for(cfg);
+            UIK.text(format_string("% speed", {format_float(speed, decimals=2)}), UIK.text_body());
+            UIK.panel_end();
+
+            is_equipped := player.equipped_skin_id == cfg.id;
+            label := "Equip";
+            bg    := UIK.Panel_Background_Kind.BUTTON_BASIC_GREEN;
+            if is_equipped {
+                label = "Equipped";
+                bg    = UIK.Panel_Background_Kind.BUTTON_BASIC_GREY;
+            }
+            bd := UIK.widget_desc_button_auto_default(bg);
+            bd.panel.width  = UIK.pixels(SKIN_SHOP_BTN_WIDTH);
+            bd.panel.height = UIK.pixels(SKIN_SHOP_BTN_HEIGHT);
+            h := UIK.button(format_string("skin_equip_%", {cfg.id}), label, bd);
+            append(ref equip_h, h);
+            append(ref equip_ids, cfg.id);
+
+            UIK.panel_end(); // card
+        } else {
+            // Locked: dark card (faded-black background), icon on the left,
+            // two pill buttons centered in the remaining space.
+            card := UIK.panel_styled(.MODAL_TRANSP_BLACK);
+            card.axis        = .HORIZONTAL;
+            card.width       = UIK.flex(1);
+            card.height      = UIK.pixels(SKIN_SHOP_CARD_HEIGHT);
+            card.gap         = 12;
+            card.padding     = v4{8, 12, 8, 12};
+            card.cross_align = .CENTER;
+            UIK.panel_begin(card);
+
+            icon_box := UIK.layout_centered(UIK.pixels(SKIN_SHOP_ICON_SIZE), UIK.pixels(SKIN_SHOP_ICON_SIZE));
+            UIK.panel_begin(icon_box);
+            if cfg.sprite_path.count > 0 {
+                tex := get_asset(Texture_Asset, cfg.sprite_path);
+                if tex != null UIK.image_fitted(tex, UIK.image_desc(.CONTAIN));
+            }
+            UIK.panel_end();
+
+            btn_row := UIK.layout_row();
+            btn_row.width       = UIK.flex(1);
+            btn_row.height      = UIK.flex(1);
+            btn_row.gap         = 16;
+            btn_row.main_align  = .CENTER;
+            btn_row.cross_align = .CENTER;
+            UIK.panel_begin(btn_row);
+
+            rb_d := UIK.widget_desc_button_auto_default(.BUTTON_BASIC_RED);
+            rb_d.panel.width  = UIK.pixels(220);
+            rb_d.panel.height = UIK.pixels(SKIN_SHOP_BTN_HEIGHT);
+            rh := UIK.button(format_string("skin_rb_%", {cfg.id}), format_string("Rebirth %", {i}), rb_d);
+            append(ref rebirth_h, rh);
+            append(ref rebirth_n, i);
+
+            pid := skin_product_id_for_index(i);
+            price: s64 = 0;
+            if pid.count > 0 price = Purchasing.get_product(pid).price;
+            bx_d := UIK.widget_desc_button_auto_default(.BUTTON_BASIC_GREEN);
+            bx_d.panel.width  = UIK.pixels(220);
+            bx_d.panel.height = UIK.pixels(SKIN_SHOP_BTN_HEIGHT);
+            spark_tex := get_asset(Texture_Asset, "$AO/ui/kit/Icons/sparks/spark_medium.png");
+            bh := UIK.icon_button_label(format_string("skin_buy_%", {cfg.id}), spark_tex, format_string("%", {price}), bx_d);
+            append(ref buy_h, bh);
+            append(ref buy_pids, pid);
+
+            UIK.panel_end(); // btn_row
+            UIK.panel_end(); // card
         }
-        UIK.panel_end();
-
-        // Name + speed.
-        info := UIK.layout_column();
-        info.width      = UIK.flex(1);
-        info.height     = UIK.flex(1);
-        info.gap        = 4;
-        info.main_align = .CENTER;
-        UIK.panel_begin(info);
-        UIK.text(cfg.display_name, UIK.text_title());
-        speed := skin_shop_speed_mult_for(cfg);
-        UIK.text(format_string("% speed", {format_float(speed, decimals=2)}), UIK.text_body());
-        UIK.panel_end();
-
-        // Button.
-        is_equipped := player.equipped_skin_id == cfg.id;
-        label := "Equip";
-        bg    := UIK.Panel_Background_Kind.BUTTON_BASIC_GREEN;
-        if is_equipped {
-            label = "Equipped";
-            bg    = UIK.Panel_Background_Kind.BUTTON_BASIC_GREY;
-        }
-        bd := UIK.widget_desc_button_auto_default(bg);
-        bd.panel.width  = UIK.pixels(SKIN_SHOP_BTN_WIDTH);
-        bd.panel.height = UIK.pixels(SKIN_SHOP_BTN_HEIGHT);
-        h := UIK.button(format_string("skin_equip_%", {cfg.id}), label, bd);
-        append(ref handles, h);
-
-        UIK.panel_end(); // card
     }
 
     UIK.list_end();
@@ -107,9 +160,19 @@ draw_skin_shop :: proc(player: Player) {
         player.show_skin_shop = false;
         return;
     }
-    for i: 0..handles.count - 1 {
-        if UIK.clicked(handles[i]) {
-            player.equipped_skin_id = configs[i].id;
+    for i: 0..equip_h.count - 1 {
+        if UIK.clicked(equip_h[i]) {
+            player.equipped_skin_id = equip_ids[i];
+        }
+    }
+    for i: 0..rebirth_h.count - 1 {
+        if UIK.clicked(rebirth_h[i]) {
+            Notifier.notify(player, "Reach Rebirth % to unlock!", {rebirth_n[i]});
+        }
+    }
+    for i: 0..buy_h.count - 1 {
+        if UIK.clicked(buy_h[i]) {
+            if buy_pids[i].count > 0 Purchasing.prompt_purchase(player, buy_pids[i]);
         }
     }
 }

@@ -113,10 +113,10 @@ can_rebirth :: proc(player: Player) -> bool {
     return true;
 }
 
-do_rebirth :: proc(player: Player) -> bool {
+do_rebirth :: proc(player: Player, force: bool = false) -> bool {
     nxt := get_rebirth_level(player.rebirth_level);
     if nxt == null return false;
-    if player.speed < nxt.required_speed return false;
+    if !force && player.speed < nxt.required_speed return false;
 
     grant_total: float = 0;
     pedestal_total: s64 = 0;
@@ -125,11 +125,14 @@ do_rebirth :: proc(player: Player) -> bool {
         if r.grant_pedestals > 0 pedestal_total += r.grant_pedestals;
     }
 
-    // Reset stats
-    player.cash = 0;
-    player.displayed_cash = 0;
-    Save.set_f64(player, CASH_SAVE_KEY, 0);
-    set_speed(player, BASE_SPEED);
+    // Reset stats — only on the free rebirth. The paid skip keeps both
+    // cash and speed so the player isn't double-punished after spending sparks.
+    if !force {
+        player.cash = 0;
+        player.displayed_cash = 0;
+        Save.set_f64(player, CASH_SAVE_KEY, 0);
+        set_speed(player, BASE_SPEED);
+    }
 
     // Advance level
     player.rebirth_level += 1;
@@ -170,29 +173,147 @@ register_default_rebirth_levels :: proc() {
 
 // ----- UI -----
 
+// Custom-shader materials for the two preview cards — same box_panel.aosl
+// pattern shop_v3 uses. Each interactive panel needs its own material so the
+// rect_px uniform doesn't get clobbered between draws.
+REBIRTH_MAT_SHELL:      Material;
+REBIRTH_MAT_GREEN:      Material;
+REBIRTH_MAT_YELLOW:     Material;
+REBIRTH_MAT_BTN_RED:    Material;
+REBIRTH_MAT_BTN_PURPLE: Material;
+REBIRTH_MATS_READY:     bool;
+
+rebirth_make_box_material :: proc(box: Shop2_Box) -> Material {
+    shader := get_asset(Shader_Asset, "shaders/box_panel.aosl");
+    if shader == null return null;
+    mat := Material.create(shader);
+    mat.set_float4("top_color",         box.top);
+    mat.set_float4("bottom_color",      box.bottom);
+    mat.set_float ("dot_cell_px",       box.dot_cell);
+    mat.set_float ("dot_min_radius",    box.dot_min_radius);
+    mat.set_float ("dot_max_radius",    box.dot_max_radius);
+    mat.set_float ("dot_alpha",         box.dot_alpha);
+    mat.set_float ("bottom_band_h",     box.band_h);
+    mat.set_float4("bottom_band_color", box.band_color);
+    mat.set_float ("outline_px",        box.outline_px);
+    mat.set_float4("outline_color",     box.outline_color);
+    mat.set_float ("corner_radius_px",  box.corner_radius);
+    mat.set_float ("rainbow_strength",  box.rainbow);
+    mat.set_float ("rainbow_speed",     box.rainbow_speed);
+    mat.set_float ("rainbow_hue_span",  box.rainbow_hue_span);
+    mat.set_float ("shine_strength",    0.0);
+    mat.set_float ("shine_speed",       1.0);
+    return mat;
+}
+
+rebirth_ensure_materials :: proc() -> bool {
+    if REBIRTH_MATS_READY return true;
+
+    // Red button: default band color is also red/pink, so it disappears against
+    // the red body. Give it a dark maroon band so it actually reads.
+    red_box := shop2_box_red();
+    red_box.band_color = v4{0.30, 0.04, 0.04, 1};
+
+    // Shell: deep indigo gradient with a subtle halftone, themed for the
+    // "premium / magic" feel of rebirth without competing with the cards.
+    shell_box := shop2_box_dark();
+    shell_box.top            = v4{0.14, 0.12, 0.26, 1};
+    shell_box.bottom         = v4{0.06, 0.05, 0.12, 1};
+    shell_box.dot_cell       = 28.0;
+    shell_box.dot_min_radius = 0.0;
+    shell_box.dot_max_radius = 0.22;
+    shell_box.dot_alpha      = 0.08;
+    shell_box.band_color     = v4{0.55, 0.45, 0.95, 1};
+    shell_box.band_h         = 0.0;
+    shell_box.corner_radius  = 24.0;
+    shell_box.outline_px     = 4.0;
+
+    REBIRTH_MAT_SHELL      = rebirth_make_box_material(shell_box);
+    REBIRTH_MAT_GREEN      = rebirth_make_box_material(shop2_box_green());
+    REBIRTH_MAT_YELLOW     = rebirth_make_box_material(shop2_box_yellow());
+    REBIRTH_MAT_BTN_RED    = rebirth_make_box_material(red_box);
+    REBIRTH_MAT_BTN_PURPLE = rebirth_make_box_material(shop2_box_purple());
+    if REBIRTH_MAT_GREEN == null return false; // shader still loading
+
+    // Skip Rebirth is the paid-conversion button — enable the diagonal shine
+    // sweep to make it stand out and pull the eye away from the free option.
+    REBIRTH_MAT_BTN_PURPLE.set_float("shine_strength", 1.0);
+    REBIRTH_MAT_BTN_PURPLE.set_float("shine_speed",    1.2);
+
+    REBIRTH_MATS_READY = true;
+    return true;
+}
+
+rebirth_feed_rect :: proc(mat: Material, r: Rect) {
+    if mat == null return;
+    mat.set_float4("rect_px", v4{r.min.x, r.min.y, r.max.x, r.max.y});
+}
+
+// Shader-backed button — matches the preview card look (box_panel.aosl gradient
+// + dots + outline + bottom band) with built-in press darkening via the
+// `press` uniform fed from active_t_eased. Renders as `pre_label [icon] label`
+// (any of those three are optional) so the Skip button can read "Skip ⚡ 95".
+rebirth_shader_button :: proc(id: string, label: string, mat: Material, disabled: bool = false, icon: Texture_Asset = null, pre_label: string = "") -> Interact_Result {
+    btn := UIK.layout_row();
+    btn.width                       = UIK.pixels(220);
+    btn.height                      = UIK.flex(1);
+    btn.gap                         = 6;
+    btn.main_align                  = .CENTER;
+    btn.cross_align                 = .CENTER;
+    btn.show_background              = true;
+    btn.tint                        = v4{1, 1, 1, 1};
+    btn.background_sprite_override   = core_globals.white_sprite;
+    btn.background_material_override = mat;
+    h := UIK.panel_begin_interactive(id, btn, disabled);
+    rebirth_feed_rect(mat, h.rect);
+    mat.set_float("press", h.active_t_eased);
+    if pre_label.count > 0 UIK.text(pre_label, UIK.text_button());
+    if icon != null {
+        icon_holder := UIK.layout_centered(UIK.pixels(28), UIK.pixels(28));
+        UIK.panel_begin(icon_holder);
+        UIK.image_fitted(icon, UIK.image_desc(.CONTAIN));
+        UIK.panel_end();
+    }
+    if label.count > 0 UIK.text(label, UIK.text_button());
+    UIK.panel_end();
+    return h;
+}
+
 draw_rebirth_modal :: proc(player: Player) {
     if !player.show_rebirth_modal return;
+    if !rebirth_ensure_materials() return;
 
-    UIK.begin(UIK.modal(UIK.rect_window(), 15));
+    // Compact, content-sized modal (the old rect_window() was 880x1300).
+    // grow args are (top, right, bottom, left) — so this is ~920 wide x 580 tall.
+    modal_rect := UI.get_safe_screen_rect().center_rect().grow(290, 460, 290, 460);
+    UIK.begin(UIK.modal(modal_rect, 15));
 
-    shell := UIK.panel_modal(.RED);
-    shell.gap = 0;
-    UIK.panel_begin(shell);
+    shell := UIK.panel_modal(.BLACK);
+    shell.gap                        = 0;
+    shell.show_background              = true;
+    shell.tint                       = v4{1, 1, 1, 1};
+    shell.background_sprite_override   = core_globals.white_sprite;
+    shell.background_material_override = REBIRTH_MAT_SHELL;
+    shell_h := UIK.panel_begin_interactive("rebirth_shell", shell);
+    rebirth_feed_rect(REBIRTH_MAT_SHELL, shell_h.rect);
 
     exit_h := UIK.title_area(UIK.title_area_desc("REBIRTH"));
 
     body := UIK.layout_column();
     body.width  = UIK.flex(1);
     body.height = UIK.flex(1);
-    body.padding = v4{16, 24, 16, 24};
-    body.gap = 16;
+    body.padding = v4{18, 16, 18, 16};
+    body.gap = 14;
     body.cross_align = .CENTER;
-    body.main_align = .CENTER;
     UIK.panel_begin(body);
 
-    warning := UIK.text_title();
-    UIK.text_set_color(&warning, {1.0, 0.6, 0.6, 1});
-    UIK.text("[Warning] Rebirth Resets Your Speed & Cash!", warning);
+    warning := UIK.text_body();
+    warning.set_color({1.0, 0.65, 0.65, 1});
+    warning.set_word_wrap(false);
+    UIK.text("[Warning] Rebirth resets your speed & cash!", warning);
+
+    // Spacer above the middle group — keeps the warning anchored near the top.
+    UIK.spacer(UIK.pixels(1), UIK.flex(1));
 
     // ----- Current vs next preview row with arrow -----
     cur_mult  := get_rebirth_multiplier(player, "money");
@@ -201,7 +322,7 @@ draw_rebirth_modal :: proc(player: Player) {
     preview := UIK.layout_row();
     preview.width  = UIK.flex(1);
     preview.height = UIK.pixels(120);
-    preview.gap = 12;
+    preview.gap = 10;
     preview.cross_align = .CENTER;
     preview.main_align = .CENTER;
     UIK.panel_begin(preview);
@@ -209,9 +330,9 @@ draw_rebirth_modal :: proc(player: Player) {
     money_icon := get_asset(Texture_Asset, "money_stack_1_f9a568.png");
     arrow_icon := get_asset(Texture_Asset, "arrow_right_e47b99.png");
 
-    draw_rebirth_preview_card(format_string("Rebirth %", {player.rebirth_level}),     format_string("%0x Money", {format_float(cur_mult,  decimals=1)}), .BUTTON_BASIC_GREEN, money_icon);
+    draw_rebirth_preview_card(format_string("Rebirth %", {player.rebirth_level}),     format_string("%0x Money", {format_float(cur_mult,  decimals=1)}), REBIRTH_MAT_GREEN, "rebirth_card_cur", money_icon);
 
-    arrow_holder := UIK.layout_centered(UIK.pixels(60), UIK.flex(1));
+    arrow_holder := UIK.layout_centered(UIK.pixels(50), UIK.flex(1));
     UIK.panel_begin(arrow_holder);
     if arrow_icon != null {
         UIK.image_fitted(arrow_icon, UIK.image_desc(.CONTAIN));
@@ -221,7 +342,7 @@ draw_rebirth_modal :: proc(player: Player) {
     }
     UIK.panel_end();
 
-    draw_rebirth_preview_card(format_string("Rebirth %", {player.rebirth_level + 1}), format_string("%0x Money", {format_float(next_mult, decimals=1)}), .BUTTON_BASIC_YELLOW, money_icon);
+    draw_rebirth_preview_card(format_string("Rebirth %", {player.rebirth_level + 1}), format_string("%0x Money", {format_float(next_mult, decimals=1)}), REBIRTH_MAT_YELLOW, "rebirth_card_next", money_icon);
 
     UIK.panel_end(); // preview
 
@@ -232,79 +353,91 @@ draw_rebirth_modal :: proc(player: Player) {
         if progress > 1.0 progress = 1.0;
         if progress < 0.0 progress = 0.0;
 
-        bar_color := v4{0.3, 0.75, 1.0, 1};
-        if progress >= 1.0 bar_color = v4{0.3, 1.0, 0.4, 1};
+        bar_color := v4{0.25, 0.65, 1.0, 1};
+        if progress >= 1.0 bar_color = v4{0.2, 0.85, 0.35, 1};
 
-        bar_stack := UIK.layout_centered(UIK.flex(1), UIK.pixels(48));
+        bar_stack := UIK.layout_centered(UIK.flex(1), UIK.pixels(52));
         UIK.panel_begin(bar_stack);
 
         UIK.progress_bar(UIK.panel_progress_bar(.PROGRESS_BAR_STYLE_1, progress, bar_color, UIK.flex(1), UIK.flex(1)));
 
         UIK.overlay_begin(.CENTER, {0, 0});
-        speed_label := UIK.text_title();
-        UIK.text(format_string("Speed: %0/%", {player.speed, nxt.required_speed}), speed_label);
+        speed_label := UIK.text_body();
+        speed_label.set_word_wrap(false);
+        speed_label.set_outline(true, 3.0, {0, 0, 0, 1});
+        UIK.text(format_string("Speed: %0 / %", {player.speed, nxt.required_speed}), speed_label);
         UIK.overlay_end();
 
         UIK.panel_end(); // bar_stack
     }
 
+    // Spacer below the bar — pushes the buttons to the bottom of the modal.
+    UIK.spacer(UIK.pixels(1), UIK.flex(1));
+
     // ----- Buttons row -----
     btn_row := UIK.layout_row();
     btn_row.width  = UIK.flex(1);
-    btn_row.height = UIK.pixels(80);
-    btn_row.gap = 16;
+    btn_row.height = UIK.pixels(64);
+    btn_row.gap = 24;
     btn_row.main_align = .CENTER;
     UIK.panel_begin(btn_row);
 
-    rebirth_d := UIK.widget_desc_button_default(.BUTTON_BASIC_RED);
-    rebirth_d.panel.width  = UIK.pixels(220);
-    rebirth_d.panel.height = UIK.flex(1);
-    rebirth_d.disabled = !can_rebirth(player);
-    rebirth_h := UIK.button("rebirth_confirm", "Rebirth", rebirth_d);
+    rebirth_h := rebirth_shader_button("rebirth_confirm", "Rebirth", REBIRTH_MAT_BTN_RED, !can_rebirth(player));
 
-    skip_d := UIK.widget_desc_button_default(.BUTTON_BASIC_PURPLE);
-    skip_d.panel.width  = UIK.pixels(220);
-    skip_d.panel.height = UIK.flex(1);
-    skip_h := UIK.button("rebirth_skip", "Skip Rebirth", skip_d);
+    // Skip button — paid alternative. Shows the spark price for the upcoming
+    // rebirth tier and triggers Purchasing.prompt_purchase on click.
+    skip_target_level := player.rebirth_level + 1;
+    skip_product_id   := skip_rebirth_product_id_for_level(skip_target_level);
+    skip_price: s64   = 0;
+    if skip_product_id.count > 0 skip_price = Purchasing.get_product(skip_product_id).price;
+    spark_tex := get_asset(Texture_Asset, "$AO/ui/kit/Icons/sparks/spark_medium.png");
+    skip_h    := rebirth_shader_button("rebirth_skip", format_string("%", {skip_price}), REBIRTH_MAT_BTN_PURPLE, skip_product_id.count == 0, spark_tex, "Skip");
 
     UIK.panel_end(); // btn_row
     UIK.panel_end(); // body
     UIK.panel_end(); // shell
     UIK.end();
 
-    if UIK.clicked(exit_h) || UIK.clicked(skip_h) {
+    if UIK.clicked(exit_h) {
         player.show_rebirth_modal = false;
         return;
     }
     if UIK.clicked(rebirth_h) {
         if !do_rebirth(player) {
-            Notifier.notify(player, "Not enough cash for rebirth!");
+            Notifier.notify(player, "Not enough speed for rebirth!");
         }
+    }
+    if UIK.clicked(skip_h) {
+        if skip_product_id.count > 0 Purchasing.prompt_purchase(player, skip_product_id);
     }
 }
 
-draw_rebirth_preview_card :: proc(title: string, body_label: string, bg: UIK.Panel_Background_Kind, icon: Texture_Asset = null) {
+draw_rebirth_preview_card :: proc(title: string, body_label: string, bg_mat: Material, panel_id: string, icon: Texture_Asset = null) {
     col := UIK.layout_column();
     col.width  = UIK.flex(1);
     col.height = UIK.flex(1);
-    col.gap = 8;
+    col.gap = 6;
     col.cross_align = .CENTER;
     UIK.panel_begin(col);
 
-    UIK.text(title, UIK.text_title());
+    UIK.text(title, UIK.text_button());
 
-    card := UIK.panel_styled(bg);
+    card := UIK.layout_row();
     card.width  = UIK.flex(1);
     card.height = UIK.flex(1);
-    card.padding = v4{8, 12, 8, 12};
-    card.gap = 8;
-    card.axis = .HORIZONTAL;
+    card.padding = v4{6, 10, 6, 10};
+    card.gap = 6;
     card.main_align = .CENTER;
     card.cross_align = .CENTER;
-    UIK.panel_begin(card);
+    card.show_background              = true;
+    card.tint                         = v4{1, 1, 1, 1};
+    card.background_sprite_override   = core_globals.white_sprite;
+    card.background_material_override = bg_mat;
+    h := UIK.panel_begin_interactive(panel_id, card);
+    rebirth_feed_rect(bg_mat, h.rect);
 
     if icon != null {
-        icon_holder := UIK.layout_centered(UIK.pixels(40), UIK.pixels(40));
+        icon_holder := UIK.layout_centered(UIK.pixels(32), UIK.pixels(32));
         UIK.panel_begin(icon_holder);
         UIK.image_fitted(icon, UIK.image_desc(.CONTAIN));
         UIK.panel_end();

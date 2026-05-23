@@ -19,6 +19,8 @@ float rainbow_strength;
 float rainbow_speed;
 float rainbow_hue_span;
 float press;
+float shine_strength;
+float shine_speed;
 };
 
 #define MATRIX_TEXTURE_PROVIDED
@@ -104,6 +106,8 @@ float rainbow_strength;
 float rainbow_speed;
 float rainbow_hue_span;
 float press;
+float shine_strength;
+float shine_speed;
 };
 
 Texture2D<float4> albedo: register(t0);
@@ -254,6 +258,21 @@ float4 ps_main(float4 vtxColor: COLOR0, float2 uv: UV, float2 shadow_uv: TEXCOOR
         float ow = outline_px * ui_scale;
         float on_edge = 1.0f - smoothstep(ow - 1.0f, ow + 1.0f, -sdf);
         rgb = lerp(rgb, outl_rgb_lin, on_edge * outline_color.a);
+    }
+
+    // Optional diagonal shine — a bright band that sweeps across the panel
+    // to draw the eye. Off when shine_strength <= 0.
+    if (shine_strength > 0.0f) {
+        float speed   = (shine_speed > 0.0f) ? shine_speed : 1.0f;
+        // Diagonal coord in 0..1 across the panel.
+        float diag    = saturate((uv.x + uv.y) * 0.5f);
+        // Sweep position wraps every cycle. Offset so the band fully exits.
+        float wrap    = frac(resolution_time.z * speed * 0.35f);
+        float pos     = wrap * 1.6f - 0.3f;  // -0.3 .. 1.3, so the band sweeps in and out cleanly
+        float dist    = abs(diag - pos);
+        float band    = saturate(1.0f - dist / 0.18f);
+        band          = band * band;          // sharpen
+        rgb = lerp(rgb, float3(1.0f, 1.0f, 1.0f), band * 0.55f * saturate(shine_strength));
     }
 
     // Press feedback — darken toward black while the panel is held down.

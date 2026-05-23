@@ -1,0 +1,125 @@
+// Central registry of All Out product IDs — every paid item the game sells
+// lives here so there's a single place to look up IDs and query prices via
+// Purchasing.get_product(id).price.
+
+// ===== Skin unlock products =====
+// BuySkinRebirth1..30 — each unlocks the skin gated behind that rebirth level
+// without having to grind to it.
+
+SKIN_PRODUCT_IDS: [30]string = {
+    "6a11a49b3dfc01a7251a1c6a", // BuySkinRebirth1
+    "6a11a49d3dfc01a7251a1c6b", // BuySkinRebirth2
+    "6a11a49e3dfc01a7251a1c6c", // BuySkinRebirth3
+    "6a11a4a23dfc01a7251a1c6e", // BuySkinRebirth4
+    "6a11a4a53d2a60cc13e8425a", // BuySkinRebirth5
+    "6a11a4a7be0d3bb0825636a8", // BuySkinRebirth6
+    "6a11a4a83d2a60cc13e8425b", // BuySkinRebirth7
+    "6a11a4aa3d2a60cc13e8425c", // BuySkinRebirth8
+    "6a11a4abd4d410acc13a5524", // BuySkinRebirth9
+    "6a11a4add3af343921b1d20d", // BuySkinRebirth10
+    "6a11a4b9be0d3bb0825636b0", // BuySkinRebirth11
+    "6a11a4bbba189edb3c83bac9", // BuySkinRebirth12
+    "6a11a4bdbe0d3bb0825636b2", // BuySkinRebirth13
+    "6a11a4bebe0d3bb0825636b3", // BuySkinRebirth14
+    "6a11a4c0ba189edb3c83baca", // BuySkinRebirth15
+    "6a11a4c23dfc01a7251a1c7d", // BuySkinRebirth16
+    "6a11a4c4ba189edb3c83bacb", // BuySkinRebirth17
+    "6a11a4c5be0d3bb0825636ba", // BuySkinRebirth18
+    "6a11a4c8be0d3bb0825636bb", // BuySkinRebirth19
+    "6a11a4ca7acb668d56bf3d6f", // BuySkinRebirth20
+    "6a11a4d3be0d3bb0825636be", // BuySkinRebirth21
+    "6a11a4d5be0d3bb0825636c1", // BuySkinRebirth22
+    "6a11a4d63dfc01a7251a1c82", // BuySkinRebirth23
+    "6a11a4d8be0d3bb0825636c2", // BuySkinRebirth24
+    "6a11a4da3d2a60cc13e84264", // BuySkinRebirth25
+    "6a11a4dbba189edb3c83bad6", // BuySkinRebirth26
+    "6a11a4ddbe0d3bb0825636c4", // BuySkinRebirth27
+    "6a11a4df3dfc01a7251a1c88", // BuySkinRebirth28
+    "6a11a4e1ba189edb3c83bad8", // BuySkinRebirth29
+    "6a11a4e3be0d3bb0825636cb", // BuySkinRebirth30
+};
+
+// Product id for skin slot `index` (1..30). Index 0 is the free starter slot.
+skin_product_id_for_index :: proc(index: s64) -> string {
+    if index <= 0 return "";
+    i := index - 1;
+    if i >= SKIN_PRODUCT_IDS.count i = SKIN_PRODUCT_IDS.count - 1;
+    return SKIN_PRODUCT_IDS[i];
+}
+
+// True if the skin at slot `index` is unlocked for this player — either they
+// reached the rebirth requirement OR they bought the product.
+is_skin_unlocked :: proc(player: Player, index: s64) -> bool {
+    if index <= 0 return true;
+    if player == null return false;
+    if player.rebirth_level >= index return true;
+    id := skin_product_id_for_index(index);
+    if id.count > 0 && Purchasing.owns_product(player, id) return true;
+    return false;
+}
+
+// ===== Skip Rebirth =====
+// SkipRebirth1..30 — consumable that grants the next rebirth (1..30) without
+// having to grind the speed gate. Indexed by the rebirth level the player is
+// about to enter (matches how skin slots are indexed).
+
+SKIP_REBIRTH_PRODUCT_IDS: [30]string = {
+    "6a11b1f4ba189edb3c83c09c", // SkipRebirth1
+    "6a11b1f63d2a60cc13e848c4", // SkipRebirth2
+    "6a11b1f8be0d3bb082563cb2", // SkipRebirth3
+    "6a11b1f93dfc01a7251a227e", // SkipRebirth4
+    "6a11b1fbba189edb3c83c0a9", // SkipRebirth5
+    "6a11b1fdba189edb3c83c0ab", // SkipRebirth6
+    "6a11b1feba189edb3c83c0ae", // SkipRebirth7
+    "6a11b200be0d3bb082563cb3", // SkipRebirth8
+    "6a11b202ba189edb3c83c0b6", // SkipRebirth9
+    "6a11b204be0d3bb082563cb4", // SkipRebirth10
+    "6a11b219d3af343921b1d8f7", // SkipRebirth11
+    "6a11b21bd3af343921b1d8f8", // SkipRebirth12
+    "6a11b21cd4d410acc13a5ab9", // SkipRebirth13
+    "6a11b21ed4d410acc13a5abc", // SkipRebirth14
+    "6a11b220be0d3bb082563cb5", // SkipRebirth15
+    "6a11b221be0d3bb082563cba", // SkipRebirth16
+    "6a11b2233dfc01a7251a228b", // SkipRebirth17
+    "6a11b2253dfc01a7251a228c", // SkipRebirth18
+    "6a11b227ba189edb3c83c0d6", // SkipRebirth19
+    "6a11b2293dfc01a7251a2295", // SkipRebirth20
+    "6a11b22f7acb668d56bf4365", // SkipRebirth21
+    "6a11b231d4d410acc13a5acd", // SkipRebirth22
+    "6a11b233e5cbad0f42d8728a", // SkipRebirth23
+    "6a11b235be0d3bb082563ccd", // SkipRebirth24
+    "6a11b2373d2a60cc13e848d1", // SkipRebirth25
+    "6a11b2393dfc01a7251a22a1", // SkipRebirth26
+    "6a11b23bbe0d3bb082563cd5", // SkipRebirth27
+    "6a11b23d3dfc01a7251a22a7", // SkipRebirth28
+    "6a11b23fbe0d3bb082563cdb", // SkipRebirth29
+    "6a11b2417acb668d56bf4367", // SkipRebirth30
+};
+
+// Product id for the SkipRebirth that lands the player on rebirth `level`
+// (1..30). Returns "" if out of range.
+skip_rebirth_product_id_for_level :: proc(level: s64) -> string {
+    if level <= 0 return "";
+    i := level - 1;
+    if i >= SKIP_REBIRTH_PRODUCT_IDS.count i = SKIP_REBIRTH_PRODUCT_IDS.count - 1;
+    return SKIP_REBIRTH_PRODUCT_IDS[i];
+}
+
+// ===== Central purchase dispatcher =====
+// Engine calls this when ANY purchase completes. Return true to confirm the
+// grant (and consume, if consumable). Add new product branches here as the
+// shop grows so every paid item is handled in one place.
+
+ao_purchase_handler :: proc(player: Player, id: string) -> bool {
+    // SkipRebirthN — consumable. Grant the matching rebirth (bypass the speed
+    // gate, keep cash/speed) when the id matches the player's next rebirth.
+    for i: 0..SKIP_REBIRTH_PRODUCT_IDS.count - 1 {
+        if SKIP_REBIRTH_PRODUCT_IDS[i] == id {
+            if i + 1 != player.rebirth_level + 1 return false;
+            return do_rebirth(player, true);
+        }
+    }
+    // Anything else (skin unlocks, etc.) — non-consumable, engine just needs a
+    // green-light to mark it owned.
+    return true;
+}

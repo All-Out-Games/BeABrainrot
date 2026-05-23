@@ -314,6 +314,7 @@ Player :: class : Player_Base {
     default_camera_size: float;
     show_skin_shop: bool;
     equipped_skin_id: string;
+    unlocked_skins: [..]string; // skin config_ids the player has paid robux to unlock (in addition to rebirth-unlocked ones)
 
     ao_start :: method() {
         speed = Save.get_int(this, SPEED_SAVE_KEY, BASE_SPEED);

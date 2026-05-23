@@ -64,7 +64,6 @@ get_brainrot_configs :: proc() -> [..]Brainrot_Config {
     add_brainrot(ref list, "bombardino",      "Bombardino Crocodilo",   Rarity.EPIC,      120,     30,      "Textures/memes/artillero_crocodillo.png");
     add_brainrot(ref list, "karkerkar",       "Karkerkar Kurkur",       Rarity.EPIC,      135,     35,      "Textures/memes/Karkerkar_Kurkur.png");
     add_brainrot(ref list, "ballerina_capp",  "Ballerina Cappuccina",   Rarity.EPIC,      145,     38,      "Textures/memes/ballerina_cappuccina.png");
-    add_brainrot(ref list, "cappuccino_ball", "Cappuccino Ballerina",   Rarity.EPIC,      150,     40,      "Textures/memes/cappuccino_ballerina.png");
     add_brainrot(ref list, "glorbo",          "Glorbo Fruttodrillo",    Rarity.EPIC,      160,     42,      "Textures/memes/glorbo_fruttodrillo.png");
     add_brainrot(ref list, "burbaloni",       "Burbaloni Luliloli",     Rarity.EPIC,      170,     45,      "Textures/memes/burbaloni_lulilolli.png");
     add_brainrot(ref list, "cocofanto",       "Cocofanto Elefanto",     Rarity.EPIC,      180,     48,      "Textures/memes/cocofanto_elefanto.png");

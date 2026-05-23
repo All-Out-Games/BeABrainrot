@@ -8,7 +8,8 @@ ao_before_scene_load :: proc() {
 }
 
 CASH_SAVE_KEY  :: "cash";
-SPEED_SAVE_KEY :: "speed";
+SPEED_SAVE_KEY           :: "speed";
+PURCHASED_SPEED_SAVE_KEY :: "purchased_speed";
 
 CASH_POPUP_DURATION :: 1.4;
 CASH_POPUP_RISE     :: 70.0;
@@ -189,7 +190,7 @@ register_player_jump_emote :: proc(player: Player) {
     jump_trigger := sm.create_variable("emote_jump_regular", .TRIGGER);
     jump_state   := layer.create_state("Emote/Jump_Regular", false);
 
-    to_jump := layer.create_global_transition(jump_state, false);
+    to_jump := layer.create_global_transition(jump_state, true);
     to_jump.create_trigger_condition(jump_trigger);
 
     idle := layer.try_get_state("Idle");
@@ -257,6 +258,14 @@ draw_player_hud :: proc(player: Player) {
     UIK.text_set_halign(&speed_desc, .LEFT);
     UIK.text(format_string("Speed: %", {player.speed}), speed_desc);
 
+    if player.purchased_speed > 0 {
+        perm_desc := UIK.text_body();
+        perm_desc.set_halign(.LEFT);
+        perm_desc.set_color({0.55, 0.80, 1.0, 1});
+        perm_desc.set_outline(true, 3.0, {0, 0, 0, 1});
+        UIK.text(format_string("Permanent speed: +%", {player.purchased_speed}), perm_desc);
+    }
+
     cash_desc := UIK.text_title();
     UIK.text_set_halign(&cash_desc, .LEFT);
     UIK.text_set_color(&cash_desc, {0.2, 0.9, 0.2, 1});
@@ -293,6 +302,7 @@ ao_late_update :: proc(dt: float) {
 
 Player :: class : Player_Base {
     speed: s64;
+    purchased_speed: s64; // cumulative sparks-bought speed, persists through rebirths
     show_speed_upgrades: bool;
     cash: float;
     displayed_cash: float;
@@ -317,6 +327,7 @@ Player :: class : Player_Base {
     unlocked_skins: [..]string; // skin config_ids the player has paid robux to unlock (in addition to rebirth-unlocked ones)
 
     ao_start :: method() {
+        purchased_speed = Save.get_int(this, PURCHASED_SPEED_SAVE_KEY, 0);
         speed = Save.get_int(this, SPEED_SAVE_KEY, BASE_SPEED);
         if speed < BASE_SPEED speed = BASE_SPEED;
         cash = Save.get_f64(this, CASH_SAVE_KEY, 0).(float);

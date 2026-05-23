@@ -105,6 +105,59 @@ skip_rebirth_product_id_for_level :: proc(level: s64) -> string {
     return SKIP_REBIRTH_PRODUCT_IDS[i];
 }
 
+// ===== Speed skip =====
+// SpeedSkipT{tier}_{amount} — consumable. Each (tier, amount) combo gets its
+// own product so the purchase handler knows exactly how much speed to grant
+// and the price scales correctly with the amount. Prices match the existing
+// `speed_upgrade_sparks_cost` tiers, ceil'd: +5 = price/2, +1 = price/10.
+
+SPEED_SKIP_TIER_COUNT :: 9;
+
+// [tier_idx][amount_idx] where amount_idx is 0 (+1), 1 (+5), 2 (+10).
+SPEED_SKIP_PRODUCT_IDS: [SPEED_SKIP_TIER_COUNT][3]string = {
+    { "6a11b874d3af343921b1dc06", "6a11b878d4d410acc13a5df1", "6a11b87bd3af343921b1dc08" }, // T1 (1/5/9)
+    { "6a11b87f7acb668d56bf4688", "6a11b880e5cbad0f42d875a9", "6a11b8827acb668d56bf4689" }, // T2 (2/10/19)
+    { "6a11b8857acb668d56bf468b", "6a11b887be0d3bb08256403a", "6a11b888be0d3bb08256403b" }, // T3 (3/15/29)
+    { "6a11b893d4d410acc13a5e10", "6a11b894e5cbad0f42d875b7", "6a11b896d4d410acc13a5e12" }, // T4 (5/25/49)
+    { "6a11b8973dfc01a7251a2684", "6a11b899be0d3bb082564040", "6a11b89bba189edb3c83c3e3" }, // T5 (7/35/69)
+    { "6a11b89c3d2a60cc13e84beb", "6a11b89ed3af343921b1dc1b", "6a11b89fd4d410acc13a5e16" }, // T6 (10/50/99)
+    { "6a11b8a6e5cbad0f42d875cf", "6a11b8a77acb668d56bf4696", "6a11b8a9d4d410acc13a5e19" }, // T7 (14/70/139)
+    { "6a11b8ab7acb668d56bf469a", "6a11b8ace5cbad0f42d875d4", "6a11b8aed3af343921b1dc2a" }, // T8 (18/90/179)
+    { "6a11b8b0d4d410acc13a5e1b", "6a11b8b1ba189edb3c83c3f3", "6a11b8b3ba189edb3c83c3f4" }, // T9 (23/115/229)
+};
+
+// Returns the 0..8 tier index for a given current speed, matching the
+// thresholds in `speed_upgrade_sparks_cost`.
+speed_skip_tier_index :: proc(current_speed: s64) -> s64 {
+    if current_speed < 33  return 0;
+    if current_speed < 53  return 1;
+    if current_speed < 73  return 2;
+    if current_speed < 93  return 3;
+    if current_speed < 113 return 4;
+    if current_speed < 133 return 5;
+    if current_speed < 153 return 6;
+    if current_speed < 173 return 7;
+    return 8;
+}
+
+// Maps the player-facing amount (1/5/10) to the product column index.
+speed_skip_amount_index :: proc(amount: s64) -> s64 {
+    if amount <= 1 return 0;
+    if amount <= 5 return 1;
+    return 2;
+}
+
+// Maps a column index back to its grant amount.
+speed_skip_amount_for_index :: proc(idx: s64) -> s64 {
+    if idx == 0 return 1;
+    if idx == 1 return 5;
+    return 10;
+}
+
+speed_skip_product_id :: proc(current_speed: s64, amount: s64) -> string {
+    return SPEED_SKIP_PRODUCT_IDS[speed_skip_tier_index(current_speed)][speed_skip_amount_index(amount)];
+}
+
 // ===== Central purchase dispatcher =====
 // Engine calls this when ANY purchase completes. Return true to confirm the
 // grant (and consume, if consumable). Add new product branches here as the
@@ -117,6 +170,22 @@ ao_purchase_handler :: proc(player: Player, id: string) -> bool {
         if SKIP_REBIRTH_PRODUCT_IDS[i] == id {
             if i + 1 != player.rebirth_level + 1 return false;
             return do_rebirth(player, true);
+        }
+    }
+    // SpeedSkipT*_* — consumable. Grant the speed amount tied to the product
+    // when the tier matches the player's current speed tier (so old-tier
+    // products from the prompt can't bypass current tier pricing). Also bumps
+    // purchased_speed so a rebirth doesn't wipe what the player paid for.
+    for t: 0..SPEED_SKIP_PRODUCT_IDS.count - 1 {
+        for a: 0..SPEED_SKIP_PRODUCT_IDS[t].count - 1 {
+            if SPEED_SKIP_PRODUCT_IDS[t][a] == id {
+                if t != speed_skip_tier_index(player.speed) return false;
+                amount := speed_skip_amount_for_index(a);
+                add_speed(player, amount);
+                player.purchased_speed += amount;
+                Save.set_int(player, PURCHASED_SPEED_SAVE_KEY, player.purchased_speed);
+                return true;
+            }
         }
     }
     // Anything else (skin unlocks, etc.) — non-consumable, engine just needs a

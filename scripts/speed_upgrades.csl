@@ -49,17 +49,8 @@ speed_upgrade_cash_cost :: proc(current_speed: s64, amount: s64) -> float {
     return total;
 }
 
-speed_upgrade_sparks_cost :: proc(current_speed: s64) -> s64 {
-    if current_speed < 33  return 9;
-    if current_speed < 53  return 19;
-    if current_speed < 73  return 29;
-    if current_speed < 93  return 49;
-    if current_speed < 113 return 69;
-    if current_speed < 133 return 99;
-    if current_speed < 153 return 139;
-    if current_speed < 173 return 179;
-    return 229;
-}
+// Sparks price now lives on the product itself — query via
+// `Purchasing.get_product(speed_skip_product_id(speed, amount)).price`.
 
 try_buy_speed_upgrade_cash :: proc(player: Player, amount: s64) -> bool {
     cash_cost := speed_upgrade_cash_cost(player.speed, amount);
@@ -72,15 +63,12 @@ try_buy_speed_upgrade_cash :: proc(player: Player, amount: s64) -> bool {
     return true;
 }
 
-try_buy_speed_upgrade_sparks :: proc(player: Player, amount: s64) -> bool {
-    sparks_cost := speed_upgrade_sparks_cost(player.speed);
-    if !Economy.can_withdraw_currency(player, SPARKS_CURRENCY, sparks_cost) {
-        Notifier.notify(player, "Not enough Sparks!");
-        return false;
-    }
-    Economy.withdraw_currency(player, SPARKS_CURRENCY, sparks_cost);
-    add_speed(player, amount);
-    return true;
+// Triggers the All Out purchase prompt for the matching SpeedSkip product.
+// Grant happens in ao_purchase_handler on successful purchase.
+prompt_buy_speed_upgrade_sparks :: proc(player: Player, amount: s64) {
+    id := speed_skip_product_id(player.speed, amount);
+    if id.count == 0 return;
+    Purchasing.prompt_purchase(player, id);
 }
 
 Speed_Upgrade_Row_Handles :: struct {
@@ -95,7 +83,122 @@ Speed_Upgrade_Handles :: struct {
     row_10: Speed_Upgrade_Row_Handles;
 }
 
-draw_speed_upgrade_row :: proc(player: Player, amount: s64, id_suffix: string) -> Speed_Upgrade_Row_Handles {
+// ----- Shader-backed UI (box_panel.aosl) -----
+// One material per interactive panel: rect_px is set per-frame and the last
+// write wins, so cash/sparks buttons across the three rows each need their
+// own material instance.
+
+SPEED_MAT_SHELL:    Material;
+SPEED_MAT_CASH_A:   Material;
+SPEED_MAT_CASH_B:   Material;
+SPEED_MAT_CASH_C:   Material;
+SPEED_MAT_SPARKS_A: Material;
+SPEED_MAT_SPARKS_B: Material;
+SPEED_MAT_SPARKS_C: Material;
+SPEED_MATS_READY:   bool;
+
+speed_make_box_material :: proc(box: Shop2_Box) -> Material {
+    shader := get_asset(Shader_Asset, "shaders/box_panel.aosl");
+    if shader == null return null;
+    mat := Material.create(shader);
+    mat.set_float4("top_color",         box.top);
+    mat.set_float4("bottom_color",      box.bottom);
+    mat.set_float ("dot_cell_px",       box.dot_cell);
+    mat.set_float ("dot_min_radius",    box.dot_min_radius);
+    mat.set_float ("dot_max_radius",    box.dot_max_radius);
+    mat.set_float ("dot_alpha",         box.dot_alpha);
+    mat.set_float ("bottom_band_h",     box.band_h);
+    mat.set_float4("bottom_band_color", box.band_color);
+    mat.set_float ("outline_px",        box.outline_px);
+    mat.set_float4("outline_color",     box.outline_color);
+    mat.set_float ("corner_radius_px",  box.corner_radius);
+    mat.set_float ("rainbow_strength",  box.rainbow);
+    mat.set_float ("rainbow_speed",     box.rainbow_speed);
+    mat.set_float ("rainbow_hue_span",  box.rainbow_hue_span);
+    mat.set_float ("shine_strength",    0.0);
+    mat.set_float ("shine_speed",       1.0);
+    return mat;
+}
+
+speed_feed_rect :: proc(mat: Material, r: Rect) {
+    if mat == null return;
+    mat.set_float4("rect_px", v4{r.min.x, r.min.y, r.max.x, r.max.y});
+}
+
+speed_ensure_materials :: proc() -> bool {
+    if SPEED_MATS_READY return true;
+
+    // Sky-blue shell — bright at the top fading to a deep navy at the bottom,
+    // distinct from the rebirth indigo and from the cash/sparks colors.
+    shell_box := shop2_box_dark();
+    shell_box.top            = v4{0.28, 0.52, 0.85, 1};
+    shell_box.bottom         = v4{0.08, 0.20, 0.42, 1};
+    shell_box.dot_cell       = 28.0;
+    shell_box.dot_min_radius = 0.0;
+    shell_box.dot_max_radius = 0.22;
+    shell_box.dot_alpha      = 0.10;
+    shell_box.band_color     = v4{0.55, 0.80, 1.00, 1};
+    shell_box.band_h         = 0.0;
+    shell_box.corner_radius  = 24.0;
+    shell_box.outline_px     = 4.0;
+
+    green_box  := shop2_box_green();
+    yellow_box := shop2_box_yellow();
+
+    SPEED_MAT_SHELL    = speed_make_box_material(shell_box);
+    SPEED_MAT_CASH_A   = speed_make_box_material(green_box);
+    SPEED_MAT_CASH_B   = speed_make_box_material(green_box);
+    SPEED_MAT_CASH_C   = speed_make_box_material(green_box);
+    SPEED_MAT_SPARKS_A = speed_make_box_material(yellow_box);
+    SPEED_MAT_SPARKS_B = speed_make_box_material(yellow_box);
+    SPEED_MAT_SPARKS_C = speed_make_box_material(yellow_box);
+    if SPEED_MAT_SHELL == null return false;
+    SPEED_MATS_READY = true;
+    return true;
+}
+
+// Full-width horizontal separator between rows. UIK.divider sometimes shrinks
+// (apparent width depends on sibling content), so we draw an explicit flex(1)
+// panel with a translucent white background instead.
+draw_speed_separator :: proc() {
+    sep := UIK.layout_row();
+    sep.width                       = UIK.flex(1);
+    sep.height                      = UIK.pixels(2);
+    sep.show_background             = true;
+    sep.tint                        = v4{1, 1, 1, 0.35};
+    sep.background_sprite_override  = core_globals.white_sprite;
+    UIK.panel_begin(sep);
+    UIK.panel_end();
+}
+
+// Shader-backed button — same pattern as the rebirth modal's. Sized as a
+// flex(1) row so it fills the right column of each upgrade row.
+speed_shader_button :: proc(id: string, label: string, mat: Material, disabled: bool = false, icon: Texture_Asset = null) -> Interact_Result {
+    btn := UIK.layout_row();
+    btn.width                       = UIK.flex(1);
+    btn.height                      = UIK.pixels(55);
+    btn.gap                         = 6;
+    btn.main_align                  = .CENTER;
+    btn.cross_align                 = .CENTER;
+    btn.show_background              = true;
+    btn.tint                        = v4{1, 1, 1, 1};
+    btn.background_sprite_override   = core_globals.white_sprite;
+    btn.background_material_override = mat;
+    h := UIK.panel_begin_interactive(id, btn, disabled);
+    speed_feed_rect(mat, h.rect);
+    mat.set_float("press", h.active_t_eased);
+    if icon != null {
+        icon_holder := UIK.layout_centered(UIK.pixels(24), UIK.pixels(24));
+        UIK.panel_begin(icon_holder);
+        UIK.image_fitted(icon, UIK.image_desc(.CONTAIN));
+        UIK.panel_end();
+    }
+    UIK.text(label, UIK.text_button());
+    UIK.panel_end();
+    return h;
+}
+
+draw_speed_upgrade_row :: proc(player: Player, amount: s64, id_suffix: string, cash_mat: Material, sparks_mat: Material) -> Speed_Upgrade_Row_Handles {
     row := UIK.layout_row();
     row.width = UIK.flex(1);
     row.height = UIK.flex(1);
@@ -131,19 +234,15 @@ draw_speed_upgrade_row :: proc(player: Player, amount: s64, id_suffix: string) -
     UIK.panel_begin(right);
 
     cash_cost := speed_upgrade_cash_cost(player.speed, amount);
-    sparks_cost := speed_upgrade_sparks_cost(player.speed);
+    sparks_id := speed_skip_product_id(player.speed, amount);
+    sparks_price: s64 = 0;
+    if sparks_id.count > 0 sparks_price = Purchasing.get_product(sparks_id).price;
 
     handles: Speed_Upgrade_Row_Handles;
+    spark_tex := get_asset(Texture_Asset, "$AO/ui/kit/Icons/sparks/spark_medium.png");
 
-    cash_desc := UIK.widget_desc_button_auto_default(.BUTTON_BASIC_GREEN);
-    cash_desc.panel.width = UIK.flex(1);
-    cash_desc.panel.height = UIK.pixels(55);
-    handles.cash = UIK.button(format_string("speed_buy_cash_%", {id_suffix}), format_cash(cash_cost), cash_desc);
-
-    sparks_desc := UIK.widget_desc_button_auto_default(.BUTTON_BASIC_YELLOW);
-    sparks_desc.panel.width = UIK.flex(1);
-    sparks_desc.panel.height = UIK.pixels(55);
-    handles.sparks = UIK.button(format_string("speed_buy_sparks_%", {id_suffix}), format_string("% Sparks", {sparks_cost}), sparks_desc);
+    handles.cash   = speed_shader_button(format_string("speed_buy_cash_%",   {id_suffix}), format_cash(cash_cost), cash_mat);
+    handles.sparks = speed_shader_button(format_string("speed_buy_sparks_%", {id_suffix}), format_string("%", {sparks_price}), sparks_mat, false, spark_tex);
 
     UIK.panel_end(); // right
     UIK.panel_end(); // row
@@ -153,15 +252,25 @@ draw_speed_upgrade_row :: proc(player: Player, amount: s64, id_suffix: string) -
 
 draw_speed_upgrade_ui :: proc(player: Player) {
     if !player.show_speed_upgrades return;
+    if !speed_ensure_materials() return;
 
-    UIK.begin(UIK.modal(UIK.rect_window(), 15));
+    // Compact modal sized to the 3-row content (grow args: top, right, bottom, left).
+    modal_rect := UI.get_safe_screen_rect().center_rect().grow(380, 460, 380, 460);
+    UIK.begin(UIK.modal(modal_rect, 15));
 
-    shell := UIK.panel_modal(.BLUE_WITH_FOOTER);
-    shell.gap = 4;
-    UIK.panel_begin(shell);
+    shell := UIK.panel_modal(.BLACK);
+    shell.gap                        = 4;
+    shell.show_background              = true;
+    shell.tint                       = v4{1, 1, 1, 1};
+    shell.background_sprite_override   = core_globals.white_sprite;
+    shell.background_material_override = SPEED_MAT_SHELL;
+    shell_h := UIK.panel_begin_interactive("speed_shell", shell);
+    speed_feed_rect(SPEED_MAT_SHELL, shell_h.rect);
 
     handles: Speed_Upgrade_Handles;
-    handles.exit = UIK.title_area(UIK.title_area_desc("SPEED UPGRADES"));
+    title_desc := UIK.title_area_desc("SPEED UPGRADES");
+    title_desc.tint = v4{0.02, 0.06, 0.22, 1};
+    handles.exit = UIK.title_area(title_desc);
 
     body := UIK.layout_column();
     body.width = UIK.flex(1);
@@ -170,11 +279,18 @@ draw_speed_upgrade_ui :: proc(player: Player) {
     body.gap = 8;
     UIK.panel_begin(body);
 
-    handles.row_1  = draw_speed_upgrade_row(player, 1,  "1");
-    UIK.divider(2.0, {1, 1, 1, 0.35});
-    handles.row_5  = draw_speed_upgrade_row(player, 5,  "5");
-    UIK.divider(2.0, {1, 1, 1, 0.35});
-    handles.row_10 = draw_speed_upgrade_row(player, 10, "10");
+    // Reassure paying players that sparks-bought speed is permanent — it
+    // survives the speed reset on rebirth via player.purchased_speed.
+    perm_note := UIK.text_body();
+    perm_note.set_color({0.7, 0.85, 1.0, 1});
+    perm_note.set_word_wrap(false);
+    UIK.text("Sparks-bought speed is permanent, kept on rebirth.", perm_note);
+
+    handles.row_1  = draw_speed_upgrade_row(player, 1,  "1",  SPEED_MAT_CASH_A, SPEED_MAT_SPARKS_A);
+    draw_speed_separator();
+    handles.row_5  = draw_speed_upgrade_row(player, 5,  "5",  SPEED_MAT_CASH_B, SPEED_MAT_SPARKS_B);
+    draw_speed_separator();
+    handles.row_10 = draw_speed_upgrade_row(player, 10, "10", SPEED_MAT_CASH_C, SPEED_MAT_SPARKS_C);
 
     UIK.panel_end(); // body
     UIK.panel_end(); // shell
@@ -182,11 +298,11 @@ draw_speed_upgrade_ui :: proc(player: Player) {
 
     if UIK.clicked(handles.exit)          player.show_speed_upgrades = false;
     if UIK.clicked(handles.row_1.cash)    try_buy_speed_upgrade_cash(player, 1);
-    if UIK.clicked(handles.row_1.sparks)  try_buy_speed_upgrade_sparks(player, 1);
+    if UIK.clicked(handles.row_1.sparks)  prompt_buy_speed_upgrade_sparks(player, 1);
     if UIK.clicked(handles.row_5.cash)    try_buy_speed_upgrade_cash(player, 5);
-    if UIK.clicked(handles.row_5.sparks)  try_buy_speed_upgrade_sparks(player, 5);
+    if UIK.clicked(handles.row_5.sparks)  prompt_buy_speed_upgrade_sparks(player, 5);
     if UIK.clicked(handles.row_10.cash)   try_buy_speed_upgrade_cash(player, 10);
-    if UIK.clicked(handles.row_10.sparks) try_buy_speed_upgrade_sparks(player, 10);
+    if UIK.clicked(handles.row_10.sparks) prompt_buy_speed_upgrade_sparks(player, 10);
 }
 
 draw_speed_upgrade_toggle_button :: proc(player: Player) {

@@ -1,15 +1,22 @@
-JUMP_ABILITY_COOLDOWN :: 0.5;
+JUMP_ABILITY_COOLDOWN :: 0.6;
 
 Jump_Ability :: class : Ability_Base {
     on_init :: method() {
         name = "Jump";
     }
 
+    // Block the ability while a jump is already in flight — keeps the player
+    // from spamming and stacking Jump_Effects on top of each other.
+    can_use :: method() -> bool {
+        if player == null return false;
+        if has_effect(player.entity, Jump_Effect) return false;
+        return true;
+    }
+
     on_update :: method(params: ref Ability_Update_Params) {
         if !params.clicked return;
         if !params.can_use return;
 
-      
         eff := new(Jump_Effect);
         player.entity.add_passive_effect(eff);
         current_cooldown = JUMP_ABILITY_COOLDOWN;

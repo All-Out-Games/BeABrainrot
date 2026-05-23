@@ -2,7 +2,10 @@
 // is bypassed (see Player.ao_update), and if the player walks outside their
 // current room's bounds while on an upper floor we drop them to floor 0 —
 // makes it read as "I jumped down from the upper floor to the ground".
-JUMP_EFFECT_DURATION :: 0.492;
+JUMP_EFFECT_DURATION    :: 0.492;
+JUMP_NAME_OFFSET_REASON :: "jump";
+JUMP_NAME_OFFSET_MAX    :: 1.5; // peak Y offset applied to the name label
+JUMP_NAME_OFFSET_PEAK_T :: 0.65; // t at which the bounce hits its peak (0..1)
 
 Jump_Effect :: class : Effect_Base {
     remaining:   float;
@@ -18,6 +21,29 @@ Jump_Effect :: class : Effect_Base {
 
     effect_update :: method(dt: float) {
         remaining -= dt;
+
+        // Bounce the player's name label up and back down with a sine wave so
+        // it tracks the visual jump animation instead of staying glued to the
+        // ground position. The peak is biased to t = JUMP_NAME_OFFSET_PEAK_T
+        // (rather than 0.5) via a piecewise rescale: a slower rise then a
+        // quicker fall — matches the feel of an asymmetric jump arc.
+        // Remove-then-add each frame because the API accumulates per-call.
+        if player != null {
+            t := get_elapsed_time() / JUMP_EFFECT_DURATION;
+            if t < 0 t = 0;
+            if t > 1 t = 1;
+
+            shaped_t: float;
+            if t < JUMP_NAME_OFFSET_PEAK_T {
+                shaped_t = (t / JUMP_NAME_OFFSET_PEAK_T) * 0.5;
+            } else {
+                shaped_t = 0.5 + ((t - JUMP_NAME_OFFSET_PEAK_T) / (1.0 - JUMP_NAME_OFFSET_PEAK_T)) * 0.5;
+            }
+
+            player.remove_name_offset_reason(JUMP_NAME_OFFSET_REASON);
+            player.add_name_offset_reason(JUMP_NAME_OFFSET_REASON, sin(shaped_t * PI) * JUMP_NAME_OFFSET_MAX);
+        }
+
         if remaining <= 0 {
             remove_effect(false);
             return;
@@ -38,5 +64,9 @@ Jump_Effect :: class : Effect_Base {
         }
         // else: still in the original room (no change) or now in a different
         // room (keep that room's floor — let cross-room jumps land naturally).
+    }
+
+    effect_end :: method(interrupt: bool) {
+        if player != null player.remove_name_offset_reason(JUMP_NAME_OFFSET_REASON);
     }
 }

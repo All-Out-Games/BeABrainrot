@@ -1,0 +1,515 @@
+MasSchleem.png
+	size: 4056, 3064
+	filter: Linear, Linear
+	scale: 0.5
+SchleemKick/frame_002
+	bounds: 3253, 105, 251, 236
+	offsets: 26, 45, 320, 320
+SchleemKick/frame_003
+	bounds: 6, 105, 251, 236
+	offsets: 26, 45, 320, 320
+SchleemKick/frame_004
+	bounds: 2996, 106, 251, 236
+	offsets: 26, 45, 320, 320
+SchleemKick/frame_005
+	bounds: 2397, 108, 251, 236
+	offsets: 26, 45, 320, 320
+SchleemKick/frame_006
+	bounds: 2140, 108, 251, 236
+	offsets: 26, 45, 320, 320
+SchleemKick/frame_007
+	bounds: 1596, 131, 251, 236
+	offsets: 26, 45, 320, 320
+SchleemKick/frame_008
+	bounds: 782, 134, 251, 236
+	offsets: 26, 45, 320, 320
+SchleemKick/frame_009
+	bounds: 1339, 135, 251, 236
+	offsets: 26, 45, 320, 320
+SchleemKick/frame_010
+	bounds: 1082, 135, 251, 236
+	offsets: 26, 45, 320, 320
+SchleemKick/frame_011
+	bounds: 2739, 238, 251, 236
+	offsets: 26, 45, 320, 320
+SchleemKick/frame_012
+	bounds: 525, 239, 251, 236
+	offsets: 26, 45, 320, 320
+SchleemKick/frame_013
+	bounds: 264, 296, 255, 233
+	offsets: 24, 46, 320, 320
+SchleemKick/frame_014
+	bounds: 1878, 296, 256, 232
+	offsets: 23, 46, 320, 320
+SchleemKick/frame_015
+	bounds: 1598, 373, 274, 218
+	offsets: 8, 46, 320, 320
+SchleemKick/frame_016
+	bounds: 802, 376, 274, 218
+	offsets: 8, 46, 320, 320
+SchleemKick/frame_017
+	bounds: 1316, 377, 276, 219
+	offsets: 5, 46, 320, 320
+SchleemKick/frame_018
+	bounds: 2794, 480, 277, 222
+	offsets: 3, 46, 320, 320
+	rotate: 90
+SchleemKick/frame_019
+	bounds: 574, 481, 277, 222
+	offsets: 3, 46, 320, 320
+	rotate: 90
+SchleemKick/frame_020
+	bounds: 1087, 480, 278, 223
+	offsets: 2, 46, 320, 320
+	rotate: 90
+SchleemKick/frame_021
+	bounds: 1939, 534, 278, 223
+	offsets: 2, 46, 320, 320
+SchleemKick/frame_022
+	bounds: 290, 535, 278, 223
+	offsets: 2, 46, 320, 320
+SchleemKick/frame_023
+	bounds: 3638, 590, 278, 223
+	offsets: 2, 46, 320, 320
+SchleemKick/frame_024
+	bounds: 3354, 590, 278, 223
+	offsets: 2, 46, 320, 320
+SchleemKick/frame_025
+	bounds: 6, 590, 278, 223
+	offsets: 2, 46, 320, 320
+SchleemKick/frame_026
+	bounds: 3070, 591, 278, 223
+	offsets: 2, 46, 320, 320
+SchleemKick/frame_027
+	bounds: 2510, 593, 278, 223
+	offsets: 2, 46, 320, 320
+SchleemKick/frame_028
+	bounds: 2226, 593, 278, 223
+	offsets: 2, 46, 320, 320
+SchleemKick/frame_029
+	bounds: 1655, 597, 278, 223
+	offsets: 2, 46, 320, 320
+SchleemKick/frame_030
+	bounds: 803, 600, 278, 223
+	offsets: 2, 46, 320, 320
+SchleemKick/frame_031
+	bounds: 1371, 602, 278, 223
+	offsets: 2, 46, 320, 320
+SchleemKick/frame_032
+	bounds: 2841, 763, 278, 223
+	offsets: 2, 46, 320, 320
+	rotate: 90
+SchleemKick/frame_033
+	bounds: 1997, 763, 278, 223
+	offsets: 2, 46, 320, 320
+	rotate: 90
+SchleemKick/frame_034
+	bounds: 1142, 764, 278, 223
+	offsets: 2, 46, 320, 320
+	rotate: 90
+SchleemKick/frame_035
+	bounds: 574, 764, 278, 223
+	offsets: 2, 46, 320, 320
+	rotate: 90
+SchleemKick/frame_036
+	bounds: 3684, 819, 278, 223
+	offsets: 2, 46, 320, 320
+SchleemKick/frame_037
+	bounds: 3400, 819, 278, 223
+	offsets: 2, 46, 320, 320
+SchleemKick/frame_038
+	bounds: 290, 819, 278, 223
+	offsets: 2, 46, 320, 320
+SchleemKick/frame_039
+	bounds: 6, 819, 278, 223
+	offsets: 2, 46, 320, 320
+SchleemKick/frame_040
+	bounds: 3116, 820, 278, 223
+	offsets: 2, 46, 320, 320
+SchleemKick/frame_041
+	bounds: 2557, 822, 278, 223
+	offsets: 2, 46, 320, 320
+SchleemKick/frame_042
+	bounds: 2273, 822, 278, 223
+	offsets: 2, 46, 320, 320
+SchleemKick/frame_043
+	bounds: 1713, 826, 278, 223
+	offsets: 2, 46, 320, 320
+SchleemKick/frame_044
+	bounds: 855, 829, 281, 222
+	offsets: 4, 46, 320, 320
+SchleemKick/frame_045
+	bounds: 1426, 831, 281, 222
+	offsets: 4, 46, 320, 320
+SchleemKick/frame_046
+	bounds: 1426, 1059, 279, 228
+	offsets: 12, 46, 320, 320
+SchleemKick/frame_047
+	bounds: 2286, 1300, 276, 239
+	offsets: 19, 46, 320, 320
+SchleemKick/frame_048
+	bounds: 870, 1057, 277, 233
+	offsets: 20, 45, 320, 320
+SchleemKick/frame_049
+	bounds: 2560, 1061, 277, 233
+	offsets: 20, 45, 320, 320
+SchleemKick/frame_050
+	bounds: 1720, 1300, 281, 239
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_051
+	bounds: 870, 1296, 282, 243
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_052
+	bounds: 582, 1295, 282, 244
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_053
+	bounds: 2598, 1545, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_054
+	bounds: 2310, 1545, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_055
+	bounds: 2022, 1545, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_056
+	bounds: 1734, 1545, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_057
+	bounds: 1446, 1545, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_058
+	bounds: 1158, 1545, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_059
+	bounds: 870, 1545, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_060
+	bounds: 582, 1545, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_061
+	bounds: 294, 1545, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_062
+	bounds: 6, 1545, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_063
+	bounds: 3750, 1798, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_064
+	bounds: 3462, 1798, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_065
+	bounds: 3174, 1798, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_066
+	bounds: 2886, 1798, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_067
+	bounds: 2598, 1798, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_068
+	bounds: 2310, 1798, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_069
+	bounds: 2022, 1798, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_070
+	bounds: 1734, 1798, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_071
+	bounds: 1446, 1798, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_072
+	bounds: 1158, 1798, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_073
+	bounds: 870, 1798, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_074
+	bounds: 582, 1798, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_075
+	bounds: 294, 1798, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_076
+	bounds: 6, 1798, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_077
+	bounds: 3750, 2051, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_078
+	bounds: 3462, 2051, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_079
+	bounds: 294, 1293, 282, 246
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_080
+	bounds: 3174, 2051, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_081
+	bounds: 2886, 2051, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_082
+	bounds: 2598, 2051, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_083
+	bounds: 2310, 2051, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_084
+	bounds: 2022, 2051, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_085
+	bounds: 1734, 2051, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_086
+	bounds: 1446, 2051, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_087
+	bounds: 1158, 2051, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_088
+	bounds: 870, 2051, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_089
+	bounds: 582, 2051, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_090
+	bounds: 294, 2051, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_091
+	bounds: 6, 2051, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_092
+	bounds: 3750, 2304, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_093
+	bounds: 6, 1293, 282, 246
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_094
+	bounds: 3462, 2304, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_095
+	bounds: 3174, 2304, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_096
+	bounds: 2886, 2304, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_097
+	bounds: 2598, 2304, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_098
+	bounds: 2310, 2304, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_099
+	bounds: 2022, 2304, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_100
+	bounds: 1734, 2304, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_101
+	bounds: 1446, 2304, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_102
+	bounds: 1158, 2304, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_103
+	bounds: 870, 2304, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_104
+	bounds: 582, 2304, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_105
+	bounds: 294, 2304, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_106
+	bounds: 6, 2304, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_107
+	bounds: 3750, 2557, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_108
+	bounds: 3462, 2557, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_109
+	bounds: 3174, 2557, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_110
+	bounds: 2886, 2557, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_111
+	bounds: 2598, 2557, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_112
+	bounds: 2310, 2557, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_113
+	bounds: 3750, 1294, 282, 246
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_114
+	bounds: 2022, 2557, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_115
+	bounds: 1734, 2557, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_116
+	bounds: 1446, 2557, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_117
+	bounds: 3462, 1294, 282, 246
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_118
+	bounds: 1158, 2557, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_119
+	bounds: 870, 2557, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_120
+	bounds: 3763, 2810, 283, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_121
+	bounds: 3474, 2810, 283, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_122
+	bounds: 3185, 2810, 283, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_123
+	bounds: 2896, 2810, 283, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_124
+	bounds: 2607, 2810, 283, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_125
+	bounds: 2318, 2810, 283, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_126
+	bounds: 2029, 2810, 283, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_127
+	bounds: 1740, 2810, 283, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_128
+	bounds: 1451, 2810, 283, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_129
+	bounds: 1162, 2810, 283, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_130
+	bounds: 873, 2810, 283, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_131
+	bounds: 584, 2810, 283, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_132
+	bounds: 295, 2810, 283, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_133
+	bounds: 3753, 1546, 283, 246
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_134
+	bounds: 6, 2810, 283, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_135
+	bounds: 3464, 1546, 283, 246
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_136
+	bounds: 3175, 1546, 283, 246
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_137
+	bounds: 2886, 1546, 283, 246
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_138
+	bounds: 582, 2557, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_139
+	bounds: 294, 2557, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_140
+	bounds: 6, 2557, 282, 247
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_141
+	bounds: 3174, 1294, 282, 246
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_142
+	bounds: 2886, 1294, 282, 246
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_143
+	bounds: 1439, 1293, 275, 246
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_144
+	bounds: 1158, 1293, 275, 246
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_145
+	bounds: 2007, 1294, 273, 245
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_146
+	bounds: 2286, 1051, 268, 243
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_147
+	bounds: 2843, 1047, 267, 241
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_148
+	bounds: 2000, 1047, 267, 241
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_149
+	bounds: 582, 1048, 267, 241
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_150
+	bounds: 3666, 1048, 267, 240
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_151
+	bounds: 1153, 1048, 267, 239
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_152
+	bounds: 279, 1048, 267, 239
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_153
+	bounds: 6, 1048, 267, 239
+	offsets: 21, 45, 320, 320
+SchleemKick/frame_154
+	bounds: 1720, 1055, 274, 239
+	offsets: 22, 45, 320, 320
+SchleemKick/frame_155
+	bounds: 2568, 1300, 274, 239
+	offsets: 22, 45, 320, 320
+SchleemKick/frame_156
+	bounds: 3391, 1049, 269, 239
+	offsets: 23, 45, 320, 320
+SchleemKick/frame_157
+	bounds: 3116, 1049, 269, 239
+	offsets: 23, 45, 320, 320
+SchleemKick/frame_158
+	bounds: 2654, 6, 258, 226
+	offsets: 24, 45, 320, 320
+SchleemKick/frame_159
+	bounds: 1853, 64, 258, 226
+	offsets: 24, 45, 320, 320
+SchleemKick/frame_160
+	bounds: 263, 59, 255, 231
+	offsets: 25, 45, 320, 320
+SchleemKick/frame_161
+	bounds: 3768, 110, 255, 231
+	offsets: 25, 45, 320, 320
+SchleemKick/frame_162
+	bounds: 3510, 106, 252, 235
+	offsets: 26, 45, 320, 320
+SchleemKick/frame_163
+	bounds: 3796, 347, 252, 237
+	offsets: 26, 45, 320, 320
+SchleemKick/frame_164
+	bounds: 3538, 347, 252, 237
+	offsets: 26, 45, 320, 320
+SchleemKick/frame_165
+	bounds: 3280, 347, 252, 237
+	offsets: 26, 45, 320, 320
+SchleemKick/frame_166
+	bounds: 6, 347, 252, 237
+	offsets: 26, 45, 320, 320
+SchleemKick/frame_167
+	bounds: 3022, 348, 252, 237
+	offsets: 26, 45, 320, 320
+SchleemKick/frame_168
+	bounds: 2481, 350, 252, 237
+	offsets: 26, 45, 320, 320
+SchleemKick/frame_169
+	bounds: 2223, 350, 252, 237
+	offsets: 26, 45, 320, 320

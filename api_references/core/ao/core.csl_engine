@@ -123,9 +123,9 @@ Sprite_Renderer :: class : Component {
 } #foreign_struct "Sprite_Renderer"
 
 Collider :: class : Component {
-    on_trigger_start_proc_index: (proc(self: Collider, other: Collider)) #foreign "on_trigger_start_proc_index";
-    on_trigger_stay_proc_index: (proc(self: Collider, other: Collider)) #foreign "on_trigger_stay_proc_index";
-    on_trigger_end_proc_index: (proc(self: Collider, other: Collider)) #foreign "on_trigger_end_proc_index";
+    on_trigger_start: (proc(self: Collider, other: Collider)) #foreign "on_trigger_start_proc_index";
+    on_trigger_stay: (proc(self: Collider, other: Collider)) #foreign "on_trigger_stay_proc_index";
+    on_trigger_end: (proc(self: Collider, other: Collider)) #foreign "on_trigger_end_proc_index";
     overlaps_point :: method(point: v2) -> bool #foreign "collider_overlaps_point";
     overlaps :: method(other: Collider) -> bool #foreign "collider_overlaps";
 } #foreign_struct "Collider"
@@ -171,6 +171,10 @@ Navmesh :: class : Component {
 
 Navmesh_Loop :: class : Component {
 } #foreign_struct "Navmesh_Loop"
+
+Pathfind_Tester :: class : Component {
+    agent_radius: float #foreign;
+} #foreign_struct "Pathfind_Tester"
 
 Tilemap_Component :: class : Component {
 } #foreign_struct "Tilemap_Component"
@@ -281,6 +285,11 @@ Camera :: struct {
     position_last_frame: v2 #read_only #foreign;
     size:                float         #foreign "orthographic_size";
     follow_player:       bool          #foreign;
+
+    is_visible :: proc(point: v2, apron: float = 1) -> bool #foreign "camera_is_visible_point";
+    is_visible :: proc(rect: Rect, apron: float = 1) -> bool #foreign "camera_is_visible";
+    is_visible :: proc(sprite_renderer: Sprite_Renderer, apron: float = 1) -> bool #foreign "camera_is_visible_sprite_renderer";
+    is_visible :: proc(spine_animator: Spine_Animator, apron: float = 1) -> bool #foreign "camera_is_visible_spine_animator";
 } #foreign_struct "Actual_Camera"
 
 Post_Processing :: struct {
@@ -350,6 +359,7 @@ Movement_Agent :: class : Component {
     set_path_target        :: method(target: v2, speed: float) -> Set_Path_Target_Result #foreign "movement_agent_set_path_target";
     set_navmesh_to_lock_to :: method(navmesh: Navmesh) #foreign "movement_agent_set_navmesh_to_lock_to";
     movement_speed:   float #foreign;
+    agent_radius:     float #foreign;
     friction:         float #foreign;
     velocity:         v2    #foreign;
     input_this_frame: v2    #foreign;
@@ -463,7 +473,9 @@ SFX_Channel :: enum {
 }
 
 SFX_Desc :: struct {
+    #deprecate_hard "Use specific_to_player."
     local_only:       bool                  #foreign;
+    specific_to_player: Player              #foreign "specific_to_player_entity_id";
     positional:       bool                  #foreign;
     position:         v2                    #foreign #read_only("use set_position()");
     delay:            float                 #foreign;
@@ -4027,6 +4039,8 @@ UIK :: struct {
 
         panel_end(); // bg
 
+        panel_end(); // outer
+
         // Exit button: overlayed on the right edge, inside the modal bounds.
         if desc.show_exit {
             exit_tex := get_asset(Texture_Asset, "$AO/ui/kit/Icons/misc_icons_2/exit_button_large.png");
@@ -4043,14 +4057,14 @@ UIK :: struct {
             btn.cross_align = .CENTER;
             btn.main_align = .CENTER;
             btn.show_background = false;
-            overlay_begin(.TOP_RIGHT, btn, v2{0, 0}, .END, .CENTER);
+            exit_inset := 20.0;
+            // if compact { exit_inset = 6.0; }
+            overlay_begin(.TOP_RIGHT, btn, v2{-exit_inset, -exit_inset}, .START, .START);
             exit_result = panel_begin_interactive("title_area_exit", btn);
             image_fitted(exit_tex, image_desc(.CONTAIN));
             panel_end();
             overlay_end();
         }
-
-        panel_end(); // outer
 
         spacer(flex(1), pixels(title_gap));
 

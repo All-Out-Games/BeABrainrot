@@ -5,7 +5,7 @@
   "name": "Room",
   "local_enabled": true,
   "local_position": {
-    "X": -46.9604339599609375,
+    "X": -44.9991645812988281,
     "Y": -3.5457429885864258
   },
   "local_rotation": 0,
@@ -14,7 +14,7 @@
     "Y": 1
   },
   "previous_sibling": 1243957534,
-  "next_sibling": 1243180368
+  "next_sibling": 1251365267
 },
 {
   "cid": 1,

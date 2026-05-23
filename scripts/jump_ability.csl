@@ -1,0 +1,17 @@
+JUMP_ABILITY_COOLDOWN :: 0.5;
+
+Jump_Ability :: class : Ability_Base {
+    on_init :: method() {
+        name = "Jump";
+    }
+
+    on_update :: method(params: ref Ability_Update_Params) {
+        if !params.clicked return;
+        if !params.can_use return;
+
+      
+        eff := new(Jump_Effect);
+        player.entity.add_passive_effect(eff);
+        current_cooldown = JUMP_ABILITY_COOLDOWN;
+    }
+}

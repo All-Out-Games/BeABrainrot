@@ -1,5 +1,5 @@
 14
-94489280517
+94489280518
 1242420199
 {
   "name": "Money",
@@ -28,14 +28,5 @@
       "Z": 0.0477907657623291
     },
     "layer": -1
-  }
-},
-{
-  "cid": 2,
-  "aoid": 1243114510,
-  "component_type": "Internal_Component",
-  "internal_component_type": "Box_Collider",
-  "data": {
-
   }
 }

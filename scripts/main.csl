@@ -169,6 +169,36 @@ shop3 :: proc(player: Player) {
     player.show_shop_v3 = !player.show_shop_v3;
 } @chat_command
 
+// Registers an "Emote/Jump_Regular" state on the player's existing state
+// machine (added on top of the engine-built default). Triggered by setting
+// the "emote_jump_regular" trigger variable on player.animator.state_machine.
+register_player_jump_emote :: proc(player: Player) {
+    if player == null return;
+    if player.animator == null return;
+    sm := player.animator.state_machine;
+    if sm == null return;
+    layer := sm.try_get_layer("main");
+    if layer == null return;
+
+    jump_trigger := sm.create_variable("emote_jump_regular", .TRIGGER);
+    jump_state   := layer.create_state("Emote/Jump_Regular", false);
+
+    to_jump := layer.create_global_transition(jump_state, false);
+    to_jump.create_trigger_condition(jump_trigger);
+
+    idle := layer.try_get_state("Idle");
+    if idle != null {
+        layer.create_transition(jump_state, idle, true);
+    }
+}
+
+emote_jump :: proc(player: Player) {
+    if player == null return;
+    if player.animator == null return;
+    if player.animator.state_machine == null return;
+    player.animator.state_machine.set_trigger("emote_jump_regular");
+} @chat_command
+
 srbm :: proc(player: Player) {
     rng: u64 = rng_seed(Time.nanoseconds_since_epoch());
     configs := get_brainrot_configs();
@@ -291,6 +321,7 @@ Player :: class : Player_Base {
         if room != null room.claim_room(this);
 
         snap_player_to_navmesh(this);
+        register_player_jump_emote(this);
     }
 
     ao_update :: method(dt: float) {
@@ -309,9 +340,12 @@ Player :: class : Player_Base {
             if free_room != null free_room.claim_room(this);
         }
 
-        // On upper floors, walls of the current room become solid.
+        // On upper floors, walls of the current room become solid — unless the
+        // player is mid-jump (then Jump_Effect drops them to floor 0 instead).
         if current_floor > 0 && is_in_current_room != null && #alive(is_in_current_room.entity) {
-            is_in_current_room.clamp_player_inside(this);
+            _, jumping := get_effect(entity, Jump_Effect);
+            if !jumping
+                is_in_current_room.clamp_player_inside(this);
         }
 
     }
@@ -348,6 +382,8 @@ Player :: class : Player_Base {
                     log_info("Hand: % (Lv %, slot=%)", {name, selected_brainrot_item.level, result.selected_item_index});
                 }
             }
+
+            draw_ability_button(this, Jump_Ability, 0);
 
             draw_selected_brainrot_above_player(this);
             above_npc_line := false;

@@ -1,0 +1,42 @@
+// Active while the player is mid-jump. During this window the room wall-clamp
+// is bypassed (see Player.ao_update), and if the player walks outside their
+// current room's bounds while on an upper floor we drop them to floor 0 —
+// makes it read as "I jumped down from the upper floor to the ground".
+JUMP_EFFECT_DURATION :: 0.492;
+
+Jump_Effect :: class : Effect_Base {
+    remaining:   float;
+    start_room:  Room; // the room the player was in when the jump started (null = not in any room)
+
+    effect_start :: method() {
+        remaining = JUMP_EFFECT_DURATION;
+        if player != null start_room = player.is_in_current_room;
+        if player.animator != null && player.animator.state_machine != null {
+            player.animator.state_machine.set_trigger("emote_jump_regular");
+        }
+    }
+
+    effect_update :: method(dt: float) {
+        remaining -= dt;
+        if remaining <= 0 {
+            remove_effect(false);
+            return;
+        }
+
+        // Only do the floor-drop logic if we started inside a room.
+        if start_room == null return;
+        if player == null return;
+        if !#alive(player.entity) return;
+
+        // Grace period after take-off before the floor snap can fire.
+        if get_elapsed_time() <= JUMP_EFFECT_DURATION * 0.90 return;
+
+        now_room := player.is_in_current_room;
+        if now_room == null {
+            // Left every room mid-jump → land on floor 0.
+            if player.current_floor > 0 player.current_floor = 0;
+        }
+        // else: still in the original room (no change) or now in a different
+        // room (keep that room's floor — let cross-room jumps land naturally).
+    }
+}

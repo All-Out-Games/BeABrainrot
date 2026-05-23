@@ -29,13 +29,4 @@
     },
     "layer": -1
   }
-},
-{
-  "cid": 2,
-  "aoid": 1243114510,
-  "component_type": "Internal_Component",
-  "internal_component_type": "Box_Collider",
-  "data": {
-
-  }
 }

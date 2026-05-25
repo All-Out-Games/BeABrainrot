@@ -323,8 +323,8 @@ draw_speed_upgrade_ui :: proc(player: Player) {
     UIK.panel_end(); // shell
     UIK.end();
 
-    if UIK.clicked(handles.exit)          player.show_speed_upgrades = false;
-    if UIK.clicked(handles.row_1.cash)    try_buy_speed_upgrade_cash(player, 1);
+    if UIK.clicked(handles.exit) player.show_speed_upgrades = false;
+    if UIK.clicked(handles.row_1.cash)  try_buy_speed_upgrade_cash(player, 1);
     if UIK.clicked(handles.row_5.cash)  try_buy_speed_upgrade_cash(player, 5);
     if UIK.clicked(handles.row_10.cash) try_buy_speed_upgrade_cash(player, 10);
     if UIK.clicked(handles.sparks)      prompt_buy_speed_upgrade_sparks(player);
@@ -340,11 +340,6 @@ draw_speed_upgrade_toggle_button :: proc(player: Player) {
     col.main_align = .CENTER;
     col.gap = 8;
     UIK.panel_begin(col);
-
-    speed_desc := UIK.widget_desc_button_default(.BUTTON_BASIC_BLUE);
-    speed_desc.panel.width = UIK.flex(1);
-    speed_desc.panel.height = UIK.pixels(90);
-    speed_h := UIK.button("speed_shop_toggle", "SPEED", speed_desc);
 
     rebirth_desc := UIK.widget_desc_button_default(.BUTTON_BASIC_RED);
     rebirth_desc.panel.width = UIK.flex(1);
@@ -370,7 +365,6 @@ draw_speed_upgrade_toggle_button :: proc(player: Player) {
     UIK.panel_end();
     UIK.end();
 
-    if UIK.clicked(speed_h)   player.show_speed_upgrades = !player.show_speed_upgrades;
     if UIK.clicked(rebirth_h) player.show_rebirth_modal  = !player.show_rebirth_modal;
     if UIK.clicked(equip_h)   auto_equip_best(player);
     if UIK.clicked(shop_h)    player.show_shop_v2        = !player.show_shop_v2;

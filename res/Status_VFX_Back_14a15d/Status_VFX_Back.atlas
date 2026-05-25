@@ -1,0 +1,43 @@
+14a15dfebaa5be13.png
+	size: 1564, 252
+	filter: Linear, Linear
+	scale: 0.5
+Healing FX/floor_circle
+	bounds: 760, 37, 208, 166
+	offsets: 5, 5, 218, 176
+	rotate: 90
+Update/healing/floor_circle
+	bounds: 760, 37, 208, 166
+	offsets: 5, 5, 218, 176
+	rotate: 90
+PE-Buff/back
+	bounds: 273, 6, 261, 239
+	offsets: 1, 1, 263, 241
+PE-Buff/front
+	bounds: 1237, 98, 147, 134
+	offsets: 1, 1, 149, 136
+	rotate: 90
+PE-Debuff/back
+	bounds: 6, 6, 261, 239
+	offsets: 1, 1, 263, 241
+PE-Debuff/front
+	bounds: 1097, 98, 147, 134
+	offsets: 1, 1, 149, 136
+	rotate: 90
+Update/Heal Effect 1/sfx_plus
+	bounds: 932, 86, 159, 159
+Update/Heal Effect 1/sfx_shine
+	bounds: 1377, 121, 124, 123
+	offsets: 1, 0, 126, 124
+	rotate: 90
+Update/healing/glow
+	bounds: 540, 31, 214, 214
+	offsets: 6, 6, 227, 227
+Update/healing/line_particle_A
+	bounds: 1542, 212, 5, 33
+Update/healing/line_particle_B
+	bounds: 1553, 224, 5, 21
+Update/healing/line_particle_C
+	bounds: 1531, 176, 5, 69
+Update/healing/plus_particle_B
+	bounds: 1506, 226, 19, 19

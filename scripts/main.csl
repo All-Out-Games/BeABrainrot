@@ -359,12 +359,10 @@ Player :: class : Player_Base {
 
     ao_update :: method(dt: float) {
         if agent != null {
-            a := agent;
-            a.movement_speed = compute_agent_movement_speed(speed);
+            agent.movement_speed = compute_agent_movement_speed(speed);
         }
         if animator != null {
-            anim := animator;
-            anim.layer = current_floor.(s32);
+            animator.layer = current_floor.(s32);
         }
         tick_cash_animations(this, dt);
 

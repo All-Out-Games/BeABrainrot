@@ -495,8 +495,8 @@ LivingEntity_Npc :: class : LivingEntity {
             c := get_player_chaser_in_room(npc_room, player);
             if c != null && c.state == Npc_Chaser_State.IDLE {
                 c.state = Npc_Chaser_State.CHASING;
-                c.current_speed = c.speed_min;
                 c.chase_windup_remaining = NPC_CHASE_WINDUP_DURATION;
+                c.is_re_chase = true;
             }
         }
     }

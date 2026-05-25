@@ -381,7 +381,7 @@ draw_navigation_topbar :: proc(player: Player) {
     UIK.end();
 
     if UIK.clicked(buy_h) {
-        player.entity.set_local_position({0, 0});
+        player.entity.set_world_position({-17.24, 3.850});
     }
     if UIK.clicked(base_h) {
         room := player.my_room;

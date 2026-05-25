@@ -1,0 +1,121 @@
+BrrBrrPatapim.png
+	size: 3660, 424
+	filter: Linear, Linear
+idle/frame_79
+	bounds: 1828, 10, 254, 406
+	offsets: 318, 16, 864, 496
+idle/frame_80
+	bounds: 2871, 13, 254, 403
+	offsets: 318, 19, 864, 496
+idle/frame_81
+	bounds: 2088, 14, 256, 402
+	offsets: 316, 22, 864, 496
+idle/frame_82
+	bounds: 2350, 18, 258, 398
+	offsets: 314, 26, 864, 496
+idle/frame_83
+	bounds: 3395, 20, 258, 396
+	offsets: 314, 30, 864, 496
+idle/frame_84
+	bounds: 3131, 20, 258, 396
+	offsets: 314, 30, 864, 496
+idle/frame_85
+	bounds: 1564, 16, 258, 400
+	offsets: 314, 26, 864, 496
+idle/frame_86
+	bounds: 6, 10, 256, 406
+	offsets: 316, 20, 864, 496
+idle/frame_87
+	bounds: 1306, 6, 252, 410
+	offsets: 320, 14, 864, 496
+idle/frame_88
+	bounds: 1048, 6, 252, 410
+	offsets: 320, 14, 864, 496
+idle/frame_89
+	bounds: 2614, 8, 251, 408
+	offsets: 320, 14, 864, 496
+idle/frame_90
+	bounds: 788, 8, 254, 408
+	offsets: 318, 14, 864, 496
+idle/frame_91
+	bounds: 528, 8, 254, 408
+	offsets: 318, 14, 864, 496
+idle/frame_92
+	bounds: 268, 8, 254, 408
+	offsets: 318, 14, 864, 496
+
+BrrBrrPatapim_2.png
+	size: 4044, 852
+	filter: Linear, Linear
+run/frame_16
+	bounds: 1249, 141, 278, 406
+	offsets: 294, 76, 864, 496
+	rotate: 90
+run/frame_17
+	bounds: 3629, 438, 294, 406
+	offsets: 294, 74, 864, 496
+run/frame_18
+	bounds: 3031, 418, 288, 426
+	offsets: 298, 40, 864, 496
+run/frame_19
+	bounds: 2731, 167, 246, 440
+	offsets: 306, 0, 864, 496
+	rotate: 90
+run/frame_20
+	bounds: 2077, 193, 212, 414
+	offsets: 326, 4, 864, 496
+	rotate: 90
+run/frame_21
+	bounds: 426, 156, 254, 409
+	offsets: 316, 7, 864, 496
+	rotate: 90
+run/frame_22
+	bounds: 3325, 436, 298, 408
+	offsets: 302, 14, 864, 496
+run/frame_23
+	bounds: 2039, 430, 358, 414
+	offsets: 276, 36, 864, 496
+run/frame_24
+	bounds: 1649, 424, 384, 420
+	offsets: 262, 46, 864, 496
+run/frame_25
+	bounds: 844, 417, 399, 427
+	offsets: 251, 48, 864, 496
+run/frame_26
+	bounds: 6, 414, 414, 430
+	offsets: 242, 52, 864, 496
+run/frame_27
+	bounds: 426, 416, 412, 428
+	offsets: 248, 50, 864, 496
+run/frame_28
+	bounds: 1249, 430, 394, 414
+	offsets: 258, 50, 864, 496
+run/frame_29
+	bounds: 2403, 410, 322, 434
+	offsets: 274, 8, 864, 496
+run/frame_30
+	bounds: 2731, 426, 294, 418
+	offsets: 290, 6, 864, 496
+run/frame_31
+	bounds: 844, 169, 242, 396
+	offsets: 322, 14, 864, 496
+	rotate: 90
+run/frame_32
+	bounds: 2497, 6, 208, 398
+	offsets: 338, 24, 864, 496
+run/frame_33
+	bounds: 6, 172, 236, 406
+	offsets: 328, 34, 864, 496
+	rotate: 90
+run/frame_34
+	bounds: 3177, 158, 254, 410
+	offsets: 314, 48, 864, 496
+	rotate: 90
+run/frame_35
+	bounds: 1661, 150, 268, 410
+	offsets: 296, 70, 864, 496
+	rotate: 90
+run/frame_36
+	bounds: 3629, 154, 278, 406
+	offsets: 294, 76, 864, 496
+	rotate: 90

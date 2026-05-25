@@ -1,0 +1,30 @@
+// Component attached to the SpeedUpgradeZone entity in the scene. Uses the
+// new collider trigger callbacks (Circle_Collider with is_trigger = true) to
+// open the speed upgrades modal on enter and close it on exit. Replaces the
+// older Trigger_Volume.set_listener pattern.
+
+Speed_Upgrade_Zone :: class : Component {
+    ao_start :: method() {
+        col := entity.get_component(Circle_Collider);
+        if col == null return;
+        col.on_trigger_start = suz_on_trigger_start;
+        col.on_trigger_end   = suz_on_trigger_end;
+    }
+}
+
+suz_on_trigger_start :: proc(self: Collider, other: Collider) {
+    if other == null return;
+    if !#alive(other.entity) return;
+       log_info("test");
+    p := other.entity.get_component(Player);
+    if p == null return;
+    p.show_speed_upgrades = true;
+}
+
+suz_on_trigger_end :: proc(self: Collider, other: Collider) {
+    if other == null return;
+    if !#alive(other.entity) return;
+    p := other.entity.get_component(Player);
+    if p == null return;
+    p.show_speed_upgrades = false;
+}

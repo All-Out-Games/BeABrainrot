@@ -1,0 +1,14 @@
+[
+  {
+    "id": "BrainrotSpines/BrrBrr/BrrBrrPatapim_2.png",
+    "texture": {
+      "filter": 1
+    }
+  },
+  {
+    "id": "BrainrotSpines/BrrBrr/BrrBrrPatapim.png",
+    "texture": {
+      "filter": 1
+    }
+  }
+]

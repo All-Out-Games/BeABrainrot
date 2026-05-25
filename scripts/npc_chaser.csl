@@ -8,30 +8,51 @@ Npc_Chaser_State :: enum {
 // ao_end so we don't pay component_iterator on every reset / release.
 g_npc_chasers: [..]Npc_Chaser;
 
-NPC_CATCH_RADIUS_SQ       :: 0.25;   // 0.5 wu
-NPC_ARRIVED_RADIUS_SQ     :: 0.04;   // 0.2 wu
-NPC_HOME_RADIUS_SQ        :: 0.0025; // 0.05 wu
-NPC_CHASE_WINDUP_SPEED    :: 0.5;    // wu/s during the wind-up after a re-trigger
-NPC_CHASE_WINDUP_DURATION :: 2.5;    // seconds of wind-up before speed_min kicks in
-NPC_ESCORT_FREEZE_REASON  :: "escort_to_jail";
+NPC_CATCH_RADIUS_SQ        :: 0.25;   // 0.5 wu
+NPC_ARRIVED_RADIUS_SQ      :: 0.04;   // 0.2 wu
+NPC_HOME_RADIUS_SQ         :: 0.0025; // 0.05 wu
+NPC_CHASE_WINDUP_SPEED     :: 0.5;    // wu/s during the wind-up after a re-trigger
+NPC_CHASE_WINDUP_DURATION  :: 2.5;    // seconds of wind-up before sprint kicks in
+NPC_CHASE_SPRINT_MULT      :: 2.0;    // multiplier applied to NPC chase speed when its stat > player's (guarantees the slower player is caught regardless of starting gap)
+NPC_ESCORT_FREEZE_REASON   :: "escort_to_jail";
 
 Npc_Chaser :: class : Component {
-    speed_max: float @ao_serialize; // full chase speed (initial chase, escort, idle return)
-    speed_min: float @ao_serialize; // slower re-chase speed after jailbreak / re-steal (head-start for player)
+    // Player-equivalent speed stat. The NPC moves at exactly the wu/s a player
+    // at this stat would when actively pressing the joystick:
+    //   - player speed_stat HIGHER + moving → player outruns
+    //   - player speed_stat HIGHER but idle (no input) → player is caught
+    //   - player speed_stat LOWER → always caught
+    speed_stat: s64 @ao_serialize;
 
     home_room:              Room_Npc; // set by Room_Npc.init_npc_room via collect_chasers_recursive
     assigned_player:        Player;
     home_position:          v2;
     state:                  Npc_Chaser_State;
-    current_speed:          float; // chosen between speed_max / speed_min on state transitions
     chase_windup_remaining: float; // > 0 while a re-chase is in its slow wind-up phase
+    is_re_chase:            bool;  // set on jailbreak / re-steal: NPC matches player speed instead of sprinting, so the player can outrun by holding the joystick
+    spine:                  Spine_Animator; // first-child spine, if present — drives Idle/Run anims and replaces the sprite
+    current_anim:           string;         // last animation pushed to the spine, to avoid restarting it every frame
+    current_anim_speed:     float;          // last animation speed pushed to the spine
+    last_world_pos:         v2;             // world position last frame — used to detect actual movement for the anim picker
 
     ao_start :: method() {
         home_position = entity.world_position;
-        if speed_max <= 0 speed_max = 8.0;
-        if speed_min <= 0 speed_min = speed_max;
-        current_speed = speed_max;
+        last_world_pos = home_position;
+        if speed_stat <= 0 speed_stat = 30;
         append(ref g_npc_chasers, this);
+
+        // Opt-in spine: if the first child of this entity has a Spine_Animator,
+        // switch the chaser to spine-driven Idle/Run animation and disable the
+        // entity's own Sprite_Renderer so we don't double-draw.
+        first_child := entity.get_first_child();
+        if first_child != null && #alive(first_child) {
+            s := first_child.get_component(Spine_Animator);
+            if s != null {
+                spine = s;
+                sr := entity.get_component(Sprite_Renderer);
+                if sr != null sr.set_enabled(false);
+            }
+        }
     }
 
     ao_end :: method() {
@@ -58,6 +79,8 @@ Npc_Chaser :: class : Component {
         // zeroing renderer tint alpha (chase logic still runs). Visual-only,
         // so it's fine to derive from the client-local player.
         set_chaser_subtree_visible(entity, chaser_is_displayed_for_local(this));
+
+        update_chaser_spine_anim(this, dt);
     }
 
     on_catch :: method() {
@@ -108,11 +131,60 @@ face_along_x :: proc(e: Entity, world_dx: float) {
     e.set_local_scale(v2{target_x, s.y});
 }
 
+// Push the right Idle/Run animation to the chaser's spine based on whether
+// the entity actually moved between frames — robust to state weirdness.
+// The Run anim's playback speed scales with the chaser's actual world-units
+// per second so a sprinting chaser visibly runs faster than a windup walk.
+
+NPC_MOVING_EPSILON_SQ :: 0.000004; // ~0.002 wu/frame
+NPC_ANIM_REF_WUPS     :: 5.0;      // wu/s at which run plays at 1.0× (≈ base player speed)
+NPC_ANIM_SPEED_MIN    :: 1.0;
+NPC_ANIM_SPEED_MAX    :: 4.0;
+
+update_chaser_spine_anim :: proc(c: Npc_Chaser, dt: float) {
+    if c.spine == null return;
+    pos := c.entity.world_position;
+    delta := pos - c.last_world_pos;
+    c.last_world_pos = pos;
+
+    moving := length_squared(delta) >= NPC_MOVING_EPSILON_SQ;
+
+    target_anim: string = "idle";
+    target_speed: float = 1.0;
+    if moving {
+        target_anim = "run";
+        if dt > 0 {
+            wups := length(delta) / dt;
+            target_speed = wups / NPC_ANIM_REF_WUPS;
+        }
+        if target_speed < NPC_ANIM_SPEED_MIN target_speed = NPC_ANIM_SPEED_MIN;
+        if target_speed > NPC_ANIM_SPEED_MAX target_speed = NPC_ANIM_SPEED_MAX;
+    }
+
+    sm := c.spine.state_machine;
+    if sm != null sm.set_bool("moving", moving);
+
+    // Restart the track only when the animation changes or the speed shifts
+    // noticeably — otherwise the loop would keep restarting from frame 0.
+    if c.current_anim == target_anim && abs(c.current_anim_speed - target_speed) < 0.1 return;
+    c.spine.set_animation(target_anim, true, 0, target_speed);
+    c.current_anim = target_anim;
+    c.current_anim_speed = target_speed;
+}
+
+// wu/s for a chaser at the given player-equivalent speed stat.
+// compute_agent_movement_speed returns the agent.movement_speed value (units
+// the engine expects at 60 fps); dividing by 60 converts it to a per-second
+// rate we can use directly with `set_world_position(pos + n * speed * dt)`.
+chaser_speed_wu_per_sec :: proc(stat: s64) -> float {
+    return compute_agent_movement_speed(stat) / 60.0;
+}
+
 tick_chaser_idle :: proc(c: Npc_Chaser, dt: float) {
     my_world := c.entity.world_position;
     diff := c.home_position - my_world;
     if length_squared(diff) < NPC_HOME_RADIUS_SQ return;
-    step := c.speed_max * dt;
+    step := chaser_speed_wu_per_sec(c.speed_stat) * dt;
     face_along_x(c.entity, diff.x);
     if length_squared(diff) <= step * step {
         c.entity.set_world_position(c.home_position);
@@ -129,7 +201,17 @@ tick_chaser_chasing :: proc(c: Npc_Chaser, dt: float) {
     // upper room). Stays in CHASING so it picks back up when they're on 0.
     if c.assigned_player.current_floor != 0 return;
 
-    effective_speed := c.current_speed;
+    effective_speed := chaser_speed_wu_per_sec(c.speed_stat);
+    if c.is_re_chase {
+        // Re-chase (jailbreak / re-steal): match the player's own movement
+        // speed so the head start carries and the player can outrun by
+        // holding the joystick — but gets caught the moment they stop.
+        effective_speed = chaser_speed_wu_per_sec(c.assigned_player.speed);
+    } else if c.assigned_player.speed < c.speed_stat {
+        // First chase, NPC faster than player → sprint to guarantee the
+        // catch regardless of starting gap.
+        effective_speed = effective_speed * NPC_CHASE_SPRINT_MULT;
+    }
     if c.chase_windup_remaining > 0 {
         effective_speed = NPC_CHASE_WINDUP_SPEED;
         c.chase_windup_remaining -= dt;
@@ -174,7 +256,7 @@ tick_chaser_escorting :: proc(c: Npc_Chaser, dt: float) {
     }
 
     face_along_x(c.entity, diff.x);
-    step := c.speed_max * dt;
+    step := chaser_speed_wu_per_sec(c.speed_stat) * dt;
     n := normalize(diff);
     world_step := n * step;
     c.entity.set_world_position(my_world + world_step);
@@ -301,8 +383,8 @@ room_npc_on_chase_enter :: proc(listener: Component, player: Player) {
     if c == null return;
     if c.state == Npc_Chaser_State.ESCORTING return;
     c.state = Npc_Chaser_State.CHASING;
-    c.current_speed = c.speed_max;
     c.chase_windup_remaining = 0; // first chase: full speed immediately
+    c.is_re_chase = false;        // initial chase uses sprint when faster than player
 }
 
 room_npc_on_chase_exit :: proc(listener: Component, player: Player) {
@@ -338,8 +420,8 @@ room_npc_on_jail_exit :: proc(listener: Component, player: Player) {
     c := get_player_chaser_in_room(r, player);
     if c != null && c.state == Npc_Chaser_State.IDLE {
         c.state = Npc_Chaser_State.CHASING;
-        c.current_speed = c.speed_min;
         c.chase_windup_remaining = NPC_CHASE_WINDUP_DURATION;
+        c.is_re_chase = true;
     }
 }
 

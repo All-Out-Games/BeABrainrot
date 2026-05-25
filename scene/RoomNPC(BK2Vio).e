@@ -13,7 +13,8 @@
     "X": 1,
     "Y": 1
   },
-  "previous_sibling": 1251179120
+  "previous_sibling": 1251179120,
+  "next_sibling": 1250447176
 },
 {
   "cid": 1,
@@ -28,6 +29,7 @@
       "trippi_troppi"
     ],
     "chase_trigger": 1254716832,
-    "jail_trigger": 1256141139
+    "jail_trigger": 1256141139,
+    "chaser_speed_stat": 29
   }
 }

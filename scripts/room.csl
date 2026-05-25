@@ -289,6 +289,10 @@ Room_Npc :: class : Room {
     spawnable_brainrot_ids: [..]string         @ao_serialize;
     chase_trigger:          Trigger_Volume     @ao_serialize;
     jail_trigger:           Trigger_Volume     @ao_serialize;
+    // Single per-room speed override. > 0 propagates to every Npc_Chaser in
+    // this room on init so you don't have to edit each chaser individually.
+    // 0 = leave each chaser's own speed_stat untouched.
+    chaser_speed_stat:      s64                @ao_serialize;
 
     pedestal_timers: [..]float;
     pedestal_locked: [..]bool;
@@ -326,6 +330,12 @@ init_npc_room :: proc(r: Room_Npc) {
 
     r.chasers.clear();
     if #alive(r.entity) collect_chasers_recursive(r, r.entity);
+
+    if r.chaser_speed_stat > 0 {
+        for c: r.chasers {
+            c.speed_stat = r.chaser_speed_stat;
+        }
+    }
 
     if r.chase_trigger != null {
         r.chase_trigger.set_listener(r, room_npc_on_chase_enter, room_npc_on_chase_exit);

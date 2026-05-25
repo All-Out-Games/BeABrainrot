@@ -92,8 +92,8 @@ SKIP_REBIRTH_PRODUCT_IDS: [30]string = {
     "6a11b2393dfc01a7251a22a1", // SkipRebirth26
     "6a11b23bbe0d3bb082563cd5", // SkipRebirth27
     "6a11b23d3dfc01a7251a22a7", // SkipRebirth28
-    "6a11b23fbe0d3bb082563cdb", // SkipRebirth29
-    "6a11b2417acb668d56bf4367", // SkipRebirth30
+    "6a145090b723fdec2068edb0", // SkipRebirth29
+    "6a145092b723fdec2068edb3", // SkipRebirth30
 };
 
 // Product id for the SkipRebirth that lands the player on rebirth `level`
@@ -106,28 +106,27 @@ skip_rebirth_product_id_for_level :: proc(level: s64) -> string {
 }
 
 // ===== Speed skip =====
-// SpeedSkipT{tier}_{amount} — consumable. Each (tier, amount) combo gets its
-// own product so the purchase handler knows exactly how much speed to grant
-// and the price scales correctly with the amount. Prices match the existing
-// `speed_upgrade_sparks_cost` tiers, ceil'd: +5 = price/2, +1 = price/10.
+// One consumable per tier. Pressing any sparks button (the +1, +5, or +10 row)
+// always prompts the SAME product — the tier's +10 — and always grants the
+// player +10 speed. The cash buttons still vary by amount; sparks is a single
+// "best deal" purchase regardless of which row's sparks button was pressed.
 
-SPEED_SKIP_TIER_COUNT :: 9;
+SPEED_SKIP_TIER_COUNT     :: 9;
+SPEED_SKIP_GRANT_AMOUNT   :: 10;
 
-// [tier_idx][amount_idx] where amount_idx is 0 (+1), 1 (+5), 2 (+10).
-SPEED_SKIP_PRODUCT_IDS: [SPEED_SKIP_TIER_COUNT][3]string = {
-    { "6a11b874d3af343921b1dc06", "6a11b878d4d410acc13a5df1", "6a11b87bd3af343921b1dc08" }, // T1 (1/5/9)
-    { "6a11b87f7acb668d56bf4688", "6a11b880e5cbad0f42d875a9", "6a11b8827acb668d56bf4689" }, // T2 (2/10/19)
-    { "6a11b8857acb668d56bf468b", "6a11b887be0d3bb08256403a", "6a11b888be0d3bb08256403b" }, // T3 (3/15/29)
-    { "6a11b893d4d410acc13a5e10", "6a11b894e5cbad0f42d875b7", "6a11b896d4d410acc13a5e12" }, // T4 (5/25/49)
-    { "6a11b8973dfc01a7251a2684", "6a11b899be0d3bb082564040", "6a11b89bba189edb3c83c3e3" }, // T5 (7/35/69)
-    { "6a11b89c3d2a60cc13e84beb", "6a11b89ed3af343921b1dc1b", "6a11b89fd4d410acc13a5e16" }, // T6 (10/50/99)
-    { "6a11b8a6e5cbad0f42d875cf", "6a11b8a77acb668d56bf4696", "6a11b8a9d4d410acc13a5e19" }, // T7 (14/70/139)
-    { "6a11b8ab7acb668d56bf469a", "6a11b8ace5cbad0f42d875d4", "6a11b8aed3af343921b1dc2a" }, // T8 (18/90/179)
-    { "6a11b8b0d4d410acc13a5e1b", "6a11b8b1ba189edb3c83c3f3", "6a11b8b3ba189edb3c83c3f4" }, // T9 (23/115/229)
+SPEED_SKIP_PRODUCT_IDS: [SPEED_SKIP_TIER_COUNT]string = {
+    "6a1450ba03d5c38d5f938b05", // SpeedSkipT1 ( 9)
+    "6a1450bc4d8844eee6ae049c", // SpeedSkipT2 (19)
+    "6a1450be03d5c38d5f938b06", // SpeedSkipT3 (29)
+    "6a1450bfb723fdec2068edb6", // SpeedSkipT4 (49)
+    "6a1450c1b723fdec2068edb8", // SpeedSkipT5 (69)
+    "6a1450c3ddd9f6199748c232", // SpeedSkipT6 (99)
+    "6a1450c44d8844eee6ae049f", // SpeedSkipT7 (139)
+    "6a1450c6ddd9f6199748c233", // SpeedSkipT8 (179)
+    "6a1450c7ddd9f6199748c234", // SpeedSkipT9 (229)
 };
 
-// Returns the 0..8 tier index for a given current speed, matching the
-// thresholds in `speed_upgrade_sparks_cost`.
+// Returns the 0..8 tier index for a given current speed.
 speed_skip_tier_index :: proc(current_speed: s64) -> s64 {
     if current_speed < 33  return 0;
     if current_speed < 53  return 1;
@@ -140,22 +139,8 @@ speed_skip_tier_index :: proc(current_speed: s64) -> s64 {
     return 8;
 }
 
-// Maps the player-facing amount (1/5/10) to the product column index.
-speed_skip_amount_index :: proc(amount: s64) -> s64 {
-    if amount <= 1 return 0;
-    if amount <= 5 return 1;
-    return 2;
-}
-
-// Maps a column index back to its grant amount.
-speed_skip_amount_for_index :: proc(idx: s64) -> s64 {
-    if idx == 0 return 1;
-    if idx == 1 return 5;
-    return 10;
-}
-
-speed_skip_product_id :: proc(current_speed: s64, amount: s64) -> string {
-    return SPEED_SKIP_PRODUCT_IDS[speed_skip_tier_index(current_speed)][speed_skip_amount_index(amount)];
+speed_skip_product_id :: proc(current_speed: s64) -> string {
+    return SPEED_SKIP_PRODUCT_IDS[speed_skip_tier_index(current_speed)];
 }
 
 // ===== Central purchase dispatcher =====
@@ -172,20 +157,15 @@ ao_purchase_handler :: proc(player: Player, id: string) -> bool {
             return do_rebirth(player, true);
         }
     }
-    // SpeedSkipT*_* — consumable. Grant the speed amount tied to the product
-    // when the tier matches the player's current speed tier (so old-tier
-    // products from the prompt can't bypass current tier pricing). Also bumps
-    // purchased_speed so a rebirth doesn't wipe what the player paid for.
+    // SpeedSkipT* — consumable. Grants +SPEED_SKIP_GRANT_AMOUNT speed when the
+    // product matches the player's current tier (prevents using a stale prompt
+    // from a lower tier). Bumps purchased_speed so the boost survives rebirth.
     for t: 0..SPEED_SKIP_PRODUCT_IDS.count - 1 {
-        for a: 0..SPEED_SKIP_PRODUCT_IDS[t].count - 1 {
-            if SPEED_SKIP_PRODUCT_IDS[t][a] == id {
-                if t != speed_skip_tier_index(player.speed) return false;
-                amount := speed_skip_amount_for_index(a);
-                add_speed(player, amount);
-                player.purchased_speed += amount;
-                Save.set_int(player, PURCHASED_SPEED_SAVE_KEY, player.purchased_speed);
-                return true;
-            }
+        if SPEED_SKIP_PRODUCT_IDS[t] == id {
+            if t != speed_skip_tier_index(player.speed) return false;
+            add_speed(player, SPEED_SKIP_GRANT_AMOUNT);
+            player.set_permanent_speed(player.purchased_speed + SPEED_SKIP_GRANT_AMOUNT);
+            return true;
         }
     }
     // Anything else (skin unlocks, etc.) — non-consumable, engine just needs a

@@ -123,11 +123,16 @@ Sprite_Renderer :: class : Component {
 } #foreign_struct "Sprite_Renderer"
 
 Collider :: class : Component {
+    overlaps_point :: method(point: v2) -> bool #foreign "collider_overlaps_point";
+    overlaps :: method(other: Collider) -> bool #foreign "collider_overlaps";
+
+    is_trigger: bool #foreign;
+    make_navmesh_loop: bool #foreign;
+    flip_navmesh_loop: bool #foreign;
+
     on_trigger_start: (proc(self: Collider, other: Collider)) #foreign "on_trigger_start_proc_index";
     on_trigger_stay: (proc(self: Collider, other: Collider)) #foreign "on_trigger_stay_proc_index";
     on_trigger_end: (proc(self: Collider, other: Collider)) #foreign "on_trigger_end_proc_index";
-    overlaps_point :: method(point: v2) -> bool #foreign "collider_overlaps_point";
-    overlaps :: method(other: Collider) -> bool #foreign "collider_overlaps";
 } #foreign_struct "Collider"
 
 Circle_Collider :: class : Collider {

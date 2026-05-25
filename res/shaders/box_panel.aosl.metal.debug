@@ -153,28 +153,29 @@ fragment ps_main_out ps_main(ps_main_in in [[stage_in]], constant type_params& p
     float _252 = precise::max(0.0, user_input.corner_radius_px * _202);
     float2 _258 = (abs(fma(in.in_var_TEXCOORD0, params.resolution_time.xy, -((user_input.rect_px.xy + user_input.rect_px.zw) * 0.5))) - ((user_input.rect_px.zw - user_input.rect_px.xy) * 0.5)) + float2(_252);
     float _266 = (length(precise::max(_258, float2(0.0))) + precise::min(precise::max(_258.x, _258.y), 0.0)) - _252;
-    float3 _282;
-    if (user_input.outline_px > 0.0)
-    {
-        _282 = mix(_244, powr(precise::max(user_input.outline_color.xyz, float3(0.0)), float3(2.2000000476837158203125)), float3((1.0 - smoothstep(fma(user_input.outline_px, _202, -1.0), fma(user_input.outline_px, _202, 1.0), -_266)) * user_input.outline_color.w));
-    }
-    else
-    {
-        _282 = _244;
-    }
-    float3 _314;
+    float3 _305;
     if (user_input.shine_strength > 0.0)
     {
-        float _307 = fast::clamp(fma(-abs(fast::clamp((in.in_var_UV.x + in.in_var_UV.y) * 0.5, 0.0, 1.0) - fma(fract((params.resolution_time.z * ((user_input.shine_speed > 0.0) ? user_input.shine_speed : 1.0)) * 0.3499999940395355224609375), 1.60000002384185791015625, -0.300000011920928955078125)), 5.5555553436279296875, 1.0), 0.0, 1.0);
-        _314 = mix(_282, float3(1.0), float3(((_307 * _307) * 0.550000011920928955078125) * fast::clamp(user_input.shine_strength, 0.0, 1.0)));
+        float _279 = precise::max(1.0, user_input.rect_px.z - user_input.rect_px.x);
+        float _298 = fast::clamp(1.0 - (abs(((_279 - _123.x) + _124) - fma(1.0 - fract((params.resolution_time.z * ((user_input.shine_speed > 0.0) ? user_input.shine_speed : 1.0)) * 0.4000000059604644775390625), fma(_202, 280.0, _279 + _121), _202 * (-140.0))) / (70.0 * _202)), 0.0, 1.0);
+        _305 = mix(_244, float3(1.0), float3(((_298 * _298) * 0.550000011920928955078125) * fast::clamp(user_input.shine_strength, 0.0, 1.0)));
     }
     else
     {
-        _314 = _282;
+        _305 = _244;
     }
-    float _325 = ((in.in_var_COLOR0 * _88).w * mix(user_input.top_color.w, user_input.bottom_color.w, _127)) * (1.0 - smoothstep(-1.0, 1.0, _266));
-    float3 _326 = mix(_314, float3(0.0), float3(fast::clamp(user_input.press, 0.0, 1.0) * 0.449999988079071044921875)) * _325;
-    out.out_var_SV_Target0 = float4(_326, _325);
+    float3 _321;
+    if (user_input.outline_px > 0.0)
+    {
+        _321 = mix(_305, powr(precise::max(user_input.outline_color.xyz, float3(0.0)), float3(2.2000000476837158203125)), float3((1.0 - smoothstep(fma(user_input.outline_px, _202, -1.0), fma(user_input.outline_px, _202, 1.0), -_266)) * user_input.outline_color.w));
+    }
+    else
+    {
+        _321 = _305;
+    }
+    float _332 = ((in.in_var_COLOR0 * _88).w * mix(user_input.top_color.w, user_input.bottom_color.w, _127)) * (1.0 - smoothstep(-1.0, 1.0, _266));
+    float3 _333 = mix(_321, float3(0.0), float3(fast::clamp(user_input.press, 0.0, 1.0) * 0.449999988079071044921875)) * _332;
+    out.out_var_SV_Target0 = float4(_333, _332);
     return out;
 }
 
@@ -355,28 +356,29 @@ fragment ps_main_out_1 ps_main(ps_main_in_1 in [[stage_in]], constant type_param
     float _252 = precise::max(0.0, user_input.corner_radius_px * _202);
     float2 _258 = (abs(fma(in.in.in_var_TEXCOORD0, params.resolution_time.xy, -((user_input.rect_px.xy + user_input.rect_px.zw) * 0.5))) - ((user_input.rect_px.zw - user_input.rect_px.xy) * 0.5)) + float2(_252);
     float _266 = (length(precise::max(_258, float2(0.0))) + precise::min(precise::max(_258.x, _258.y), 0.0)) - _252;
-    float3 _282;
-    if (user_input.outline_px > 0.0)
-    {
-        _282 = mix(_244, powr(precise::max(user_input.outline_color.xyz, float3(0.0)), float3(2.2000000476837158203125)), float3((1.0 - smoothstep(fma(user_input.outline_px, _202, -1.0), fma(user_input.outline_px, _202, 1.0), -_266)) * user_input.outline_color.w));
-    }
-    else
-    {
-        _282 = _244;
-    }
-    float3 _314;
+    float3 _305;
     if (user_input.shine_strength > 0.0)
     {
-        float _307 = fast::clamp(fma(-abs(fast::clamp((in.in.in_var_UV.x + in.in.in_var_UV.y) * 0.5, 0.0, 1.0) - fma(fract((params.resolution_time.z * ((user_input.shine_speed > 0.0) ? user_input.shine_speed : 1.0)) * 0.3499999940395355224609375), 1.60000002384185791015625, -0.300000011920928955078125)), 5.5555553436279296875, 1.0), 0.0, 1.0);
-        _314 = mix(_282, float3(1.0), float3(((_307 * _307) * 0.550000011920928955078125) * fast::clamp(user_input.shine_strength, 0.0, 1.0)));
+        float _279 = precise::max(1.0, user_input.rect_px.z - user_input.rect_px.x);
+        float _298 = fast::clamp(1.0 - (abs(((_279 - _123.x) + _124) - fma(1.0 - fract((params.resolution_time.z * ((user_input.shine_speed > 0.0) ? user_input.shine_speed : 1.0)) * 0.4000000059604644775390625), fma(_202, 280.0, _279 + _121), _202 * (-140.0))) / (70.0 * _202)), 0.0, 1.0);
+        _305 = mix(_244, float3(1.0), float3(((_298 * _298) * 0.550000011920928955078125) * fast::clamp(user_input.shine_strength, 0.0, 1.0)));
     }
     else
     {
-        _314 = _282;
+        _305 = _244;
     }
-    float _325 = ((in.in.in_var_COLOR0 * _88).w * mix(user_input.top_color.w, user_input.bottom_color.w, _127)) * (1.0 - smoothstep(-1.0, 1.0, _266));
-    float3 _326 = mix(_314, float3(0.0), float3(fast::clamp(user_input.press, 0.0, 1.0) * 0.449999988079071044921875)) * _325;
-    out.out.out_var_SV_Target0 = float4(_326, _325);
+    float3 _321;
+    if (user_input.outline_px > 0.0)
+    {
+        _321 = mix(_305, powr(precise::max(user_input.outline_color.xyz, float3(0.0)), float3(2.2000000476837158203125)), float3((1.0 - smoothstep(fma(user_input.outline_px, _202, -1.0), fma(user_input.outline_px, _202, 1.0), -_266)) * user_input.outline_color.w));
+    }
+    else
+    {
+        _321 = _305;
+    }
+    float _332 = ((in.in.in_var_COLOR0 * _88).w * mix(user_input.top_color.w, user_input.bottom_color.w, _127)) * (1.0 - smoothstep(-1.0, 1.0, _266));
+    float3 _333 = mix(_321, float3(0.0), float3(fast::clamp(user_input.press, 0.0, 1.0) * 0.449999988079071044921875)) * _332;
+    out.out.out_var_SV_Target0 = float4(_333, _332);
     return out_1;
 }
 

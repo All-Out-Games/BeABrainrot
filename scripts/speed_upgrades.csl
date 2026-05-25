@@ -50,7 +50,7 @@ speed_upgrade_cash_cost :: proc(current_speed: s64, amount: s64) -> float {
 }
 
 // Sparks price now lives on the product itself — query via
-// `Purchasing.get_product(speed_skip_product_id(speed, amount)).price`.
+// `Purchasing.get_product(speed_skip_product_id(speed)).price`.
 
 try_buy_speed_upgrade_cash :: proc(player: Player, amount: s64) -> bool {
     cash_cost := speed_upgrade_cash_cost(player.speed, amount);
@@ -63,39 +63,39 @@ try_buy_speed_upgrade_cash :: proc(player: Player, amount: s64) -> bool {
     return true;
 }
 
-// Triggers the All Out purchase prompt for the matching SpeedSkip product.
-// Grant happens in ao_purchase_handler on successful purchase.
-prompt_buy_speed_upgrade_sparks :: proc(player: Player, amount: s64) {
-    id := speed_skip_product_id(player.speed, amount);
+// Triggers the All Out purchase prompt for the tier's SpeedSkip product. All
+// three sparks buttons (rows +1/+5/+10) prompt the same product and always
+// grant +10 speed via ao_purchase_handler.
+prompt_buy_speed_upgrade_sparks :: proc(player: Player) {
+    id := speed_skip_product_id(player.speed);
     if id.count == 0 return;
     Purchasing.prompt_purchase(player, id);
 }
 
 Speed_Upgrade_Row_Handles :: struct {
     cash: Interact_Result;
-    sparks: Interact_Result;
 }
 
 Speed_Upgrade_Handles :: struct {
-    exit: Interact_Result;
-    row_1: Speed_Upgrade_Row_Handles;
-    row_5: Speed_Upgrade_Row_Handles;
+    exit:   Interact_Result;
+    sparks: Interact_Result; // single sparks CTA below all rows
+    row_1:  Speed_Upgrade_Row_Handles;
+    row_5:  Speed_Upgrade_Row_Handles;
     row_10: Speed_Upgrade_Row_Handles;
 }
 
 // ----- Shader-backed UI (box_panel.aosl) -----
 // One material per interactive panel: rect_px is set per-frame and the last
-// write wins, so cash/sparks buttons across the three rows each need their
-// own material instance.
+// write wins, so each of the three cash buttons gets its own material
+// instance. The sparks CTA is a single button below all rows so it only
+// needs one material.
 
-SPEED_MAT_SHELL:    Material;
-SPEED_MAT_CASH_A:   Material;
-SPEED_MAT_CASH_B:   Material;
-SPEED_MAT_CASH_C:   Material;
-SPEED_MAT_SPARKS_A: Material;
-SPEED_MAT_SPARKS_B: Material;
-SPEED_MAT_SPARKS_C: Material;
-SPEED_MATS_READY:   bool;
+SPEED_MAT_SHELL:  Material;
+SPEED_MAT_CASH_A: Material;
+SPEED_MAT_CASH_B: Material;
+SPEED_MAT_CASH_C: Material;
+SPEED_MAT_SPARKS: Material;
+SPEED_MATS_READY: bool;
 
 speed_make_box_material :: proc(box: Shop2_Box) -> Material {
     shader := get_asset(Shader_Asset, "shaders/box_panel.aosl");
@@ -145,14 +145,18 @@ speed_ensure_materials :: proc() -> bool {
     green_box  := shop2_box_green();
     yellow_box := shop2_box_yellow();
 
-    SPEED_MAT_SHELL    = speed_make_box_material(shell_box);
-    SPEED_MAT_CASH_A   = speed_make_box_material(green_box);
-    SPEED_MAT_CASH_B   = speed_make_box_material(green_box);
-    SPEED_MAT_CASH_C   = speed_make_box_material(green_box);
-    SPEED_MAT_SPARKS_A = speed_make_box_material(yellow_box);
-    SPEED_MAT_SPARKS_B = speed_make_box_material(yellow_box);
-    SPEED_MAT_SPARKS_C = speed_make_box_material(yellow_box);
+    SPEED_MAT_SHELL  = speed_make_box_material(shell_box);
+    SPEED_MAT_CASH_A = speed_make_box_material(green_box);
+    SPEED_MAT_CASH_B = speed_make_box_material(green_box);
+    SPEED_MAT_CASH_C = speed_make_box_material(green_box);
+    SPEED_MAT_SPARKS = speed_make_box_material(yellow_box);
     if SPEED_MAT_SHELL == null return false;
+
+    // Shine on the sparks CTA — pulls the eye to the paid option (same pattern
+    // as the Skip Rebirth button in the rebirth modal).
+    SPEED_MAT_SPARKS.set_float("shine_strength", 1.0);
+    SPEED_MAT_SPARKS.set_float("shine_speed",    1.2);
+
     SPEED_MATS_READY = true;
     return true;
 }
@@ -198,7 +202,7 @@ speed_shader_button :: proc(id: string, label: string, mat: Material, disabled: 
     return h;
 }
 
-draw_speed_upgrade_row :: proc(player: Player, amount: s64, id_suffix: string, cash_mat: Material, sparks_mat: Material) -> Speed_Upgrade_Row_Handles {
+draw_speed_upgrade_row :: proc(player: Player, amount: s64, id_suffix: string, cash_mat: Material) -> Speed_Upgrade_Row_Handles {
     row := UIK.layout_row();
     row.width = UIK.flex(1);
     row.height = UIK.flex(1);
@@ -225,24 +229,17 @@ draw_speed_upgrade_row :: proc(player: Player, amount: s64, id_suffix: string, c
     UIK.text(format_string("% -> %", {player.speed, player.speed + amount}), UIK.text_body());
     UIK.panel_end();
 
-    // Right: cash button + sparks button
+    // Right: cash button only — the sparks CTA lives once below all rows.
     right := UIK.layout_column();
     right.width = UIK.pixels(220);
     right.height = UIK.flex(1);
     right.main_align = .CENTER;
-    right.gap = 8;
     UIK.panel_begin(right);
 
     cash_cost := speed_upgrade_cash_cost(player.speed, amount);
-    sparks_id := speed_skip_product_id(player.speed, amount);
-    sparks_price: s64 = 0;
-    if sparks_id.count > 0 sparks_price = Purchasing.get_product(sparks_id).price;
 
     handles: Speed_Upgrade_Row_Handles;
-    spark_tex := get_asset(Texture_Asset, "$AO/ui/kit/Icons/sparks/spark_medium.png");
-
-    handles.cash   = speed_shader_button(format_string("speed_buy_cash_%",   {id_suffix}), format_cash(cash_cost), cash_mat);
-    handles.sparks = speed_shader_button(format_string("speed_buy_sparks_%", {id_suffix}), format_string("%", {sparks_price}), sparks_mat, false, spark_tex);
+    handles.cash = speed_shader_button(format_string("speed_buy_cash_%", {id_suffix}), format_cash(cash_cost), cash_mat);
 
     UIK.panel_end(); // right
     UIK.panel_end(); // row
@@ -286,11 +283,41 @@ draw_speed_upgrade_ui :: proc(player: Player) {
     perm_note.set_word_wrap(false);
     UIK.text("Sparks-bought speed is permanent, kept on rebirth.", perm_note);
 
-    handles.row_1  = draw_speed_upgrade_row(player, 1,  "1",  SPEED_MAT_CASH_A, SPEED_MAT_SPARKS_A);
+    handles.row_1  = draw_speed_upgrade_row(player, 1,  "1",  SPEED_MAT_CASH_A);
     draw_speed_separator();
-    handles.row_5  = draw_speed_upgrade_row(player, 5,  "5",  SPEED_MAT_CASH_B, SPEED_MAT_SPARKS_B);
+    handles.row_5  = draw_speed_upgrade_row(player, 5,  "5",  SPEED_MAT_CASH_B);
     draw_speed_separator();
-    handles.row_10 = draw_speed_upgrade_row(player, 10, "10", SPEED_MAT_CASH_C, SPEED_MAT_SPARKS_C);
+    handles.row_10 = draw_speed_upgrade_row(player, 10, "10", SPEED_MAT_CASH_C);
+
+    // Single big sparks CTA — buys the tier's +10 product no matter what.
+    sparks_id := speed_skip_product_id(player.speed);
+    sparks_price: s64 = 0;
+    if sparks_id.count > 0 sparks_price = Purchasing.get_product(sparks_id).price;
+    spark_tex := get_asset(Texture_Asset, "$AO/ui/kit/Icons/sparks/spark_medium.png");
+
+    sparks_btn := UIK.layout_row();
+    sparks_btn.width                       = UIK.flex(1);
+    sparks_btn.height                      = UIK.pixels(80);
+    sparks_btn.gap                         = 10;
+    sparks_btn.main_align                  = .CENTER;
+    sparks_btn.cross_align                 = .CENTER;
+    sparks_btn.show_background              = true;
+    sparks_btn.tint                        = v4{1, 1, 1, 1};
+    sparks_btn.background_sprite_override   = core_globals.white_sprite;
+    sparks_btn.background_material_override = SPEED_MAT_SPARKS;
+    sparks_h := UIK.panel_begin_interactive("speed_buy_sparks", sparks_btn, sparks_id.count == 0);
+    speed_feed_rect(SPEED_MAT_SPARKS, sparks_h.rect);
+    SPEED_MAT_SPARKS.set_float("press", sparks_h.active_t_eased);
+
+    UIK.text("+10 Speed for", UIK.text_button());
+    spark_holder := UIK.layout_centered(UIK.pixels(32), UIK.pixels(32));
+    UIK.panel_begin(spark_holder);
+    if spark_tex != null UIK.image_fitted(spark_tex, UIK.image_desc(.CONTAIN));
+    UIK.panel_end();
+    UIK.text(format_string("%", {sparks_price}), UIK.text_button());
+
+    UIK.panel_end(); // sparks_btn
+    handles.sparks = sparks_h;
 
     UIK.panel_end(); // body
     UIK.panel_end(); // shell
@@ -298,11 +325,9 @@ draw_speed_upgrade_ui :: proc(player: Player) {
 
     if UIK.clicked(handles.exit)          player.show_speed_upgrades = false;
     if UIK.clicked(handles.row_1.cash)    try_buy_speed_upgrade_cash(player, 1);
-    if UIK.clicked(handles.row_1.sparks)  prompt_buy_speed_upgrade_sparks(player, 1);
-    if UIK.clicked(handles.row_5.cash)    try_buy_speed_upgrade_cash(player, 5);
-    if UIK.clicked(handles.row_5.sparks)  prompt_buy_speed_upgrade_sparks(player, 5);
-    if UIK.clicked(handles.row_10.cash)   try_buy_speed_upgrade_cash(player, 10);
-    if UIK.clicked(handles.row_10.sparks) prompt_buy_speed_upgrade_sparks(player, 10);
+    if UIK.clicked(handles.row_5.cash)  try_buy_speed_upgrade_cash(player, 5);
+    if UIK.clicked(handles.row_10.cash) try_buy_speed_upgrade_cash(player, 10);
+    if UIK.clicked(handles.sparks)      prompt_buy_speed_upgrade_sparks(player);
 }
 
 draw_speed_upgrade_toggle_button :: proc(player: Player) {

@@ -110,6 +110,11 @@ set_speed_cmd :: proc(player: Player, value: s64 = 18) {
     Notifier.notify(player, "Speed set to %", {player.speed});
 } @chat_command
 
+set_permanent_speed :: proc(player: Player, value: s64 = 0) {
+    player.set_permanent_speed(value);
+    Notifier.notify(player, "Permanent speed set to +%", {player.purchased_speed});
+} @chat_command
+
 set_floor_cmd :: proc(player: Player, floor: s64 = 0) {
     if floor < 0 floor = 0;
     player.current_floor = floor;
@@ -326,6 +331,14 @@ Player :: class : Player_Base {
     equipped_skin_id: string;
     unlocked_skins: [..]string; // skin config_ids the player has paid robux to unlock (in addition to rebirth-unlocked ones)
 
+    // Sets the player's permanent (sparks-bought) speed bonus and persists it.
+    // Single source of truth for any caller that needs to mutate this field.
+    set_permanent_speed :: method(value: s64) {
+        if value < 0 value = 0;
+        purchased_speed = value;
+        Save.set_int(this, PURCHASED_SPEED_SAVE_KEY, value);
+    }
+
     ao_start :: method() {
         purchased_speed = Save.get_int(this, PURCHASED_SPEED_SAVE_KEY, 0);
         speed = Save.get_int(this, SPEED_SAVE_KEY, BASE_SPEED);
@@ -346,10 +359,12 @@ Player :: class : Player_Base {
 
     ao_update :: method(dt: float) {
         if agent != null {
-            agent.movement_speed = compute_agent_movement_speed(speed);
+            a := agent;
+            a.movement_speed = compute_agent_movement_speed(speed);
         }
         if animator != null {
-            animator.layer = current_floor.(s32);
+            anim := animator;
+            anim.layer = current_floor.(s32);
         }
         tick_cash_animations(this, dt);
 

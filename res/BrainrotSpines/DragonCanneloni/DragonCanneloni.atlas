@@ -1,0 +1,118 @@
+DragonCanneloni.png
+	size: 3964, 1156
+	filter: Linear, Linear
+idle/frame_34
+	bounds: 1073, 384, 486, 387
+	offsets: 203, 28, 864, 496
+idle/frame_35
+	bounds: 519, 6, 465, 397
+	offsets: 212, 28, 864, 496
+idle/frame_36
+	bounds: 1565, 10, 467, 388
+	offsets: 210, 28, 864, 496
+idle/frame_37
+	bounds: 2770, 22, 476, 375
+	offsets: 208, 28, 864, 496
+idle/frame_38
+	bounds: 545, 409, 522, 363
+	offsets: 196, 28, 864, 496
+idle/frame_39
+	bounds: 2871, 783, 550, 364
+	offsets: 183, 28, 864, 496
+idle/frame_40
+	bounds: 2302, 780, 563, 367
+	offsets: 173, 28, 864, 496
+idle/frame_41
+	bounds: 1159, 777, 561, 370
+	offsets: 172, 28, 864, 496
+idle/frame_42
+	bounds: 1726, 404, 525, 373
+	offsets: 186, 28, 864, 496
+idle/frame_43
+	bounds: 2257, 400, 507, 374
+	offsets: 195, 28, 864, 496
+idle/frame_44
+	bounds: 2871, 403, 515, 374
+	offsets: 190, 28, 864, 496
+idle/frame_45
+	bounds: 3427, 775, 531, 372
+	offsets: 182, 28, 864, 496
+idle/frame_46
+	bounds: 586, 778, 567, 369
+	offsets: 163, 28, 864, 496
+idle/frame_47
+	bounds: 6, 781, 574, 366
+	offsets: 159, 28, 864, 496
+idle/frame_48
+	bounds: 1726, 783, 570, 364
+	offsets: 160, 28, 864, 496
+idle/frame_49
+	bounds: 6, 414, 533, 361
+	offsets: 180, 28, 864, 496
+idle/frame_50
+	bounds: 6, 39, 507, 369
+	offsets: 192, 28, 864, 496
+idle/frame_51
+	bounds: 3392, 383, 487, 386
+	offsets: 202, 28, 864, 496
+
+DragonCanneloni_2.png
+	size: 3908, 1164
+	filter: Linear, Linear
+run/frame_32
+	bounds: 1141, 771, 560, 387
+	offsets: 170, 28, 864, 496
+run/frame_33
+	bounds: 6, 767, 557, 391
+	offsets: 172, 28, 864, 496
+run/frame_34
+	bounds: 2823, 771, 529, 387
+	offsets: 190, 29, 864, 496
+run/frame_35
+	bounds: 2270, 393, 509, 380
+	offsets: 197, 29, 864, 496
+run/frame_36
+	bounds: 1098, 382, 490, 383
+	offsets: 202, 29, 864, 496
+run/frame_37
+	bounds: 2101, 6, 476, 381
+	offsets: 208, 28, 864, 496
+run/frame_38
+	bounds: 6, 7, 482, 375
+	offsets: 205, 28, 864, 496
+run/frame_39
+	bounds: 1594, 23, 501, 366
+	offsets: 198, 30, 864, 496
+run/frame_40
+	bounds: 569, 404, 523, 365
+	offsets: 193, 35, 864, 496
+run/frame_41
+	bounds: 3358, 783, 543, 375
+	offsets: 184, 36, 864, 496
+run/frame_42
+	bounds: 569, 775, 566, 383
+	offsets: 164, 37, 864, 496
+run/frame_43
+	bounds: 2270, 779, 547, 379
+	offsets: 173, 37, 864, 496
+run/frame_44
+	bounds: 1707, 395, 511, 372
+	offsets: 195, 36, 864, 496
+run/frame_45
+	bounds: 3288, 22, 495, 374
+	offsets: 198, 36, 864, 496
+run/frame_46
+	bounds: 2785, 388, 497, 377
+	offsets: 188, 31, 864, 496
+run/frame_47
+	bounds: 6, 388, 501, 373
+	offsets: 188, 27, 864, 496
+run/frame_48
+	bounds: 513, 31, 507, 367
+	offsets: 195, 27, 864, 496
+run/frame_49
+	bounds: 3358, 402, 531, 375
+	offsets: 187, 27, 864, 496
+run/frame_50
+	bounds: 1707, 773, 557, 385
+	offsets: 172, 28, 864, 496

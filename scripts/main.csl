@@ -202,6 +202,15 @@ register_player_jump_emote :: proc(player: Player) {
     if idle != null {
         layer.create_transition(jump_state, idle, true);
     }
+
+    // Knockback flinch — triggered by Hit_Knockback_Effect on first NPC catch.
+    flinch_trigger := sm.create_variable("flinch_big", .TRIGGER);
+    flinch_state   := layer.create_state("Flinch_Big", false);
+    to_flinch := layer.create_global_transition(flinch_state, true);
+    to_flinch.create_trigger_condition(flinch_trigger);
+    if idle != null {
+        layer.create_transition(flinch_state, idle, true);
+    }
 }
 
 emote_jump :: proc(player: Player) {

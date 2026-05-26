@@ -1,0 +1,53 @@
+// Applied to the player when an NPC chaser catches them. Knocks the player
+// back along the NPC→player vector with a decaying velocity for 1 second,
+// then teleports them onto the chaser's jail pedestal.
+
+HIT_KNOCKBACK_DURATION :: 1.0;
+HIT_KNOCKBACK_FORCE    :: 30.0; // wu/s peak knockback speed at t = 0
+
+Hit_Knockback_Effect :: class : Effect_Base {
+    chaser:         Npc_Chaser;
+    knockback_dir:  v2;
+    saved_rotation: float;
+
+    effect_start :: method() {
+        player_specific.disable_movement_inputs = true;
+        set_duration(HIT_KNOCKBACK_DURATION);
+        if player != null && player.animator != null && player.animator.state_machine != null {
+            player.animator.state_machine.set_trigger("flinch_big");
+        }
+        if player != null && #alive(player.entity) {
+            saved_rotation = player.entity.local_rotation;
+        }
+    }
+
+    effect_update :: method(dt: float) {
+        if player == null return;
+        if !#alive(player.entity) return;
+        t := get_elapsed_time() / HIT_KNOCKBACK_DURATION;
+        if t > 1.0 t = 1.0;
+        // Quadratic decay so the punch is heavy at the start and eases off.
+        decay := 1.0 - t;
+        decay = decay * decay;
+        step := HIT_KNOCKBACK_FORCE * decay * dt;
+        player.entity.set_world_position(player.entity.world_position + knockback_dir * step);
+
+        // One full spin over the duration.
+        player.entity.set_local_rotation(saved_rotation + t * 360.0);
+    }
+
+    effect_end :: method(interrupt: bool) {
+        // Always restore rotation + idle animation, even on interrupt.
+        if player != null && #alive(player.entity) {
+            player.entity.set_local_rotation(saved_rotation);
+            if player.animator != null && player.animator.state_machine != null {
+                player.animator.state_machine.set_trigger("RESET");
+            }
+        }
+        if interrupt return;
+        if chaser == null return;
+        // Punish (return stolen brainrot, teleport player home, clear effects,
+        // reset chasers) happens AFTER the 1s knockback finishes.
+        npc_punish_player(chaser);
+    }
+}

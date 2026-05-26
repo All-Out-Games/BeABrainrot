@@ -89,8 +89,21 @@ Npc_Chaser :: class : Component {
 
         _, has_in_room := get_effect(assigned_player.entity, In_Npc_Room_Effect);
         if has_in_room {
-            // Re-catch while jailed → return stolen brainrot + send player home.
-            npc_punish_player(this);
+            // Re-catch while jailed (jailbreak or steal-while-jailed) →
+            // 1s knockback first, THEN punish (return brainrot + teleport
+            // home). Knockback only fires on the re-catch path.
+            _, has_kb := get_effect(assigned_player.entity, Hit_Knockback_Effect);
+            if has_kb return;
+
+            kb := new(Hit_Knockback_Effect);
+            kb.chaser = this;
+            diff := assigned_player.entity.world_position - entity.world_position;
+            if length_squared(diff) > 0 {
+                kb.knockback_dir = normalize(diff);
+            } else {
+                kb.knockback_dir = v2{1, 0};
+            }
+            assigned_player.entity.set_active_effect(kb);
             return;
         }
 
@@ -200,6 +213,11 @@ tick_chaser_chasing :: proc(c: Npc_Chaser, dt: float) {
     // Pause the chase while the player is on an upper floor (mid-jump or in an
     // upper room). Stays in CHASING so it picks back up when they're on 0.
     if c.assigned_player.current_floor != 0 return;
+    // Also pause while a knockback is in flight — the player is mid-punish
+    // animation and the NPC standing still reads better than continuing to
+    // close on a spinning, flying player.
+    _, has_kb := get_effect(c.assigned_player.entity, Hit_Knockback_Effect);
+    if has_kb return;
 
     effective_speed := chaser_speed_wu_per_sec(c.speed_stat);
     if c.is_re_chase {

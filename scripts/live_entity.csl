@@ -201,6 +201,26 @@ get_sprite_top_center :: proc(sprite: Sprite_Renderer, fallback_anchor: Entity) 
     return v2{0, 0};
 }
 
+get_sprite_bottom_center :: proc(sprite: Sprite_Renderer, fallback_anchor: Entity) -> v2 {
+    if sprite != null && #alive(sprite.entity) {
+        tex := sprite.get_texture();
+        if tex != null {
+            size := sprite.get_world_size();
+            half := v2{size.x * 0.5, size.y * 0.5};
+            pivot := tex.get_pivot();
+            offset := v2{-pivot.x * half.x, -pivot.y * half.y};
+            bottom_local := offset + v2{0, -half.y};
+            return transform_point_2d(sprite.entity.model_matrix, bottom_local);
+        }
+        size := sprite.get_world_size();
+        return sprite.entity.calculate_visual_position() - v2{0, size.y * 0.5};
+    }
+    if fallback_anchor != null && #alive(fallback_anchor) {
+        return fallback_anchor.calculate_visual_position();
+    }
+    return v2{0, 0};
+}
+
 LivingEntity :: class : Interactable {
     config_id: string @ao_serialize;
     display_name: string @ao_serialize;

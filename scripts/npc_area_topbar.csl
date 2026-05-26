@@ -160,6 +160,13 @@ draw_npc_area_topbar :: proc(local: Player) {
     white := get_asset(Texture_Asset, "$AO/white.png");
     UI.quad(bar, white, v4{0, 0, 0, 1});
 
+    bubble_tex := get_asset(Texture_Asset, "Textures/UI/PlayerPosUIBubble.png");
+    frame_tex  := get_asset(Texture_Asset, "Textures/PictureFrame01_White2_51b795.png");
+    FACE_SIZE_PAD       :: 12.0;  // shrink the face circle vs the bar height
+    FACE_OUTLINE_PX     :: 4.0;   // black outline thickness around the frame
+    FACE_SPINE_FRAC     :: 0.6;   // spine drawn at this fraction of the bubble size (smaller = stays inside the circle visually)
+    FACE_SPINE_Y_FRAC   :: -0.7;  // pulls the head down toward the bubble center
+
     // Equal-width "glued" segments — one per Room_Npc, no gaps in the UI even
     // though there are gaps between bases in the world.
     N := rooms.count.(float);
@@ -170,20 +177,40 @@ draw_npc_area_topbar :: proc(local: Player) {
         color := NPC_AREA_SEGMENT_COLORS[i % NPC_AREA_SEGMENT_COLORS.count];
         draw_box(seg, npc_area_box_for_color(color));
 
-        // // Studs alternative — uncomment to use the Lego-stud look instead.
-        // // Note: density must be tied to bar height for resolution-independence.
-        // studs := get_npc_area_studs_material();
-        // if studs != null {
-        //     bar_h_px := bar.max.y - bar.min.y;
-        //     if bar_h_px > 0 studs.set_float("stud_density", 2.0 / bar_h_px);
-        //     UI.push_material(studs);
-        //     UI.quad(seg, white, color);
-        //     UI.pop_material();
-        // }
+        // NPC face preview — circular bubble + the first chaser's spine,
+        // centered inside the segment. Skip rooms whose chaser doesn't have
+        // a spine attached.
+        r := rooms[i];
+        if r.chasers.count <= 0 continue;
+        c := r.chasers[0];
+        if c == null continue;
+        if c.spine == null continue;
+        if c.spine.instance == null continue;
+
+        if frame_tex == null continue;
+        face_size    := BAR_HEIGHT - FACE_SIZE_PAD;
+        half         := face_size * 0.5;
+        face_rect    := seg.center_rect().grow(half, half, half, half);
+        // Outline = the same frame drawn slightly bigger, tinted black.
+        outline_rect := face_rect.grow(FACE_OUTLINE_PX, FACE_OUTLINE_PX, FACE_OUTLINE_PX, FACE_OUTLINE_PX);
+        UI.quad(outline_rect, frame_tex, v4{0, 0, 0, 1});
+        // Inner frame (smaller, normal color) drawn on top of the black.
+        UI.quad(face_rect, frame_tex);
+
+        // Mask from the inner frame's alpha so the spine is clipped to the
+        // frame's shape.
+        mask := UI.build_mask_begin(face_rect);
+        UI.quad(face_rect, frame_tex);
+        UI.build_mask_end();
+
+        spine_pos := face_rect.center();
+        spine_pos.y += face_size * FACE_SPINE_Y_FRAC;
+        UI.use_mask_begin(mask);
+        UI.spine(spine_pos, c.spine.instance, v2{face_size * FACE_SPINE_FRAC, face_size * FACE_SPINE_FRAC}, 0);
+        UI.use_mask_end();
     }
 
     // PlayerPosUIBubble under the bar for every player currently in the NPC area.
-    bubble_tex := get_asset(Texture_Asset, "Textures/UI/PlayerPosUIBubble.png");
     if bubble_tex == null return;
 
     // Filter: only show bubbles for players above the npc_line.

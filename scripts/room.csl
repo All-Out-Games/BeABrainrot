@@ -437,7 +437,8 @@ draw_npc_pedestal_timers :: proc(r: Room_Npc) {
         le := p.placed_brainrot;
         anchor := le.entity;
         if le.sprite != null && #alive(le.sprite.entity) anchor = le.sprite.entity;
-        base_pos := get_sprite_top_center(le.sprite, anchor) + v2{0, LABEL_TOP_PADDING};
+        // Anchor BELOW the sprite — the timer sits under the brainrot's feet.
+        base_pos := get_sprite_bottom_center(le.sprite, anchor) - v2{0, LABEL_TOP_PADDING};
 
         if local.camera.size > 0 {
             cam_pos := local.camera.position;
@@ -453,9 +454,8 @@ draw_npc_pedestal_timers :: proc(r: Room_Npc) {
         UI.push_layer(2);
         defer UI.pop_layer();
 
-        cursor_y := LABEL_LINE_HEIGHT * 6;
         secs := time_left.(s64);
-        draw_brainrot_label(base_pos + v2{0, cursor_y}, format_string("%s", {secs}), v4{1, 1, 0.3, 1}, 0.5, 0.35, 2.0);
+        draw_brainrot_label(base_pos, format_string("%s", {secs}), v4{1, 0.25, 0.25, 1}, 0.5, 0.35, 2.0);
     }
 }
 

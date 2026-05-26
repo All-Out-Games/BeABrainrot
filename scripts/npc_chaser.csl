@@ -204,9 +204,11 @@ tick_chaser_chasing :: proc(c: Npc_Chaser, dt: float) {
     effective_speed := chaser_speed_wu_per_sec(c.speed_stat);
     if c.is_re_chase {
         // Re-chase (jailbreak / re-steal): match the player's own movement
-        // speed so the head start carries and the player can outrun by
-        // holding the joystick — but gets caught the moment they stop.
-        effective_speed = chaser_speed_wu_per_sec(c.assigned_player.speed);
+        // speed, but capped to the NPC's own stat — so a fast player keeps
+        // their head start instead of letting the NPC keep up indefinitely.
+        capped_stat := c.assigned_player.speed;
+        if capped_stat > c.speed_stat capped_stat = c.speed_stat;
+        effective_speed = chaser_speed_wu_per_sec(capped_stat);
     } else if c.assigned_player.speed < c.speed_stat {
         // First chase, NPC faster than player → sprint to guarantee the
         // catch regardless of starting gap.

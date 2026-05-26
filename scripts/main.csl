@@ -418,7 +418,15 @@ Player :: class : Player_Base {
 
             draw_ability_button(this, Jump_Ability, 0);
 
-            draw_selected_brainrot_above_player(this);
+            // World-space hand preview for EVERY player, not just local — the
+            // local client renders each player's carried icon in the world so
+            // remote players' icons are visible too. selected_brainrot_item is
+            // server-synced, so the iteration sees up-to-date values.
+            for p: component_iterator(Player) {
+                if p == null continue;
+                if !#alive(p.entity) continue;
+                draw_selected_brainrot_above_player(p);
+            }
             above_npc_line := false;
             gm := get_game_manager();
             if gm != null && gm.npc_line != null && #alive(gm.npc_line) {

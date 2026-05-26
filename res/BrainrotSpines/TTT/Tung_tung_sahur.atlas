@@ -1,0 +1,125 @@
+Tung_tung_sahur.png
+	size: 4080, 652
+	filter: Linear, Linear
+	scale: 0.5
+tung_tung_sahur/arm_L_closed_hand
+	bounds: 2490, 449, 106, 196
+	offsets: 20, 17, 141, 231
+tung_tung_sahur/arm_L_closed_hand_bat
+	bounds: 1542, 505, 58, 103
+	offsets: 8, 6, 71, 116
+	rotate: 90
+tung_tung_sahur/arm_L_open_hand
+	bounds: 2398, 449, 106, 196
+	offsets: 20, 17, 141, 231
+tung_tung_sahur/arm_R_bat
+	bounds: 1347, 338, 307, 212
+	offsets: 0, 0, 307, 231
+	rotate: 90
+tung_tung_sahur/arm_R_closed_hand
+	bounds: 3272, 492, 153, 107
+	offsets: 0, 0, 154, 116
+	rotate: 90
+tung_tung_sahur/arm_R_open_hand
+	bounds: 1562, 339, 306, 212
+	offsets: 0, 0, 307, 231
+	rotate: 90
+tung_tung_sahur/bat
+	bounds: 3882, 471, 144, 81
+	offsets: 5, 10, 154, 101
+tung_tung_sahur/body
+	bounds: 1189, 333, 171, 312
+	offsets: 23, 22, 223, 358
+tung_tung_sahur/eyes_angry
+	bounds: 3384, 521, 124, 76
+	offsets: 27, 43, 174, 167
+	rotate: 90
+tung_tung_sahur/eyes_closed
+	bounds: 3189, 519, 126, 78
+	offsets: 21, 46, 174, 167
+	rotate: 90
+tung_tung_sahur/eyes_default
+	bounds: 3105, 518, 127, 79
+	offsets: 25, 43, 174, 167
+	rotate: 90
+tung_tung_sahur/eyes_sad
+	bounds: 2902, 518, 127, 92
+	offsets: 24, 31, 174, 167
+	rotate: 90
+tung_tung_sahur/leg_L
+	bounds: 2796, 470, 102, 175
+	offsets: 13, 10, 133, 198
+tung_tung_sahur/leg_R
+	bounds: 3000, 474, 101, 171
+	offsets: 14, 10, 133, 198
+tung_tung_sahur/mouth_default
+	bounds: 3466, 552, 93, 86
+	offsets: 40, 39, 174, 167
+	rotate: 90
+tung_tung_sahur/mouth_grin
+	bounds: 3733, 558, 87, 81
+	offsets: 46, 45, 174, 167
+	rotate: 90
+tung_tung_sahur/mouth_open
+	bounds: 3557, 555, 87, 90
+	offsets: 46, 40, 174, 167
+tung_tung_sahur/mouth_sad
+	bounds: 3884, 557, 75, 88
+	offsets: 51, 37, 174, 167
+tung_tung_sahur/shadow
+	bounds: 3819, 529, 116, 59
+	offsets: 3, 3, 122, 64
+	rotate: 90
+vfx/Poof_1
+	bounds: 1778, 451, 194, 164
+	rotate: 90
+vfx/Poof_2
+	bounds: 995, 408, 237, 195
+	rotate: 90
+vfx/Poof_3
+	bounds: 518, 345, 300, 236
+	rotate: 90
+vfx/Poof_4
+	bounds: 760, 363, 282, 229
+	rotate: 90
+vfx/bonk_vfx
+	bounds: 3649, 552, 78, 93
+vfx/eject_blast_bg_2
+	bounds: 6, 6, 303, 639
+vfx/gold-mote
+	bounds: 3964, 576, 69, 69
+	offsets: 3, 3, 75, 75
+vfx/green_aura
+	bounds: 2297, 500, 145, 95
+	offsets: 1, 1, 147, 97
+	rotate: 90
+vfx/green_hit1
+	bounds: 2686, 527, 104, 118
+	offsets: 1, 1, 106, 120
+vfx/green_hit2
+	bounds: 2189, 509, 102, 136
+	offsets: 1, 1, 105, 138
+vfx/green_hit3
+	bounds: 2084, 499, 99, 146
+	offsets: 1, 1, 101, 148
+vfx/shockwave
+	bounds: 1948, 511, 134, 130
+	offsets: 1, 1, 136, 132
+	rotate: 90
+vfx/shockwave_A
+	bounds: 3272, 572, 27, 28
+	offsets: 1, 0, 29, 28
+vfx/shockwave_B
+	bounds: 4039, 607, 35, 38
+vfx/shockwave_C
+	bounds: 4039, 562, 39, 27
+	offsets: 0, 0, 40, 27
+	rotate: 90
+vfx/shockwave_effect
+	bounds: 315, 264, 381, 197
+	rotate: 90
+vfx/stomp_impact
+	bounds: 2583, 518, 97, 127
+	offsets: 0, 0, 97, 129
+vfx/swing
+	bounds: 3466, 507, 115, 40

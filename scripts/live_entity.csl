@@ -512,12 +512,8 @@ LivingEntity_Npc :: class : LivingEntity {
         // jailed the player may chase. Wind-up only when starting from IDLE.
         _, has_in_room := get_effect(player.entity, In_Npc_Room_Effect);
         if has_in_room && npc_room != null && npc_room_may_chase(player, npc_room) {
-            c := get_player_chaser_in_room(npc_room, player);
-            if c != null && c.state == Npc_Chaser_State.IDLE {
-                c.state = Npc_Chaser_State.CHASING;
-                c.chase_windup_remaining = NPC_CHASE_WINDUP_DURATION;
-                c.is_re_chase = true;
-            }
+            // Steal-while-jailed re-chase — same setup as the jailbreak path.
+            start_chase(get_player_chaser_in_room(npc_room, player), true);
         }
     }
 }

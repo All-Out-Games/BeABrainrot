@@ -95,6 +95,12 @@ Npc_Chaser :: class : Component {
             _, has_kb := get_effect(assigned_player.entity, Hit_Knockback_Effect);
             if has_kb return;
 
+            // Clear the alarm — knockback takes over as the punish feedback.
+            remove_effect(assigned_player.entity, Re_Chase_Alarm_Effect, false);
+            // Snap the stolen brainrot back to its pedestal as instant feedback;
+            // the punish at the end of the knockback won't double-return it.
+            return_stolen_brainrot_to_pedestal(assigned_player);
+
             kb := new(Hit_Knockback_Effect);
             kb.chaser = this;
             diff := assigned_player.entity.world_position - entity.world_position;
@@ -153,6 +159,33 @@ NPC_MOVING_EPSILON_SQ :: 0.000004; // ~0.002 wu/frame
 NPC_ANIM_REF_WUPS     :: 5.0;      // wu/s at which run plays at 1.0× (≈ base player speed)
 NPC_ANIM_SPEED_MIN    :: 1.0;
 NPC_ANIM_SPEED_MAX    :: 4.0;
+
+// Single transition into CHASING. Both the initial chase (player crossing
+// into the chase trigger) and re-chases (jailbreak / steal-while-jailed)
+// route through here so the state setup lives in one place.
+//   is_re_chase = false → first catch, windup skipped, sprint-when-faster
+//   is_re_chase = true  → jailbreak / steal-while-jailed, slow windup, no
+//                         sprint (matches player speed, capped at NPC stat)
+start_chase :: proc(c: Npc_Chaser, is_re_chase: bool) {
+    if c == null return;
+    if c.state == Npc_Chaser_State.ESCORTING return;
+    // Re-chase only resumes from IDLE — don't restart windup mid-chase.
+    if is_re_chase && c.state != Npc_Chaser_State.IDLE return;
+    // "You've been spotted" alarm (camera shake + red flash) on every
+    // re-chase. Dedupe so two chasers re-targeting the same player don't
+    // stack the effect.
+    if is_re_chase && c.assigned_player != null && #alive(c.assigned_player.entity) {
+        _, has_alarm := get_effect(c.assigned_player.entity, Re_Chase_Alarm_Effect);
+        if !has_alarm {
+            alarm := new(Re_Chase_Alarm_Effect);
+            c.assigned_player.entity.add_passive_effect(alarm);
+        }
+    }
+    c.state                  = Npc_Chaser_State.CHASING;
+    c.is_re_chase            = is_re_chase;
+    c.chase_windup_remaining = 0;
+    if is_re_chase c.chase_windup_remaining = NPC_CHASE_WINDUP_DURATION;
+}
 
 update_chaser_spine_anim :: proc(c: Npc_Chaser, dt: float) {
     if c.spine == null return;
@@ -393,6 +426,8 @@ npc_room_may_chase :: proc(player: Player, r: Room_Npc) -> bool {
     return e.jailer_room == r;
 }
 
+
+
 room_npc_on_chase_enter :: proc(listener: Component, player: Player) {
     if listener == null return;
     if player == null return;
@@ -400,11 +435,7 @@ room_npc_on_chase_enter :: proc(listener: Component, player: Player) {
     if r == null return;
     if !npc_room_may_chase(player, r) return;
     c := claim_or_get_chaser_in_room(r, player);
-    if c == null return;
-    if c.state == Npc_Chaser_State.ESCORTING return;
-    c.state = Npc_Chaser_State.CHASING;
-    c.chase_windup_remaining = 0; // first chase: full speed immediately
-    c.is_re_chase = false;        // initial chase uses sprint when faster than player
+    start_chase(c, false);
 }
 
 room_npc_on_chase_exit :: proc(listener: Component, player: Player) {
@@ -435,14 +466,59 @@ room_npc_on_jail_exit :: proc(listener: Component, player: Player) {
     if !npc_room_may_chase(player, r) return;
 
     // Jailbreak — InNpcRoom stays on the player; chaser resumes at the slower
-    // re-chase speed. The wind-up only applies when starting from IDLE (so
-    // re-crossing the jail collider mid-chase doesn't keep slowing it).
-    c := get_player_chaser_in_room(r, player);
-    if c != null && c.state == Npc_Chaser_State.IDLE {
-        c.state = Npc_Chaser_State.CHASING;
-        c.chase_windup_remaining = NPC_CHASE_WINDUP_DURATION;
-        c.is_re_chase = true;
+    // re-chase speed. start_chase guards against re-entry mid-chase.
+    start_chase(get_player_chaser_in_room(r, player), true);
+}
+
+// Return the player's currently-stolen brainrot back to its origin pedestal
+// and clear the carry effect. No-op if the player isn't carrying anything.
+// Safe to call multiple times — the second call sees no Carry effect and
+// short-circuits. Used both when the player gets hit (snap brainrot back as
+// instant feedback) and at the end of the punish flow.
+return_stolen_brainrot_to_pedestal :: proc(player: Player) {
+    if player == null return;
+    if !#alive(player.entity) return;
+    e, has_steal := get_effect(player.entity, Carry_Brainrot_Stealing_Npc_Effect);
+    if !has_steal return;
+    if e == null return;
+
+    saved_id: string;
+    saved_level: s64 = 1;
+    saved_mutation := Mutation.NONE;
+    if e.carried != null && #alive(e.carried.entity) {
+        saved_id       = e.carried.config_id;
+        saved_level    = e.carried.level;
+        saved_mutation = e.carried.mutation;
     }
+
+    if e.origin_room != null && #alive(e.origin_room.entity) {
+        idx := e.origin_pedestal_index;
+        if idx >= 0 && idx < e.origin_room.pedestals.count {
+            p := e.origin_room.pedestals[idx];
+            if p != null && saved_id.count > 0 {
+                configs := get_brainrot_configs();
+                for cfg: configs {
+                    if cfg.id != saved_id continue;
+                    new_le := spawn_npc_brainrot_on_pedestal(p, cfg);
+                    if new_le != null {
+                        new_le.level    = saved_level;
+                        new_le.mutation = saved_mutation;
+                        new_le.update_visuals();
+                    }
+                    break;
+                }
+            }
+            if idx < e.origin_room.pedestal_locked.count {
+                e.origin_room.pedestal_locked[idx] = false;
+            }
+            if idx < e.origin_room.pedestal_timers.count {
+                e.origin_room.pedestal_timers[idx] = NPC_SPAWN_INTERVAL;
+            }
+        }
+    }
+
+    if e.carried != null && #alive(e.carried.entity) e.carried.entity.destroy();
+    remove_effect(player.entity, Carry_Brainrot_Stealing_Npc_Effect, true);
 }
 
 npc_punish_player :: proc(c: Npc_Chaser) {
@@ -450,48 +526,8 @@ npc_punish_player :: proc(c: Npc_Chaser) {
     if c.assigned_player == null return;
     if !#alive(c.assigned_player.entity) return;
 
-    // Return the *exact* stolen brainrot (same config_id / level / mutation) to
-    // its origin pedestal — not a random roll from spawnable_brainrot_ids.
-    e, has_steal := get_effect(c.assigned_player.entity, Carry_Brainrot_Stealing_Npc_Effect);
-    if has_steal && e != null {
-        saved_id: string;
-        saved_level: s64 = 1;
-        saved_mutation := Mutation.NONE;
-        if e.carried != null && #alive(e.carried.entity) {
-            saved_id       = e.carried.config_id;
-            saved_level    = e.carried.level;
-            saved_mutation = e.carried.mutation;
-        }
-
-        if e.origin_room != null && #alive(e.origin_room.entity) {
-            idx := e.origin_pedestal_index;
-            if idx >= 0 && idx < e.origin_room.pedestals.count {
-                p := e.origin_room.pedestals[idx];
-                if p != null && saved_id.count > 0 {
-                    configs := get_brainrot_configs();
-                    for cfg: configs {
-                        if cfg.id != saved_id continue;
-                        new_le := spawn_npc_brainrot_on_pedestal(p, cfg);
-                        if new_le != null {
-                            new_le.level    = saved_level;
-                            new_le.mutation = saved_mutation;
-                            new_le.update_visuals();
-                        }
-                        break;
-                    }
-                }
-                if idx < e.origin_room.pedestal_locked.count {
-                    e.origin_room.pedestal_locked[idx] = false;
-                }
-                if idx < e.origin_room.pedestal_timers.count {
-                    e.origin_room.pedestal_timers[idx] = NPC_SPAWN_INTERVAL;
-                }
-            }
-        }
-
-        if e.carried != null && #alive(e.carried.entity) e.carried.entity.destroy();
-        remove_effect(c.assigned_player.entity, Carry_Brainrot_Stealing_Npc_Effect, true);
-    }
+    // Idempotent — if the hit already returned the brainrot, this is a no-op.
+    return_stolen_brainrot_to_pedestal(c.assigned_player);
 
     // Teleport player back to their own base.
     if c.assigned_player.my_room != null && #alive(c.assigned_player.my_room.entity) {

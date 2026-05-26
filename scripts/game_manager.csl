@@ -45,6 +45,10 @@ gm_on_npc_line_enter :: proc(listener: Component, player: Player) {
     _, has_in_room := get_effect(player.entity, In_Npc_Room_Effect);
     _, has_catched := get_effect(player.entity, Catched_By_Npc_Effect);
     if has_catched return;
+    // If they're mid-knockback (just got hit), skip the steal-secure flow —
+    // the punish at the end of Hit_Knockback_Effect will return the brainrot.
+    _, has_kb := get_effect(player.entity, Hit_Knockback_Effect);
+    if has_kb return;
 
     e, has_steal := get_effect(player.entity, Carry_Brainrot_Stealing_Npc_Effect);
     if has_steal && e != null && e.carried != null && #alive(e.carried.entity) {
@@ -54,6 +58,16 @@ gm_on_npc_line_enter :: proc(listener: Component, player: Player) {
     }
     if has_in_room {
         remove_effect(player.entity, In_Npc_Room_Effect, false);
+        return;
+    }
+
+    // Inventory full → don't bother sending them into the NPC area; nothing
+    // they steal would fit. Teleport back to base and skip the auto-walk.
+    if is_default_inventory_full(player) {
+        if player.my_room != null && #alive(player.my_room.entity) {
+            player.entity.set_world_position(player.my_room.entity.world_position);
+        }
+        Notifier.notify(player, "Inventory full!");
         return;
     }
 
@@ -70,12 +84,30 @@ gm_on_npc_line_exit :: proc(listener: Component, player: Player) {
     if player == null return;
     if !#alive(player.entity) return;
 
+    // Detect "was being chased" BEFORE we reset the chasers — any chaser
+    // assigned to this player in a non-IDLE state counts.
+    was_chased := false;
+    for c: g_npc_chasers {
+        if c == null continue;
+        if c.assigned_player != player continue;
+        if c.state == Npc_Chaser_State.IDLE continue;
+        was_chased = true;
+        break;
+    }
+
     // Crossing back to the player area — clear any pursuit state and snap all
     // chasers home, whether or not the player still has Catched / InNpcRoom.
     remove_effect(player.entity, Catched_By_Npc_Effect, false);
     remove_effect(player.entity, In_Npc_Room_Effect, false);
+    remove_effect(player.entity, Re_Chase_Alarm_Effect, false);
     player.remove_freeze_reason(NPC_ESCORT_FREEZE_REASON);
     reset_chasers_for_player(player);
+
+    // Nudge the player off the line so they don't re-trigger on_enter by
+    // standing on it after the chase ended.
+    if was_chased {
+        player.entity.set_world_position({-10.313, 5.201});
+    }
 }
 
 snap_player_to_navmesh :: proc(player: Player) {

@@ -78,6 +78,19 @@ add_brainrot_to_inventory :: proc(player: Player, brainrot: LivingEntity) -> boo
     return true;
 }
 
+// True if every slot in the player's default inventory has a live item.
+is_default_inventory_full :: proc(player: Player) -> bool {
+    if player == null return true;
+    inv := player.default_inventory;
+    if inv == null return false;
+    if inv.capacity <= 0 return true;
+    for i: 0..inv.capacity - 1 {
+        item := inv.get_item(i);
+        if !#alive(item) return false;
+    }
+    return true;
+}
+
 draw_selected_brainrot_above_player :: proc(player: Player) {
     if player == null return;
     if !#alive(player.entity) return;

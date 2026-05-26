@@ -1,0 +1,47 @@
+// Applied to the player when a chaser switches into re-chase (jailbreak or
+// steal-while-jailed). Sustained "you've been spotted" alarm:
+//   - constant camera shake
+//   - red full-screen flash pulsing at RE_CHASE_PULSE_HZ
+// The effect lasts up to RE_CHASE_ALARM_DURATION but is normally removed
+// earlier — either when the player crosses back over the npc_line (escape)
+// or when an NPC catches them (Hit_Knockback_Effect applies).
+// Visuals are local-only — the camera / UI work is gated to the player's
+// own client.
+
+RE_CHASE_ALARM_DURATION   :: 2.0;
+RE_CHASE_SHAKE_MAGNITUDE  :: 0.06; // wu, peak random offset per axis
+RE_CHASE_FLASH_PEAK_ALPHA :: 0.5;
+RE_CHASE_PULSE_HZ         :: 0.5;  // red flash cycles per second (abs(sin) makes it visually 1 pulse/sec)
+
+Re_Chase_Alarm_Effect :: class : Effect_Base {
+    rng: u64;
+
+    effect_start :: method() {
+        set_duration(RE_CHASE_ALARM_DURATION);
+        rng = rng_seed(Time.nanoseconds_since_epoch());
+    }
+
+    effect_late_update :: method(dt: float) {
+        if player == null return;
+        if !player.is_local() return;
+
+        // Shake: apply AFTER the engine's camera-follow update (which runs in
+        // the normal update pass) so the offset isn't immediately overwritten.
+        // Magnitude tapers linearly from full → 0 over the effect's lifetime.
+        t := get_elapsed_time() / RE_CHASE_ALARM_DURATION;
+        if t > 1.0 t = 1.0;
+        shake_mag := RE_CHASE_SHAKE_MAGNITUDE * (1.0 - t);
+        sx := rng_range_float(ref rng, -1, 1) * shake_mag;
+        sy := rng_range_float(ref rng, -1, 1) * shake_mag;
+        player.camera.position = player.camera.position + v2{sx, sy};
+
+        // Red alarm flash.
+        pulse := abs(sin(get_elapsed_time() * PI * 2.0 * RE_CHASE_PULSE_HZ));
+        alpha := pulse * RE_CHASE_FLASH_PEAK_ALPHA;
+        if alpha <= 0 return;
+        UI.push_screen_draw_context();
+        defer UI.pop_draw_context();
+        white := get_asset(Texture_Asset, "$AO/white.png");
+        UI.quad(UI.get_screen_rect(), white, v4{1.0, 0.0, 0.0, alpha});
+    }
+}

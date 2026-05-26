@@ -188,13 +188,15 @@ draw_npc_area_topbar :: proc(local: Player) {
         if c.spine.instance == null continue;
 
         if frame_tex == null continue;
-        face_size    := BAR_HEIGHT - FACE_SIZE_PAD;
-        half         := face_size * 0.5;
-        face_rect    := seg.center_rect().grow(half, half, half, half);
-        // Outline = the same frame drawn slightly bigger, tinted black.
+        // Use 1080p reference values everywhere — the engine scales grow/quad/
+        // spine consistently, so mixing them with post-scaled dimensions
+        // (seg.height etc.) would put the spine at the wrong size/offset on
+        // non-1080p screens. The player bubble below uses the same approach.
+        face_size := BAR_HEIGHT - FACE_SIZE_PAD;
+        half      := face_size * 0.5;
+        face_rect := seg.center_rect().grow(half, half, half, half);
         outline_rect := face_rect.grow(FACE_OUTLINE_PX, FACE_OUTLINE_PX, FACE_OUTLINE_PX, FACE_OUTLINE_PX);
         UI.quad(outline_rect, frame_tex, v4{0, 0, 0, 1});
-        // Inner frame (smaller, normal color) drawn on top of the black.
         UI.quad(face_rect, frame_tex);
 
         // Mask from the inner frame's alpha so the spine is clipped to the
@@ -203,8 +205,12 @@ draw_npc_area_topbar :: proc(local: Player) {
         UI.quad(face_rect, frame_tex);
         UI.build_mask_end();
 
+        // rect.center() returns actual screen pixels (rect functions auto-scale
+        // by UI scale factor). face_size is a 1080p reference value — multiply
+        // by the current scale factor so the offset lives in the same units.
+        ui_scale := UI.get_current_scale_factor();
         spine_pos := face_rect.center();
-        spine_pos.y += face_size * FACE_SPINE_Y_FRAC;
+        spine_pos.y += face_size * FACE_SPINE_Y_FRAC * ui_scale;
         UI.use_mask_begin(mask);
         UI.spine(spine_pos, c.spine.instance, v2{face_size * FACE_SPINE_FRAC, face_size * FACE_SPINE_FRAC}, 0);
         UI.use_mask_end();

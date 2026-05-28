@@ -172,6 +172,7 @@ Navmesh :: class : Component {
     try_raycast :: method(position: v2, direction: v2) -> v2, bool #foreign "navmesh_try_raycast";
     rebuild_immediately :: method() -> bool #foreign "navmesh_rebuild_immediately";
     mark_for_rebuild :: method() #foreign "navmesh_mark_for_rebuild";
+    enable_automatic_rebuilds: bool #foreign;
 } #foreign_struct "Navmesh"
 
 Navmesh_Loop :: class : Component {

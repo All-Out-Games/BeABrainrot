@@ -1,0 +1,260 @@
+chikletera.png
+	size: 300, 416
+	filter: Linear, Linear
+idle/frame_1
+	bounds: 6, 6, 288, 402
+	offsets: 288, 16, 864, 496
+
+chikletera_2.png
+	size: 4096, 2180
+	filter: Linear, Linear
+run/frame_19
+	bounds: 3277, 300, 288, 402
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_20
+	bounds: 2866, 300, 288, 402
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_21
+	bounds: 2456, 300, 288, 402
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_22
+	bounds: 1233, 773, 288, 403
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_23
+	bounds: 824, 887, 288, 403
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_24
+	bounds: 415, 887, 288, 403
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_25
+	bounds: 6, 887, 288, 403
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_26
+	bounds: 3687, 888, 288, 403
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_27
+	bounds: 3278, 888, 288, 403
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_28
+	bounds: 2869, 888, 288, 403
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_29
+	bounds: 2460, 888, 288, 403
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_30
+	bounds: 2064, 1769, 288, 404
+	offsets: 288, 15, 864, 496
+run/frame_31
+	bounds: 1770, 1769, 288, 404
+	offsets: 288, 15, 864, 496
+run/frame_32
+	bounds: 2051, 888, 288, 403
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_33
+	bounds: 2048, 300, 288, 402
+	offsets: 288, 16, 864, 496
+	rotate: 90
+run/frame_34
+	bounds: 1476, 1769, 288, 404
+	offsets: 288, 15, 864, 496
+run/frame_35
+	bounds: 1642, 1067, 288, 403
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_36
+	bounds: 1233, 1181, 288, 403
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_37
+	bounds: 824, 1181, 288, 403
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_38
+	bounds: 415, 1181, 288, 403
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_39
+	bounds: 6, 1181, 288, 403
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_40
+	bounds: 3585, 1182, 288, 403
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_41
+	bounds: 3176, 1182, 288, 403
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_42
+	bounds: 2767, 1182, 288, 403
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_43
+	bounds: 2345, 1182, 288, 403
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_44
+	bounds: 2051, 1360, 288, 403
+	offsets: 288, 15, 864, 496
+run/frame_45
+	bounds: 1642, 1475, 288, 403
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_46
+	bounds: 1640, 478, 288, 402
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_47
+	bounds: 1232, 478, 288, 402
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_48
+	bounds: 824, 593, 288, 402
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_49
+	bounds: 415, 593, 288, 402
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_50
+	bounds: 6, 593, 288, 402
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_51
+	bounds: 3687, 594, 288, 402
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_52
+	bounds: 3278, 594, 288, 402
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_53
+	bounds: 2869, 594, 288, 402
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_54
+	bounds: 1233, 1475, 288, 403
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_55
+	bounds: 824, 1475, 288, 403
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_56
+	bounds: 415, 1475, 288, 403
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_57
+	bounds: 6, 1475, 288, 403
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_58
+	bounds: 3585, 1476, 288, 403
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_59
+	bounds: 3176, 1476, 288, 403
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_60
+	bounds: 2767, 1476, 288, 403
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_61
+	bounds: 2358, 1476, 288, 403
+	offsets: 288, 15, 864, 496
+	rotate: 90
+run/frame_62
+	bounds: 3534, 1770, 288, 403
+	offsets: 288, 15, 864, 496
+run/frame_63
+	bounds: 1182, 1769, 288, 404
+	offsets: 288, 15, 864, 496
+run/frame_64
+	bounds: 888, 1769, 288, 404
+	offsets: 288, 15, 864, 496
+run/frame_65
+	bounds: 594, 1769, 288, 404
+	offsets: 288, 15, 864, 496
+run/frame_66
+	bounds: 300, 1769, 288, 404
+	offsets: 288, 15, 864, 496
+run/frame_67
+	bounds: 6, 1769, 288, 404
+	offsets: 288, 15, 864, 496
+run/frame_68
+	bounds: 3240, 1770, 288, 403
+	offsets: 288, 15, 864, 496
+run/frame_69
+	bounds: 2946, 1770, 288, 403
+	offsets: 288, 15, 864, 496
+run/frame_70
+	bounds: 2652, 1770, 288, 403
+	offsets: 288, 15, 864, 496
+run/frame_71
+	bounds: 2358, 1770, 288, 403
+	offsets: 288, 15, 864, 496
+run/frame_72
+	bounds: 2458, 594, 288, 402
+	offsets: 288, 16, 864, 496
+	rotate: 90
+run/frame_73
+	bounds: 2050, 594, 288, 402
+	offsets: 288, 16, 864, 496
+	rotate: 90
+run/frame_74
+	bounds: 3274, 6, 288, 401
+	offsets: 288, 16, 864, 496
+	rotate: 90
+run/frame_75
+	bounds: 2864, 6, 288, 401
+	offsets: 288, 16, 864, 496
+	rotate: 90
+run/frame_76
+	bounds: 2451, 6, 288, 401
+	offsets: 288, 16, 864, 496
+	rotate: 90
+run/frame_77
+	bounds: 2044, 6, 288, 401
+	offsets: 288, 16, 864, 496
+	rotate: 90
+run/frame_78
+	bounds: 1637, 184, 288, 401
+	offsets: 288, 16, 864, 496
+	rotate: 90
+run/frame_79
+	bounds: 1230, 184, 288, 401
+	offsets: 288, 16, 864, 496
+	rotate: 90
+run/frame_80
+	bounds: 823, 299, 288, 401
+	offsets: 288, 16, 864, 496
+	rotate: 90
+run/frame_81
+	bounds: 414, 299, 288, 401
+	offsets: 288, 16, 864, 496
+	rotate: 90
+run/frame_82
+	bounds: 6, 299, 288, 401
+	offsets: 288, 16, 864, 496
+	rotate: 90
+run/frame_83
+	bounds: 3686, 300, 288, 401
+	offsets: 288, 16, 864, 496
+	rotate: 90
+run/frame_84
+	bounds: 1642, 772, 288, 402
+	offsets: 288, 15, 864, 496
+	rotate: 90

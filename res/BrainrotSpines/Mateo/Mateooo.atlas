@@ -1,0 +1,143 @@
+Mateooo.png
+	size: 4036, 920
+	filter: Linear, Linear
+idle/frame_21
+	bounds: 1516, 7, 259, 363
+	offsets: 303, 28, 864, 496
+	rotate: 90
+idle/frame_22
+	bounds: 6, 167, 261, 362
+	offsets: 305, 30, 864, 496
+idle/frame_23
+	bounds: 1710, 272, 264, 365
+	offsets: 305, 30, 864, 496
+	rotate: 90
+idle/frame_24
+	bounds: 2543, 274, 265, 368
+	offsets: 308, 30, 864, 496
+	rotate: 90
+idle/frame_25
+	bounds: 3634, 543, 265, 369
+	offsets: 309, 30, 864, 496
+idle/frame_26
+	bounds: 3363, 543, 265, 369
+	offsets: 309, 30, 864, 496
+idle/frame_27
+	bounds: 2917, 274, 264, 369
+	offsets: 310, 30, 864, 496
+	rotate: 90
+idle/frame_28
+	bounds: 3091, 544, 266, 368
+	offsets: 306, 30, 864, 496
+idle/frame_29
+	bounds: 3292, 271, 266, 366
+	offsets: 305, 30, 864, 496
+	rotate: 90
+idle/frame_30
+	bounds: 1147, 268, 264, 363
+	offsets: 304, 30, 864, 496
+	rotate: 90
+idle/frame_31
+	bounds: 661, 266, 263, 363
+	offsets: 304, 30, 864, 496
+	rotate: 90
+idle/frame_32
+	bounds: 2917, 8, 260, 362
+	offsets: 302, 28, 864, 496
+	rotate: 90
+idle/frame_33
+	bounds: 1885, 6, 260, 361
+	offsets: 300, 27, 864, 496
+	rotate: 90
+idle/frame_34
+	bounds: 292, 267, 263, 363
+	offsets: 296, 26, 864, 496
+	rotate: 90
+idle/frame_35
+	bounds: 3664, 272, 265, 365
+	offsets: 291, 26, 864, 496
+	rotate: 90
+idle/frame_36
+	bounds: 2817, 546, 268, 366
+	offsets: 285, 26, 864, 496
+idle/frame_37
+	bounds: 2266, 542, 271, 370
+	offsets: 278, 26, 864, 496
+idle/frame_38
+	bounds: 1430, 539, 274, 373
+	offsets: 273, 26, 864, 496
+idle/frame_39
+	bounds: 863, 537, 278, 375
+	offsets: 266, 26, 864, 496
+idle/frame_40
+	bounds: 578, 535, 279, 377
+	offsets: 264, 26, 864, 496
+idle/frame_41
+	bounds: 6, 535, 280, 377
+	offsets: 263, 26, 864, 496
+idle/frame_42
+	bounds: 292, 536, 280, 376
+	offsets: 265, 26, 864, 496
+idle/frame_43
+	bounds: 1147, 538, 277, 374
+	offsets: 270, 26, 864, 496
+idle/frame_44
+	bounds: 1988, 542, 272, 370
+	offsets: 279, 26, 864, 496
+idle/frame_45
+	bounds: 1710, 542, 272, 370
+	offsets: 279, 26, 864, 496
+idle/frame_46
+	bounds: 2543, 545, 268, 367
+	offsets: 286, 26, 864, 496
+idle/frame_47
+	bounds: 2081, 272, 264, 364
+	offsets: 295, 26, 864, 496
+	rotate: 90
+idle/frame_48
+	bounds: 2451, 8, 260, 363
+	offsets: 300, 26, 864, 496
+	rotate: 90
+
+Mateooo_2.png
+	size: 3880, 384
+	filter: Linear, Linear
+run/frame_31
+	bounds: 3366, 10, 251, 366
+	offsets: 313, 44, 864, 496
+run/frame_32
+	bounds: 2837, 20, 263, 356
+	offsets: 303, 59, 864, 496
+run/frame_33
+	bounds: 2565, 18, 266, 358
+	offsets: 300, 60, 864, 496
+run/frame_34
+	bounds: 3106, 12, 254, 364
+	offsets: 306, 51, 864, 496
+run/frame_35
+	bounds: 1993, 9, 300, 367
+	offsets: 273, 43, 864, 496
+run/frame_36
+	bounds: 1357, 15, 325, 361
+	offsets: 255, 59, 864, 496
+run/frame_37
+	bounds: 686, 18, 338, 358
+	offsets: 246, 68, 864, 496
+run/frame_38
+	bounds: 6, 14, 339, 362
+	offsets: 244, 68, 864, 496
+run/frame_39
+	bounds: 351, 8, 329, 368
+	offsets: 251, 55, 864, 496
+run/frame_40
+	bounds: 1030, 7, 321, 369
+	offsets: 256, 46, 864, 496
+run/frame_41
+	bounds: 1688, 6, 299, 370
+	offsets: 273, 40, 864, 496
+run/frame_42
+	bounds: 2299, 7, 260, 369
+	offsets: 301, 35, 864, 496
+run/frame_43
+	bounds: 3623, 13, 249, 363
+	offsets: 316, 44, 864, 496

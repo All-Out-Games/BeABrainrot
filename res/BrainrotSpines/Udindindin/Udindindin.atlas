@@ -1,0 +1,64 @@
+Udindindin.png
+	size: 3408, 408
+	filter: Linear, Linear
+idle/frame_31
+	bounds: 762, 8, 372, 394
+	offsets: 232, 21, 864, 496
+idle/frame_32
+	bounds: 1140, 9, 372, 393
+	offsets: 232, 21, 864, 496
+idle/frame_33
+	bounds: 2652, 11, 372, 391
+	offsets: 232, 21, 864, 496
+idle/frame_34
+	bounds: 2274, 11, 372, 391
+	offsets: 232, 21, 864, 496
+idle/frame_35
+	bounds: 1896, 11, 372, 391
+	offsets: 232, 21, 864, 496
+idle/frame_36
+	bounds: 1518, 11, 372, 391
+	offsets: 232, 21, 864, 496
+idle/frame_37
+	bounds: 3030, 10, 371, 392
+	offsets: 232, 21, 864, 496
+idle/frame_38
+	bounds: 384, 8, 372, 394
+	offsets: 231, 21, 864, 496
+idle/frame_39
+	bounds: 6, 6, 372, 396
+	offsets: 231, 21, 864, 496
+
+Udindindin_2.png
+	size: 3088, 428
+	filter: Linear, Linear
+run/frame_47
+	bounds: 417, 15, 405, 404
+	offsets: 225, 26, 864, 496
+	rotate: 90
+run/frame_48
+	bounds: 1199, 6, 414, 362
+	offsets: 210, 67, 864, 496
+	rotate: 90
+run/frame_49
+	bounds: 827, 7, 413, 366
+	offsets: 224, 55, 864, 496
+	rotate: 90
+run/frame_50
+	bounds: 1903, 28, 326, 392
+	offsets: 270, 25, 864, 496
+run/frame_51
+	bounds: 2816, 12, 265, 408
+	offsets: 277, 15, 864, 496
+run/frame_52
+	bounds: 2535, 26, 275, 394
+	offsets: 268, 38, 864, 496
+run/frame_53
+	bounds: 2235, 18, 294, 402
+	offsets: 263, 28, 864, 496
+run/frame_54
+	bounds: 1567, 9, 330, 411
+	offsets: 263, 16, 864, 496
+run/frame_55
+	bounds: 6, 10, 405, 410
+	offsets: 228, 27, 864, 496

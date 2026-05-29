@@ -20,7 +20,7 @@
   "component_type": "Internal_Component",
   "internal_component_type": "Spine_Animator",
   "data": {
-    "skeleton_data_asset": "BrainrotSpines/DragonCanneloni/DragonCanneloni.spine",
+    "skeleton_data_asset": "BrainrotSpines/Udindindin/Udindindin.spine",
     "ordered_skins": [
 
     ],

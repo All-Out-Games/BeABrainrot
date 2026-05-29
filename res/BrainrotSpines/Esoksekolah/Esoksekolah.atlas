@@ -1,0 +1,137 @@
+Esoksekolah.png
+	size: 3756, 816
+	filter: Linear, Linear
+idle/frame_18
+	bounds: 1258, 6, 387, 410
+	offsets: 246, 12, 864, 496
+	rotate: 90
+idle/frame_19
+	bounds: 2514, 397, 403, 412
+	offsets: 256, 11, 864, 496
+idle/frame_20
+	bounds: 1681, 400, 409, 412
+	offsets: 259, 10, 864, 496
+	rotate: 90
+idle/frame_21
+	bounds: 425, 398, 411, 412
+	offsets: 262, 10, 864, 496
+	rotate: 90
+idle/frame_22
+	bounds: 6, 398, 413, 411
+	offsets: 262, 9, 864, 496
+idle/frame_23
+	bounds: 1262, 399, 413, 410
+	offsets: 261, 9, 864, 496
+idle/frame_24
+	bounds: 843, 399, 413, 410
+	offsets: 258, 10, 864, 496
+idle/frame_25
+	bounds: 2099, 399, 409, 410
+	offsets: 255, 11, 864, 496
+idle/frame_26
+	bounds: 3326, 398, 396, 411
+	offsets: 245, 12, 864, 496
+idle/frame_27
+	bounds: 2923, 398, 397, 411
+	offsets: 244, 12, 864, 496
+idle/frame_28
+	bounds: 1681, 6, 388, 411
+	offsets: 242, 12, 864, 496
+	rotate: 90
+idle/frame_29
+	bounds: 6, 7, 385, 411
+	offsets: 239, 12, 864, 496
+	rotate: 90
+idle/frame_30
+	bounds: 3338, 11, 381, 409
+	offsets: 239, 12, 864, 496
+	rotate: 90
+idle/frame_31
+	bounds: 2923, 11, 381, 409
+	offsets: 241, 12, 864, 496
+	rotate: 90
+idle/frame_32
+	bounds: 2098, 12, 381, 409
+	offsets: 241, 12, 864, 496
+	rotate: 90
+idle/frame_33
+	bounds: 842, 6, 387, 410
+	offsets: 246, 12, 864, 496
+	rotate: 90
+
+Esoksekolah_2.png
+	size: 3752, 1232
+	filter: Linear, Linear
+run/frame_09
+	bounds: 2483, 795, 397, 431
+	offsets: 242, 28, 864, 496
+run/frame_10
+	bounds: 421, 401, 383, 423
+	offsets: 249, 21, 864, 496
+	rotate: 90
+run/frame_11
+	bounds: 3331, 21, 383, 412
+	offsets: 250, 20, 864, 496
+	rotate: 90
+run/frame_12
+	bounds: 2493, 6, 387, 405
+	offsets: 250, 20, 864, 496
+	rotate: 90
+run/frame_13
+	bounds: 2922, 12, 393, 403
+	offsets: 250, 20, 864, 496
+	rotate: 90
+run/frame_14
+	bounds: 422, 790, 411, 436
+	offsets: 249, 21, 864, 496
+run/frame_15
+	bounds: 1256, 793, 404, 433
+	offsets: 249, 35, 864, 496
+run/frame_16
+	bounds: 2072, 391, 399, 415
+	offsets: 249, 58, 864, 496
+	rotate: 90
+run/frame_17
+	bounds: 3294, 410, 394, 423
+	offsets: 249, 53, 864, 496
+	rotate: 90
+run/frame_18
+	bounds: 2493, 399, 390, 423
+	offsets: 249, 46, 864, 496
+	rotate: 90
+run/frame_19
+	bounds: 1255, 403, 384, 423
+	offsets: 249, 34, 864, 496
+	rotate: 90
+run/frame_20
+	bounds: 404, 11, 384, 409
+	offsets: 249, 24, 864, 496
+	rotate: 90
+run/frame_21
+	bounds: 1250, 13, 384, 409
+	offsets: 249, 24, 864, 496
+	rotate: 90
+run/frame_22
+	bounds: 6, 369, 393, 410
+	offsets: 249, 12, 864, 496
+run/frame_23
+	bounds: 851, 376, 394, 410
+	offsets: 249, 12, 864, 496
+run/frame_24
+	bounds: 839, 792, 411, 434
+	offsets: 250, 20, 864, 496
+run/frame_25
+	bounds: 6, 785, 410, 441
+	offsets: 250, 21, 864, 496
+run/frame_26
+	bounds: 3295, 810, 404, 416
+	offsets: 249, 56, 864, 496
+run/frame_27
+	bounds: 2886, 805, 403, 421
+	offsets: 244, 55, 864, 496
+run/frame_28
+	bounds: 2073, 798, 404, 428
+	offsets: 240, 47, 864, 496
+run/frame_29
+	bounds: 1666, 793, 401, 433
+	offsets: 240, 35, 864, 496

@@ -6,14 +6,14 @@
   "local_enabled": true,
   "local_position": {
     "X": 8.8288021087646484,
-    "Y": 36.4519996643066406
+    "Y": 114.3030014038085938
   },
   "local_rotation": 0,
   "local_scale": {
     "X": 1,
     "Y": 1
   },
-  "previous_sibling": 1249212035,
+  "previous_sibling": 1243643368,
   "next_sibling": 1243726954,
   "parent": 1242052410
 },
@@ -30,7 +30,7 @@
     },
     "layer": 1,
     "scale": {
-      "Y": 24
+      "Y": 76
     },
     "wrap": true,
     "flip_x": true

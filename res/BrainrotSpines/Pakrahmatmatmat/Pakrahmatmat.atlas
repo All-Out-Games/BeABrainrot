@@ -1,0 +1,130 @@
+Pakrahmatmat.png
+	size: 4072, 596
+	filter: Linear, Linear
+idle/frame_13
+	bounds: 216, 193, 204, 394
+	offsets: 302, 14, 864, 496
+idle/frame_14
+	bounds: 6, 193, 204, 394
+	offsets: 302, 14, 864, 496
+idle/frame_15
+	bounds: 426, 201, 203, 386
+	offsets: 308, 16, 864, 496
+idle/frame_16
+	bounds: 831, 209, 198, 378
+	offsets: 318, 16, 864, 496
+idle/frame_17
+	bounds: 2559, 217, 188, 370
+	offsets: 330, 18, 864, 496
+idle/frame_18
+	bounds: 3126, 21, 185, 366
+	offsets: 333, 18, 864, 496
+	rotate: 90
+idle/frame_19
+	bounds: 3504, 221, 186, 366
+	offsets: 332, 20, 864, 496
+idle/frame_20
+	bounds: 3126, 215, 184, 372
+	offsets: 334, 20, 864, 496
+idle/frame_21
+	bounds: 2938, 209, 182, 378
+	offsets: 336, 20, 864, 496
+idle/frame_22
+	bounds: 3696, 205, 178, 382
+	offsets: 338, 20, 864, 496
+idle/frame_23
+	bounds: 2753, 199, 179, 388
+	offsets: 342, 20, 864, 496
+idle/frame_24
+	bounds: 1615, 193, 186, 394
+	offsets: 344, 16, 864, 496
+idle/frame_25
+	bounds: 1423, 193, 186, 394
+	offsets: 344, 16, 864, 496
+idle/frame_26
+	bounds: 1231, 193, 186, 394
+	offsets: 344, 16, 864, 496
+idle/frame_27
+	bounds: 1807, 194, 182, 393
+	offsets: 344, 16, 864, 496
+idle/frame_28
+	bounds: 1995, 199, 182, 388
+	offsets: 338, 16, 864, 496
+idle/frame_29
+	bounds: 2371, 203, 182, 384
+	offsets: 334, 16, 864, 496
+idle/frame_30
+	bounds: 3316, 211, 182, 376
+	offsets: 334, 18, 864, 496
+idle/frame_31
+	bounds: 831, 10, 182, 370
+	offsets: 336, 20, 864, 496
+	rotate: 90
+idle/frame_32
+	bounds: 1807, 6, 182, 366
+	offsets: 336, 20, 864, 496
+	rotate: 90
+idle/frame_33
+	bounds: 3880, 219, 184, 368
+	offsets: 334, 20, 864, 496
+idle/frame_34
+	bounds: 2567, 10, 183, 368
+	offsets: 334, 22, 864, 496
+	rotate: 90
+idle/frame_35
+	bounds: 3498, 18, 182, 372
+	offsets: 334, 22, 864, 496
+	rotate: 90
+idle/frame_36
+	bounds: 2183, 17, 179, 378
+	offsets: 334, 20, 864, 496
+	rotate: 90
+idle/frame_37
+	bounds: 2183, 202, 182, 385
+	offsets: 328, 18, 864, 496
+idle/frame_38
+	bounds: 1035, 197, 190, 390
+	offsets: 318, 16, 864, 496
+idle/frame_39
+	bounds: 635, 193, 190, 394
+	offsets: 316, 14, 864, 496
+
+Pakrahmatmat_2.png
+	size: 1952, 436
+	filter: Linear, Linear
+run/frame_24
+	bounds: 636, 37, 208, 391
+	offsets: 332, 27, 864, 496
+run/frame_25
+	bounds: 850, 33, 170, 395
+	offsets: 346, 12, 864, 496
+run/frame_26
+	bounds: 1449, 18, 121, 410
+	offsets: 379, 19, 864, 496
+run/frame_27
+	bounds: 1191, 10, 121, 418
+	offsets: 379, 28, 864, 496
+run/frame_28
+	bounds: 1827, 26, 119, 402
+	offsets: 380, 34, 864, 496
+run/frame_29
+	bounds: 1702, 26, 119, 402
+	offsets: 380, 34, 864, 496
+run/frame_30
+	bounds: 1576, 26, 120, 402
+	offsets: 380, 13, 864, 496
+run/frame_31
+	bounds: 1318, 26, 125, 402
+	offsets: 375, 5, 864, 496
+run/frame_32
+	bounds: 1026, 7, 159, 421
+	offsets: 354, 7, 864, 496
+run/frame_33
+	bounds: 213, 6, 199, 422
+	offsets: 339, 24, 864, 496
+run/frame_34
+	bounds: 6, 8, 201, 420
+	offsets: 338, 26, 864, 496
+run/frame_35
+	bounds: 418, 38, 212, 390
+	offsets: 329, 28, 864, 496

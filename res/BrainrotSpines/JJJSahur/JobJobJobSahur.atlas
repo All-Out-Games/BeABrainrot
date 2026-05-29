@@ -1,0 +1,124 @@
+JobJobJobSahur.png
+	size: 3976, 636
+	filter: Linear, Linear
+idle/frame_24
+	bounds: 1387, 336, 292, 384
+	offsets: 279, 40, 864, 496
+	rotate: 90
+idle/frame_25
+	bounds: 2168, 338, 290, 381
+	offsets: 282, 40, 864, 496
+	rotate: 90
+idle/frame_26
+	bounds: 3221, 343, 285, 375
+	offsets: 288, 38, 864, 496
+	rotate: 90
+idle/frame_27
+	bounds: 3602, 58, 279, 362
+	offsets: 298, 34, 864, 496
+	rotate: 90
+idle/frame_28
+	bounds: 2168, 34, 298, 338
+	offsets: 289, 27, 864, 496
+	rotate: 90
+idle/frame_29
+	bounds: 3221, 23, 314, 334
+	offsets: 278, 28, 864, 496
+	rotate: 90
+idle/frame_30
+	bounds: 2555, 296, 328, 332
+	offsets: 271, 34, 864, 496
+idle/frame_31
+	bounds: 702, 288, 339, 340
+	offsets: 267, 36, 864, 496
+idle/frame_32
+	bounds: 6, 276, 344, 352
+	offsets: 268, 39, 864, 496
+idle/frame_33
+	bounds: 356, 282, 340, 346
+	offsets: 268, 38, 864, 496
+idle/frame_34
+	bounds: 1047, 288, 334, 340
+	offsets: 267, 37, 864, 496
+idle/frame_35
+	bounds: 2889, 296, 326, 332
+	offsets: 266, 36, 864, 496
+idle/frame_36
+	bounds: 1777, 30, 301, 327
+	offsets: 277, 32, 864, 496
+	rotate: 90
+idle/frame_37
+	bounds: 2512, 6, 284, 338
+	offsets: 291, 34, 864, 496
+	rotate: 90
+idle/frame_38
+	bounds: 1387, 52, 278, 354
+	offsets: 295, 36, 864, 496
+	rotate: 90
+idle/frame_39
+	bounds: 3602, 343, 285, 368
+	offsets: 288, 37, 864, 496
+	rotate: 90
+idle/frame_40
+	bounds: 1777, 337, 291, 385
+	offsets: 280, 40, 864, 496
+	rotate: 90
+
+JobJobJobSahur_2.png
+	size: 3952, 696
+	filter: Linear, Linear
+run/frame_21
+	bounds: 2583, 322, 321, 368
+	offsets: 284, 84, 864, 496
+run/frame_22
+	bounds: 2910, 324, 318, 366
+	offsets: 284, 66, 864, 496
+run/frame_23
+	bounds: 3601, 28, 295, 345
+	offsets: 298, 40, 864, 496
+	rotate: 90
+run/frame_24
+	bounds: 1533, 18, 301, 338
+	offsets: 280, 15, 864, 496
+	rotate: 90
+run/frame_25
+	bounds: 3234, 353, 326, 337
+	offsets: 253, 20, 864, 496
+run/frame_26
+	bounds: 1533, 325, 365, 360
+	offsets: 232, 40, 864, 496
+	rotate: 90
+run/frame_27
+	bounds: 774, 309, 375, 381
+	offsets: 226, 49, 864, 496
+run/frame_28
+	bounds: 393, 309, 375, 381
+	offsets: 226, 49, 864, 496
+run/frame_29
+	bounds: 6, 297, 381, 393
+	offsets: 224, 56, 864, 496
+run/frame_30
+	bounds: 1155, 317, 372, 373
+	offsets: 228, 43, 864, 496
+run/frame_31
+	bounds: 1899, 336, 354, 350
+	offsets: 239, 36, 864, 496
+	rotate: 90
+run/frame_32
+	bounds: 1899, 6, 324, 327
+	offsets: 256, 30, 864, 496
+	rotate: 90
+run/frame_33
+	bounds: 2583, 9, 307, 326
+	offsets: 272, 32, 864, 496
+	rotate: 90
+run/frame_34
+	bounds: 3234, 27, 297, 361
+	offsets: 304, 62, 864, 496
+	rotate: 90
+run/frame_35
+	bounds: 3566, 329, 297, 361
+	offsets: 304, 62, 864, 496
+run/frame_36
+	bounds: 2255, 319, 322, 371
+	offsets: 283, 81, 864, 496

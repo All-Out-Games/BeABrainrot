@@ -1,0 +1,131 @@
+Sixseven.png
+	size: 3936, 1124
+	filter: Linear, Linear
+idle/frame_41
+	bounds: 2122, 25, 397, 363
+	offsets: 253, 19, 864, 496
+idle/frame_42
+	bounds: 2525, 18, 393, 364
+	offsets: 256, 19, 864, 496
+idle/frame_43
+	bounds: 3454, 6, 392, 364
+	offsets: 257, 19, 864, 496
+idle/frame_44
+	bounds: 1610, 7, 392, 364
+	offsets: 257, 19, 864, 496
+idle/frame_45
+	bounds: 406, 14, 392, 364
+	offsets: 257, 19, 864, 496
+idle/frame_46
+	bounds: 1212, 15, 392, 364
+	offsets: 257, 19, 864, 496
+idle/frame_47
+	bounds: 6, 18, 394, 364
+	offsets: 255, 19, 864, 496
+idle/frame_48
+	bounds: 2204, 394, 405, 360
+	offsets: 246, 19, 864, 496
+idle/frame_49
+	bounds: 2204, 760, 431, 356
+	offsets: 223, 19, 864, 496
+idle/frame_50
+	bounds: 893, 764, 439, 352
+	offsets: 212, 19, 864, 496
+idle/frame_51
+	bounds: 3079, 761, 432, 355
+	offsets: 211, 19, 864, 496
+idle/frame_52
+	bounds: 1338, 760, 432, 356
+	offsets: 211, 19, 864, 496
+idle/frame_53
+	bounds: 3517, 751, 412, 365
+	offsets: 213, 19, 864, 496
+idle/frame_54
+	bounds: 2641, 388, 401, 367
+	offsets: 216, 19, 864, 496
+idle/frame_55
+	bounds: 1320, 385, 396, 369
+	offsets: 217, 19, 864, 496
+idle/frame_56
+	bounds: 411, 384, 395, 369
+	offsets: 218, 19, 864, 496
+idle/frame_57
+	bounds: 812, 26, 394, 369
+	offsets: 218, 19, 864, 496
+idle/frame_58
+	bounds: 3463, 376, 394, 369
+	offsets: 218, 19, 864, 496
+idle/frame_59
+	bounds: 1722, 377, 394, 369
+	offsets: 218, 19, 864, 496
+idle/frame_60
+	bounds: 6, 388, 399, 369
+	offsets: 217, 19, 864, 496
+idle/frame_61
+	bounds: 1776, 752, 422, 364
+	offsets: 211, 19, 864, 496
+idle/frame_62
+	bounds: 452, 759, 435, 357
+	offsets: 210, 19, 864, 496
+idle/frame_63
+	bounds: 6, 763, 440, 353
+	offsets: 212, 19, 864, 496
+idle/frame_64
+	bounds: 2641, 761, 432, 355
+	offsets: 223, 19, 864, 496
+idle/frame_65
+	bounds: 893, 401, 421, 357
+	offsets: 232, 19, 864, 496
+idle/frame_66
+	bounds: 3048, 397, 409, 358
+	offsets: 242, 19, 864, 496
+idle/frame_67
+	bounds: 3048, 29, 400, 362
+	offsets: 250, 19, 864, 496
+
+Sixseven_2.png
+	size: 3848, 652
+	filter: Linear, Linear
+run/frame_60
+	bounds: 408, 241, 402, 340
+	offsets: 236, 88, 864, 496
+	rotate: 90
+run/frame_61
+	bounds: 1831, 266, 377, 343
+	offsets: 256, 58, 864, 496
+	rotate: 90
+run/frame_62
+	bounds: 2514, 281, 362, 342
+	offsets: 263, 41, 864, 496
+	rotate: 90
+run/frame_63
+	bounds: 3505, 294, 302, 349
+	offsets: 283, 19, 864, 496
+run/frame_64
+	bounds: 3207, 255, 292, 388
+	offsets: 292, 12, 864, 496
+run/frame_65
+	bounds: 1099, 267, 357, 376
+	offsets: 258, 50, 864, 496
+run/frame_66
+	bounds: 2180, 265, 378, 328
+	offsets: 239, 97, 864, 496
+	rotate: 90
+run/frame_67
+	bounds: 2862, 289, 354, 339
+	offsets: 246, 63, 864, 496
+	rotate: 90
+run/frame_68
+	bounds: 3505, 6, 282, 336
+	offsets: 304, 40, 864, 496
+	rotate: 90
+run/frame_69
+	bounds: 1462, 277, 363, 366
+	offsets: 264, 32, 864, 496
+run/frame_70
+	bounds: 6, 257, 396, 386
+	offsets: 241, 40, 864, 496
+run/frame_71
+	bounds: 754, 240, 403, 339
+	offsets: 235, 89, 864, 496
+	rotate: 90

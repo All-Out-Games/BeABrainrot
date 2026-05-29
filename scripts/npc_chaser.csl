@@ -295,9 +295,14 @@ tick_chaser_escorting :: proc(c: Npc_Chaser, dt: float) {
 
     my_world := c.entity.world_position;
     diff := target - my_world;
+    step := chaser_speed_wu_per_sec(c.speed_stat) * dt;
 
-    if length_squared(diff) < NPC_ARRIVED_RADIUS_SQ {
-        // Arrived → place player on pedestal.
+    // Arrived (already close OR this frame's step would reach/overshoot the
+    // target). The overshoot check matters now that per-frame step can exceed
+    // the small arrival radius at high speed — without it the NPC oscillates
+    // past the pedestal and never places the player.
+    dist_sq := length_squared(diff);
+    if dist_sq < NPC_ARRIVED_RADIUS_SQ || dist_sq <= step * step {
         c.assigned_player.entity.set_world_position(target);
         remove_effect(c.assigned_player.entity, Catched_By_Npc_Effect, false);
         eff := new(In_Npc_Room_Effect);
@@ -309,7 +314,6 @@ tick_chaser_escorting :: proc(c: Npc_Chaser, dt: float) {
     }
 
     face_along_x(c.entity, diff.x);
-    step := chaser_speed_wu_per_sec(c.speed_stat) * dt;
     n := normalize(diff);
     world_step := n * step;
     c.entity.set_world_position(my_world + world_step);

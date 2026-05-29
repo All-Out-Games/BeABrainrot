@@ -6,9 +6,9 @@ BASE_SPEED :: 18;
 // agent.movement_speed at the default stat (BASE_SPEED). Engine default is 300 (per AGENTS.md).
 BASE_AGENT_SPEED :: 300.0;
 // Each +1 stat above BASE_SPEED adds this many units/sec to agent.movement_speed.
-AGENT_SPEED_PER_STAT :: 15.0;
+AGENT_SPEED_PER_STAT :: 30.0;
 // Hard cap. Stat upgrades remain uncapped; only the actual movement is capped.
-MAX_AGENT_SPEED :: 1200.0;
+MAX_AGENT_SPEED :: 2400.0;
 
 // --- Price curve (from game reference) ---
 // Cost grows as a cumulative product whose multiplier itself grows with speed:

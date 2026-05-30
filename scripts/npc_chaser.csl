@@ -227,12 +227,13 @@ update_chaser_spine_anim :: proc(c: Npc_Chaser, dt: float) {
     c.current_anim_speed = target_speed;
 }
 
-// wu/s for a chaser at the given player-equivalent speed stat.
-// compute_agent_movement_speed returns the agent.movement_speed value (units
-// the engine expects at 60 fps); dividing by 60 converts it to a per-second
-// rate we can use directly with `set_world_position(pos + n * speed * dt)`.
+// wu/s for a chaser at the given player-equivalent speed stat. Uses the
+// UNCAPPED curve so high-stat chasers keep getting faster past the player's
+// movement cap — otherwise a stat-339 chaser and a stat-309 player both clamp
+// to MAX_AGENT_SPEED and move identically (chaser can never catch). Dividing
+// by 60 converts the agent-speed value to a per-second rate for set_world_position.
 chaser_speed_wu_per_sec :: proc(stat: s64) -> float {
-    return compute_agent_movement_speed(stat) / 60.0;
+    return compute_agent_movement_speed_uncapped(stat) / 60.0;
 }
 
 tick_chaser_idle :: proc(c: Npc_Chaser, dt: float) {
@@ -266,9 +267,11 @@ tick_chaser_chasing :: proc(c: Npc_Chaser, dt: float) {
         // Re-chase (jailbreak / re-steal): match the player's own movement
         // speed, but capped to the NPC's own stat — so a fast player keeps
         // their head start instead of letting the NPC keep up indefinitely.
-        capped_stat := c.assigned_player.speed;
-        if capped_stat > c.speed_stat capped_stat = c.speed_stat;
-        effective_speed = chaser_speed_wu_per_sec(capped_stat);
+        // Uses the CAPPED curve so a matched player ends up at the exact same
+        // real speed (the uncapped curve would make the NPC slightly faster).
+        match_stat := c.assigned_player.speed;
+        if match_stat > c.speed_stat match_stat = c.speed_stat;
+        effective_speed = compute_agent_movement_speed(match_stat) / 60.0;
     } else if c.assigned_player.speed < c.speed_stat {
         // First chase, NPC faster than player → sprint to guarantee the
         // catch regardless of starting gap.

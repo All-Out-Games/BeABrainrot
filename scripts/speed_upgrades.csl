@@ -42,6 +42,18 @@ compute_agent_movement_speed :: proc(stat_speed: s64) -> float {
     return BASE_AGENT_SPEED + (MAX_AGENT_SPEED - BASE_AGENT_SPEED) * t;
 }
 
+// Same linear curve as compute_agent_movement_speed but WITHOUT the cap, so
+// stats above SPEED_STAT_AT_MAX still differentiate. Used only by NPC chasers
+// for their speed comparison — a stat-339 chaser must read as faster than a
+// stat-309 player even though both players' real movement caps at MAX_AGENT_SPEED.
+compute_agent_movement_speed_uncapped :: proc(stat_speed: s64) -> float {
+    over := (stat_speed - BASE_SPEED).(float);
+    if over < 0 over = 0;
+    span := (SPEED_STAT_AT_MAX - BASE_SPEED).(float);
+    per_stat := (MAX_AGENT_SPEED - BASE_AGENT_SPEED) / span;
+    return BASE_AGENT_SPEED + over * per_stat;
+}
+
 speed_upgrade_cash_cost :: proc(current_speed: s64, amount: s64) -> float {
     if amount <= 0 return 0;
     cost := speed_price_single_at(current_speed);

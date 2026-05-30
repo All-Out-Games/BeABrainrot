@@ -39,7 +39,7 @@ find_brainrot_definition :: proc(config_id: string) -> Brainrot_Item_Definition 
     return null;
 }
 
-add_brainrot_to_inventory :: proc(player: Player, brainrot: LivingEntity) -> bool {
+add_brainrot_to_inventory :: proc(player: Player, brainrot: LivingEntity, prefer_front: bool = false) -> bool {
     if brainrot == null return false;
 
     // Cash out any pending gold on the pedestal before storing the item.
@@ -70,6 +70,13 @@ add_brainrot_to_inventory :: proc(player: Player, brainrot: LivingEntity) -> boo
         return false;
     }
     Items.move_item_to_inventory(item, player.default_inventory);
+
+    // Steal path: pull the freshly-stored item to slot 0 so it lands at the
+    // front of the hotbar. swap_items moves whatever was in slot 0 to the
+    // item's just-assigned slot.
+    if prefer_front && item.slot_index != 0 {
+        Items.swap_items(player.default_inventory, player.default_inventory, item.slot_index, 0);
+    }
 
     brainrot.entity.destroy();
 

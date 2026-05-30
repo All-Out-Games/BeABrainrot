@@ -375,6 +375,17 @@ Player :: class : Player_Base {
         }
         tick_cash_animations(this, dt);
 
+        // Zoom the camera out while the Being_Chased marker is active so you
+        // can see the NPC and plan an escape. Skip while Moving_Toward is
+        // auto-walking — it owns the camera and zooms further on its own.
+        _, auto_walking := get_effect(entity, Moving_Toward_Effect);
+        if !auto_walking {
+            _, being_chased := get_effect(entity, Being_Chased_Effect);
+            target_size := default_camera_size;
+            if being_chased target_size = CHASE_CAMERA_SIZE;
+            camera.size = lerp(camera.size, target_size, clamp(dt * 6.0, 0, 1));
+        }
+
         // If we don't own a room (joined when full, or our previous room got
         // wiped), keep retrying — a room may free up later as players leave.
         if my_room == null {

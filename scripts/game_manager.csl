@@ -1,6 +1,9 @@
 game_manager_instance: Game_Manager;
 
 ZOOMED_OUT_CAMERA_SIZE :: 10.0;
+// Camera zoom applied while an NPC is actively chasing the player. Higher =
+// more zoomed out. Lerped to/from the scene's default size in Player.ao_update.
+CHASE_CAMERA_SIZE      :: 7.0;
 
 Game_Manager :: class : Component {
     navmesh:      Navmesh @ao_serialize;
@@ -100,6 +103,7 @@ gm_on_npc_line_exit :: proc(listener: Component, player: Player) {
     remove_effect(player.entity, Catched_By_Npc_Effect, false);
     remove_effect(player.entity, In_Npc_Room_Effect, false);
     remove_effect(player.entity, Re_Chase_Alarm_Effect, false);
+    remove_effect(player.entity, Being_Chased_Effect, false);
     player.remove_freeze_reason(NPC_ESCORT_FREEZE_REASON);
     reset_chasers_for_player(player);
 

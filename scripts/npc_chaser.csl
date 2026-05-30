@@ -12,7 +12,7 @@ NPC_CATCH_RADIUS_SQ        :: 0.25;   // 0.5 wu
 NPC_ARRIVED_RADIUS_SQ      :: 0.04;   // 0.2 wu
 NPC_HOME_RADIUS_SQ         :: 0.0025; // 0.05 wu
 NPC_CHASE_WINDUP_SPEED     :: 0.5;    // wu/s during the wind-up after a re-trigger
-NPC_CHASE_WINDUP_DURATION  :: 2.5;    // seconds of wind-up before sprint kicks in
+NPC_CHASE_WINDUP_DURATION  :: 1;    // seconds of wind-up before sprint kicks in
 NPC_CHASE_SPRINT_MULT      :: 2.0;    // multiplier applied to NPC chase speed when its stat > player's (guarantees the slower player is caught regardless of starting gap)
 NPC_ESCORT_FREEZE_REASON   :: "escort_to_jail";
 
@@ -86,6 +86,9 @@ Npc_Chaser :: class : Component {
     on_catch :: method() {
         if assigned_player == null return;
         if !#alive(assigned_player.entity) return;
+
+        // Caught — no longer "being chased", drop the chase camera marker.
+        remove_effect(assigned_player.entity, Being_Chased_Effect, false);
 
         _, has_in_room := get_effect(assigned_player.entity, In_Npc_Room_Effect);
         if has_in_room {
@@ -171,14 +174,20 @@ start_chase :: proc(c: Npc_Chaser, is_re_chase: bool) {
     if c.state == Npc_Chaser_State.ESCORTING return;
     // Re-chase only resumes from IDLE — don't restart windup mid-chase.
     if is_re_chase && c.state != Npc_Chaser_State.IDLE return;
-    // "You've been spotted" alarm (camera shake + red flash) on every
-    // re-chase. Dedupe so two chasers re-targeting the same player don't
-    // stack the effect.
-    if is_re_chase && c.assigned_player != null && #alive(c.assigned_player.entity) {
-        _, has_alarm := get_effect(c.assigned_player.entity, Re_Chase_Alarm_Effect);
-        if !has_alarm {
-            alarm := new(Re_Chase_Alarm_Effect);
-            c.assigned_player.entity.add_passive_effect(alarm);
+    if c.assigned_player != null && #alive(c.assigned_player.entity) {
+        // "Being chased" marker — drives the chase camera zoom. Removed on
+        // line-cross (escape) or on catch. Dedupe so two chasers targeting
+        // the same player don't stack it.
+        _, has_chased := get_effect(c.assigned_player.entity, Being_Chased_Effect);
+        if !has_chased {
+            c.assigned_player.entity.add_passive_effect(new(Being_Chased_Effect));
+        }
+        // "You've been spotted" alarm (camera shake + red flash) on re-chase only.
+        if is_re_chase {
+            _, has_alarm := get_effect(c.assigned_player.entity, Re_Chase_Alarm_Effect);
+            if !has_alarm {
+                c.assigned_player.entity.add_passive_effect(new(Re_Chase_Alarm_Effect));
+            }
         }
     }
     c.state                  = Npc_Chaser_State.CHASING;

@@ -3,12 +3,15 @@ SPARKS_CURRENCY :: "Sparks";
 BASE_SPEED :: 18;
 
 // --- Real movement tuning ---
-// agent.movement_speed at the default stat (BASE_SPEED). Engine default is 300 (per AGENTS.md).
-BASE_AGENT_SPEED :: 300.0;
-// Each +1 stat above BASE_SPEED adds this many units/sec to agent.movement_speed.
-AGENT_SPEED_PER_STAT :: 30.0;
-// Hard cap. Stat upgrades remain uncapped; only the actual movement is capped.
-MAX_AGENT_SPEED :: 2400.0;
+// agent.movement_speed scales LINEARLY from BASE_AGENT_SPEED at stat BASE_SPEED
+// up to MAX_AGENT_SPEED at stat SPEED_STAT_AT_MAX, then flattens.
+//   stat 18  -> 300  agent speed (engine default per AGENTS.md)
+//   stat 300 -> 2500 agent speed (cap)
+// Defining it by endpoints keeps the cap meaningful for the chase clamp — a
+// stat-109 chaser and a stat-280 player end up at clearly different speeds.
+BASE_AGENT_SPEED  :: 300.0;
+MAX_AGENT_SPEED   :: 2500.0;
+SPEED_STAT_AT_MAX :: 300;
 
 // --- Price curve (from game reference) ---
 // Cost grows as a cumulative product whose multiplier itself grows with speed:
@@ -33,9 +36,10 @@ speed_price_single_at :: proc(s: s64) -> float {
 compute_agent_movement_speed :: proc(stat_speed: s64) -> float {
     over := (stat_speed - BASE_SPEED).(float);
     if over < 0 over = 0;
-    target := BASE_AGENT_SPEED + over * AGENT_SPEED_PER_STAT;
-    if target > MAX_AGENT_SPEED target = MAX_AGENT_SPEED;
-    return target;
+    span := (SPEED_STAT_AT_MAX - BASE_SPEED).(float);
+    t := over / span;
+    if t > 1.0 t = 1.0;
+    return BASE_AGENT_SPEED + (MAX_AGENT_SPEED - BASE_AGENT_SPEED) * t;
 }
 
 speed_upgrade_cash_cost :: proc(current_speed: s64, amount: s64) -> float {

@@ -1,0 +1,6 @@
+// Marker effect: the player is currently being chased by an NPC. Added when a
+// chase starts (entering a room / jailbreak / steal-while-jailed) and removed
+// when the player crosses back over the game-manager line (escape) or gets
+// caught. Player.ao_update lerps the camera out while this is present.
+Being_Chased_Effect :: class : Effect_Base {
+}

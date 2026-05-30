@@ -1,0 +1,201 @@
+JohnPork.png
+	size: 4092, 1416
+	filter: Linear, Linear
+idle/frame_34
+	bounds: 1226, 6, 257, 401
+	offsets: 312, 13, 864, 496
+idle/frame_35
+	bounds: 3681, 40, 257, 402
+	offsets: 312, 13, 864, 496
+	rotate: 90
+idle/frame_36
+	bounds: 819, 148, 259, 401
+	offsets: 312, 13, 864, 496
+	rotate: 90
+idle/frame_37
+	bounds: 2689, 147, 262, 401
+	offsets: 310, 13, 864, 496
+	rotate: 90
+idle/frame_38
+	bounds: 2282, 145, 264, 400
+	offsets: 309, 13, 864, 496
+	rotate: 90
+idle/frame_39
+	bounds: 3744, 303, 267, 400
+	offsets: 308, 13, 864, 496
+idle/frame_40
+	bounds: 412, 413, 276, 401
+	offsets: 305, 13, 864, 496
+	rotate: 90
+idle/frame_41
+	bounds: 2282, 415, 276, 401
+	offsets: 305, 13, 864, 496
+	rotate: 90
+idle/frame_42
+	bounds: 412, 695, 278, 403
+	offsets: 304, 13, 864, 496
+	rotate: 90
+idle/frame_43
+	bounds: 882, 694, 280, 404
+	offsets: 303, 13, 864, 496
+	rotate: 90
+idle/frame_44
+	bounds: 2463, 697, 284, 405
+	offsets: 301, 13, 864, 496
+	rotate: 90
+idle/frame_45
+	bounds: 3798, 999, 285, 409
+	offsets: 300, 13, 864, 496
+idle/frame_46
+	bounds: 3507, 999, 285, 409
+	offsets: 300, 13, 864, 496
+idle/frame_47
+	bounds: 2342, 987, 286, 421
+	offsets: 299, 13, 864, 496
+idle/frame_48
+	bounds: 1758, 983, 286, 425
+	offsets: 299, 13, 864, 496
+idle/frame_49
+	bounds: 1466, 982, 286, 426
+	offsets: 299, 13, 864, 496
+idle/frame_50
+	bounds: 882, 980, 286, 428
+	offsets: 299, 13, 864, 496
+idle/frame_51
+	bounds: 590, 979, 286, 429
+	offsets: 299, 13, 864, 496
+idle/frame_52
+	bounds: 298, 979, 286, 429
+	offsets: 299, 13, 864, 496
+idle/frame_53
+	bounds: 6, 979, 286, 429
+	offsets: 299, 13, 864, 496
+idle/frame_54
+	bounds: 1174, 981, 286, 427
+	offsets: 299, 13, 864, 496
+idle/frame_55
+	bounds: 2050, 987, 286, 421
+	offsets: 299, 13, 864, 496
+idle/frame_56
+	bounds: 2634, 987, 285, 421
+	offsets: 300, 13, 864, 496
+idle/frame_57
+	bounds: 2925, 989, 285, 419
+	offsets: 300, 13, 864, 496
+idle/frame_58
+	bounds: 3216, 992, 285, 416
+	offsets: 300, 13, 864, 496
+idle/frame_59
+	bounds: 3507, 709, 284, 409
+	offsets: 301, 13, 864, 496
+	rotate: 90
+idle/frame_60
+	bounds: 2050, 698, 283, 407
+	offsets: 302, 13, 864, 496
+	rotate: 90
+idle/frame_61
+	bounds: 2925, 700, 283, 407
+	offsets: 302, 13, 864, 496
+	rotate: 90
+idle/frame_62
+	bounds: 1466, 693, 283, 404
+	offsets: 302, 13, 864, 496
+	rotate: 90
+idle/frame_63
+	bounds: 6, 692, 281, 400
+	offsets: 303, 13, 864, 496
+	rotate: 90
+idle/frame_64
+	bounds: 1876, 413, 279, 400
+	offsets: 304, 13, 864, 496
+	rotate: 90
+idle/frame_65
+	bounds: 2874, 415, 279, 400
+	offsets: 304, 13, 864, 496
+	rotate: 90
+idle/frame_66
+	bounds: 3338, 424, 279, 400
+	offsets: 304, 13, 864, 496
+	rotate: 90
+idle/frame_67
+	bounds: 819, 413, 275, 396
+	offsets: 306, 13, 864, 496
+	rotate: 90
+idle/frame_68
+	bounds: 1221, 413, 274, 395
+	offsets: 307, 13, 864, 496
+	rotate: 90
+idle/frame_69
+	bounds: 6, 415, 271, 394
+	offsets: 308, 13, 864, 496
+	rotate: 90
+idle/frame_70
+	bounds: 3280, 150, 268, 395
+	offsets: 309, 13, 864, 496
+	rotate: 90
+idle/frame_71
+	bounds: 1622, 143, 264, 397
+	offsets: 310, 13, 864, 496
+	rotate: 90
+idle/frame_72
+	bounds: 6, 146, 263, 399
+	offsets: 310, 13, 864, 496
+	rotate: 90
+idle/frame_73
+	bounds: 411, 148, 259, 400
+	offsets: 312, 13, 864, 496
+	rotate: 90
+
+JohnPork_2.png
+	size: 3940, 668
+	filter: Linear, Linear
+run/frame_44
+	bounds: 2608, 265, 261, 397
+	offsets: 314, 13, 864, 496
+run/frame_45
+	bounds: 3675, 266, 258, 396
+	offsets: 320, 19, 864, 496
+run/frame_46
+	bounds: 1773, 10, 256, 396
+	offsets: 326, 26, 864, 496
+	rotate: 90
+run/frame_47
+	bounds: 3142, 266, 260, 396
+	offsets: 325, 26, 864, 496
+run/frame_48
+	bounds: 2875, 266, 261, 396
+	offsets: 326, 24, 864, 496
+run/frame_49
+	bounds: 3408, 6, 255, 392
+	offsets: 333, 18, 864, 496
+	rotate: 90
+run/frame_50
+	bounds: 3408, 270, 261, 392
+	offsets: 326, 12, 864, 496
+run/frame_51
+	bounds: 2058, 274, 273, 388
+	offsets: 310, 12, 864, 496
+run/frame_52
+	bounds: 1773, 272, 279, 390
+	offsets: 300, 12, 864, 496
+run/frame_53
+	bounds: 905, 264, 294, 398
+	offsets: 278, 17, 864, 496
+run/frame_54
+	bounds: 6, 261, 296, 401
+	offsets: 271, 20, 864, 496
+run/frame_55
+	bounds: 606, 260, 293, 402
+	offsets: 271, 20, 864, 496
+run/frame_56
+	bounds: 308, 257, 292, 405
+	offsets: 271, 16, 864, 496
+run/frame_57
+	bounds: 1205, 257, 283, 405
+	offsets: 279, 10, 864, 496
+run/frame_58
+	bounds: 1494, 263, 273, 399
+	offsets: 296, 8, 864, 496
+run/frame_59
+	bounds: 2337, 265, 265, 397
+	offsets: 308, 9, 864, 496

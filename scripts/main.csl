@@ -213,6 +213,44 @@ register_player_jump_emote :: proc(player: Player) {
     }
 }
 
+// Adds the "carry" animation states to the player rig. Idle_Hold / Walk_Holding
+// mirror the base Idle / Run_Fast states but with the held-brainrot pose.
+// Driven by two bools on player.animator.state_machine:
+//   "carryingMoving" — true while holding a brainrot (swaps to the carry pose)
+//   "moving"         — existing engine bool (carry idle <-> carry walk)
+register_player_carry_anims :: proc(player: Player) {
+    if player == null return;
+    if player.animator == null return;
+    sm := player.animator.state_machine;
+    if sm == null return;
+    layer := sm.try_get_layer("main");
+    if layer == null return;
+
+    idle := layer.try_get_state("Idle");
+    run  := layer.try_get_state("Run_Fast");
+    if idle == null || run == null return;
+
+    // Empty / clear-track state, reusable.
+    empty_state := layer.try_get_state("__CLEAR_TRACK__");
+    if empty_state == null empty_state = layer.create_state("__CLEAR_TRACK__", true);
+    empty_trigger := sm.create_variable("empty", .TRIGGER);
+    layer.create_global_transition(empty_state, true).create_trigger_condition(empty_trigger);
+
+    // Carry pose states + the moving bool that flips between them.
+    idle_carry := layer.create_state("021MBR/Idle_Hold", true);
+    run_carry  := layer.create_state("021MBR/Walk_Holding", true);
+    moving := sm.try_get_variable("moving");
+    layer.create_transition(idle_carry, run_carry, false).create_bool_condition(moving, true);
+    layer.create_transition(run_carry, idle_carry, false).create_bool_condition(moving, false);
+
+    // carryingMoving swaps base <-> carry pose in both idle and run.
+    carrying := sm.create_variable("carryingMoving", .BOOL);
+    layer.create_transition(idle, idle_carry, false).create_bool_condition(carrying, true);
+    layer.create_transition(run, run_carry, false).create_bool_condition(carrying, true);
+    layer.create_transition(idle_carry, idle, false).create_bool_condition(carrying, false);
+    layer.create_transition(run_carry, run, false).create_bool_condition(carrying, false);
+}
+
 emote_jump :: proc(player: Player) {
     if player == null return;
     if player.animator == null return;
@@ -364,6 +402,7 @@ Player :: class : Player_Base {
 
         snap_player_to_navmesh(this);
         register_player_jump_emote(this);
+        register_player_carry_anims(this);
     }
 
     ao_update :: method(dt: float) {

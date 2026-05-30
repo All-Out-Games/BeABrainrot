@@ -94,9 +94,25 @@ is_default_inventory_full :: proc(player: Player) -> bool {
 draw_selected_brainrot_above_player :: proc(player: Player) {
     if player == null return;
     if !#alive(player.entity) return;
-    if is_carrying(player) return; // carry effect already shows the world entity
-    if player.selected_brainrot_item == null return;
-    if !#alive(player.selected_brainrot_item) return;
+    if is_carrying(player) return; // carry effect already shows the world entity (and drives carryingMoving)
+
+    // Above the npc_line you're in the steal zone — the inventory carry preview
+    // is hidden and the carry pose shouldn't apply either (the carry EFFECT,
+    // handled above via is_carrying, still drives the pose while stealing).
+    above_line := false;
+    gm := get_game_manager();
+    if gm != null && gm.npc_line != null && #alive(gm.npc_line) {
+        above_line = player.entity.world_position.y > gm.npc_line.world_position.y;
+    }
+
+    // Holding a brainrot from the inventory in-hand → carry pose, same as the
+    // carry effect. Set every frame so it clears when nothing is selected.
+    holding_from_inventory := #alive(player.selected_brainrot_item) && !above_line;
+    if player.animator != null && player.animator.state_machine != null {
+        player.animator.state_machine.set_bool("carryingMoving", holding_from_inventory);
+    }
+
+    if !holding_from_inventory return;
 
     defn := player.selected_brainrot_item.get_definition();
     if defn == null return;

@@ -1,0 +1,107 @@
+NoooMyHotspoot.png
+	size: 2892, 404
+	filter: Linear, Linear
+idle/frame_15
+	bounds: 741, 7, 237, 389
+	offsets: 328, 14, 864, 496
+idle/frame_16
+	bounds: 498, 6, 237, 390
+	offsets: 328, 14, 864, 496
+idle/frame_17
+	bounds: 1464, 8, 233, 388
+	offsets: 328, 14, 864, 496
+idle/frame_18
+	bounds: 1941, 8, 232, 388
+	offsets: 328, 14, 864, 496
+idle/frame_19
+	bounds: 2653, 8, 231, 388
+	offsets: 328, 14, 864, 496
+idle/frame_20
+	bounds: 2416, 8, 231, 388
+	offsets: 328, 14, 864, 496
+idle/frame_21
+	bounds: 2179, 8, 231, 388
+	offsets: 328, 14, 864, 496
+idle/frame_22
+	bounds: 1703, 8, 232, 388
+	offsets: 328, 14, 864, 496
+idle/frame_23
+	bounds: 1225, 7, 233, 389
+	offsets: 328, 14, 864, 496
+idle/frame_24
+	bounds: 984, 6, 235, 390
+	offsets: 328, 14, 864, 496
+idle/frame_25
+	bounds: 253, 7, 239, 389
+	offsets: 328, 14, 864, 496
+idle/frame_26
+	bounds: 6, 6, 241, 390
+	offsets: 328, 14, 864, 496
+
+NoooMyHotspoot_2.png
+	size: 3964, 636
+	filter: Linear, Linear
+run/frame_15
+	bounds: 2052, 246, 234, 384
+	offsets: 336, 37, 864, 496
+run/frame_16
+	bounds: 3246, 246, 233, 384
+	offsets: 337, 26, 864, 496
+run/frame_17
+	bounds: 3724, 247, 233, 383
+	offsets: 337, 26, 864, 496
+run/frame_18
+	bounds: 2769, 245, 233, 385
+	offsets: 337, 19, 864, 496
+run/frame_19
+	bounds: 2530, 245, 233, 385
+	offsets: 337, 19, 864, 496
+run/frame_20
+	bounds: 2292, 243, 232, 387
+	offsets: 337, 17, 864, 496
+run/frame_21
+	bounds: 3008, 244, 232, 386
+	offsets: 337, 18, 864, 496
+run/frame_22
+	bounds: 1314, 235, 237, 395
+	offsets: 333, 21, 864, 496
+run/frame_23
+	bounds: 1071, 234, 237, 396
+	offsets: 333, 20, 864, 496
+run/frame_24
+	bounds: 6, 234, 250, 396
+	offsets: 320, 27, 864, 496
+run/frame_25
+	bounds: 262, 259, 264, 371
+	offsets: 306, 50, 864, 496
+run/frame_26
+	bounds: 532, 260, 264, 370
+	offsets: 306, 50, 864, 496
+run/frame_27
+	bounds: 802, 262, 263, 368
+	offsets: 307, 42, 864, 496
+run/frame_28
+	bounds: 1557, 255, 249, 375
+	offsets: 321, 27, 864, 496
+run/frame_29
+	bounds: 2530, 6, 233, 380
+	offsets: 337, 20, 864, 496
+	rotate: 90
+run/frame_30
+	bounds: 2916, 6, 232, 380
+	offsets: 337, 20, 864, 496
+	rotate: 90
+run/frame_31
+	bounds: 3485, 247, 233, 383
+	offsets: 337, 19, 864, 496
+run/frame_32
+	bounds: 532, 22, 232, 384
+	offsets: 337, 24, 864, 496
+	rotate: 90
+run/frame_33
+	bounds: 1812, 241, 234, 389
+	offsets: 336, 28, 864, 496
+run/frame_34
+	bounds: 3485, 7, 234, 379
+	offsets: 336, 42, 864, 496
+	rotate: 90

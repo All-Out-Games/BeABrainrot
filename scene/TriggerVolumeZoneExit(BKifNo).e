@@ -1,0 +1,41 @@
+14
+7743826034689
+1250554728
+{
+  "name": "TriggerVolumeZoneExit",
+  "local_enabled": true,
+  "local_position": {
+    "X": 0.9986929893493652
+  },
+  "local_rotation": 0,
+  "local_scale": {
+    "X": 9.2000341415405273,
+    "Y": 4.4999985694885254
+  },
+  "previous_sibling": 1248567148,
+  "next_sibling": 1257743988,
+  "parent": 1254387050
+},
+{
+  "cid": 1,
+  "aoid": 1241888690,
+  "component_type": "Internal_Component",
+  "internal_component_type": "Sprite_Renderer",
+  "data": {
+    "texture": "Textures/environments/Bases/floor_light.png",
+    "tint": {
+      "W": 0.3320973217487335
+    },
+    "editor_only": true
+  }
+},
+{
+  "cid": 2,
+  "aoid": 1246546652,
+  "component_type": "Internal_Component",
+  "internal_component_type": "Trigger_Volume",
+  "data": {
+    "corner_a": 1244059821,
+    "corner_b": 1243835136
+  }
+}

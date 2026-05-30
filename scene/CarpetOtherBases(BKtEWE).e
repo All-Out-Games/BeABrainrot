@@ -6,12 +6,12 @@
   "local_enabled": true,
   "local_position": {
     "X": -10.3125562667846680,
-    "Y": 53.8648452758789062
+    "Y": 76.8960494995117188
   },
   "local_rotation": 0,
   "local_scale": {
     "X": 200,
-    "Y": 6000
+    "Y": 9000
   },
   "previous_sibling": 1255031540,
   "next_sibling": 1251626807

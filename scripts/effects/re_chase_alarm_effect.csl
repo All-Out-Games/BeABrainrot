@@ -19,6 +19,18 @@ Re_Chase_Alarm_Effect :: class : Effect_Base {
     effect_start :: method() {
         set_duration(RE_CHASE_ALARM_DURATION);
         rng = rng_seed(Time.nanoseconds_since_epoch());
+
+        // Purge alarm SFX — one-shot, plays through on its own (not stopped on
+        // effect end). specific_to_player routes it to only the chased player.
+        if player != null {
+            sfx := get_asset(SFX_Asset, "SFX/purge_alarm_6fcfa0.wav");
+            if sfx != null {
+                desc := SFX.default_sfx_desc();
+                desc.specific_to_player = player;
+                desc.volume = 1.0;
+                SFX.play(sfx, desc);
+            }
+        }
     }
 
     effect_late_update :: method(dt: float) {

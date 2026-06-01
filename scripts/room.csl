@@ -389,7 +389,7 @@ is_local_active_steal_room :: proc(r: Room_Npc) -> bool {
 
 // Big world-space NPC name, drawn over the room while the roof is shown. The
 // label is anchored at the roof's 2nd child (index 1).
-NPC_ROOM_NAME_SIZE :: 3.0;
+NPC_ROOM_NAME_SIZE :: 2.2;
 
 draw_npc_room_name :: proc(r: Room_Npc) {
     if r.npc_name.count <= 0 return;

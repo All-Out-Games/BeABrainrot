@@ -285,10 +285,20 @@ Room :: class : Component {
 NPC_SPAWN_INTERVAL       :: 60.0;
 BRAINROT_NPC_PREFAB_PATH :: "Brainrot_Npc.prefab";
 
+// Registry of every Room_Npc, maintained by ao_start / ao_end so callers can
+// iterate them without scanning the whole scene each frame.
+g_npc_rooms: [..]Room_Npc;
+
 Room_Npc :: class : Room {
     spawnable_brainrot_ids: [..]string         @ao_serialize;
     chase_trigger:          Trigger_Volume     @ao_serialize;
     jail_trigger:           Trigger_Volume     @ao_serialize;
+    // The "Roof" child entity (holds 2 sub-children). Cached at init by walking
+    // the room's children for the one named "Roof".
+    roof:                   Entity;
+    // Display name of this room's NPC — drawn big over the room while the roof
+    // is shown (anchored at the roof's 2nd child).
+    npc_name:               string             @ao_serialize;
     // Single per-room speed override. > 0 propagates to every Npc_Chaser in
     // this room on init so you don't have to edit each chaser individually.
     // 0 = leave each chaser's own speed_stat untouched.
@@ -300,6 +310,17 @@ Room_Npc :: class : Room {
     rng:             u64;
     initialized:     bool;
 
+    // NB: can't override ao_start (parent Room already implements it →
+    // overload_set). Registration into g_npc_rooms happens in init_npc_room.
+    ao_end :: method() {
+        for i: 0..g_npc_rooms.count - 1 {
+            if g_npc_rooms[i] == this {
+                unordered_remove_by_index(ref g_npc_rooms, i);
+                break;
+            }
+        }
+    }
+
     ao_update :: method(dt: float) {
         if !initialized {
             init_npc_room(this);
@@ -308,12 +329,103 @@ Room_Npc :: class : Room {
         tick_npc_room(this, dt);
     }
 
+    // Push a player OUT of this room's bounds (the inherited Room `trigger`,
+    // i.e. the TriggerVolume child) to the nearest edge. Used by the roof
+    // barrier — a roofed room can't be entered.
+    clamp_player_outside :: method(player: Player) {
+        if player == null return;
+        if !#alive(player.entity) return;
+        if trigger == null return;
+        if !#alive(trigger.corner_a) || !#alive(trigger.corner_b) return;
+
+        a := trigger.corner_a.world_position;
+        b := trigger.corner_b.world_position;
+        x_min := min(a.x, b.x);
+        x_max := max(a.x, b.x);
+        y_min := min(a.y, b.y);
+        y_max := max(a.y, b.y);
+
+        pos := player.entity.world_position;
+        if pos.x <= x_min || pos.x >= x_max return; // already outside on X
+        if pos.y <= y_min || pos.y >= y_max return; // already outside on Y
+
+        // Inside — snap to the nearest edge.
+        dl := pos.x - x_min;
+        dr := x_max - pos.x;
+        db := pos.y - y_min;
+        dt := y_max - pos.y;
+        m := min(min(dl, dr), min(db, dt));
+        new_pos := pos;
+        if m == dl new_pos.x = x_min;
+        else if m == dr new_pos.x = x_max;
+        else if m == db new_pos.y = y_min;
+        else new_pos.y = y_max;
+        player.entity.set_local_position(new_pos);
+    }
+
     ao_late_update :: method(dt: float) {
         draw_npc_pedestal_timers(this);
+
+        // Roof visibility is LOCAL-ONLY: the roof is hidden for the local
+        // player only on their active_steal_room (the one room they may be in).
+        // Recomputed each frame from local state — no networked flag, no
+        // set_local_enabled (which would sync globally).
+        roof_visible := !is_local_active_steal_room(this);
+        if roof != null && #alive(roof) {
+            set_chaser_subtree_visible(roof, roof_visible);
+        }
+
+        // Name only shows while the roof is visible (covering the room).
+        if roof_visible draw_npc_room_name(this);
     }
 }
 
+// True if this room is the LOCAL player's active steal room (roof off for them).
+is_local_active_steal_room :: proc(r: Room_Npc) -> bool {
+    local, has_local := Game.get_local_player();
+    if !has_local return false;
+    return local.active_steal_room == r;
+}
+
+// Big world-space NPC name, drawn over the room while the roof is shown. The
+// label is anchored at the roof's 2nd child (index 1).
+NPC_ROOM_NAME_SIZE :: 3.0;
+
+draw_npc_room_name :: proc(r: Room_Npc) {
+    if r.npc_name.count <= 0 return;
+    if r.roof == null || !#alive(r.roof) return;
+    // Roof-visible gating is done by the caller (ao_late_update).
+
+    first := r.roof.get_first_child();
+    if first == null return;
+    anchor := first.get_next_sibling(); // child index 1
+    if anchor == null || !#alive(anchor) return;
+
+    pos := anchor.world_position;
+
+    UI.push_world_draw_context();
+    defer UI.pop_draw_context();
+    UI.begin_world_space_ui(anchor);
+    defer UI.end_world_space_ui();
+    UI.push_layer(50); // above the roof sprites
+    defer UI.pop_layer();
+
+    ts := UI.default_text_settings();
+    ts.size = NPC_ROOM_NAME_SIZE;
+    ts.color = v4{1, 1, 1, 1};
+    ts.word_wrap = true;           // wrap long names onto multiple lines
+    ts.overflow_wrap = true;
+    ts.do_outline = true;
+    ts.outline_thickness = 4.0;
+    ts.outline_color = v4{0, 0, 0, 1};
+    // Narrow rect (grow width < height range) forces wrapping; the box is
+    // centered on the anchor so the wrapped lines stack over the room.
+    UI.text(Rect{pos, pos}.grow(4.0, 5.0, 4.0, 5.0), ts, r.npc_name);
+}
+
 init_npc_room :: proc(r: Room_Npc) {
+    append(ref g_npc_rooms, r); // register for g_npc_rooms iteration
+
     seed_input: u64 = Time.nanoseconds_since_epoch();
     if #alive(r.entity) seed_input += r.entity.id.(u64);
     r.rng = rng_seed(seed_input);
@@ -330,6 +442,19 @@ init_npc_room :: proc(r: Room_Npc) {
 
     r.chasers.clear();
     if #alive(r.entity) collect_chasers_recursive(r, r.entity);
+
+    // Cache the "Roof" child entity.
+    r.roof = null;
+    if #alive(r.entity) {
+        child := r.entity.get_first_child();
+        while child != null {
+            if child.get_name() == "Roof" {
+                r.roof = child;
+                break;
+            }
+            child = child.get_next_sibling();
+        }
+    }
 
     if r.chaser_speed_stat > 0 {
         for c: r.chasers {

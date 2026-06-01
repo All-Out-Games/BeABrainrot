@@ -30,6 +30,7 @@
     ],
     "chase_trigger": 1244953687,
     "jail_trigger": 1242367174,
+    "npc_name": "67",
     "chaser_speed_stat": 279
   }
 }

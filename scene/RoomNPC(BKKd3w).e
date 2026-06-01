@@ -30,6 +30,7 @@
     ],
     "chase_trigger": 1253330440,
     "jail_trigger": 1254804782,
+    "npc_name": "Dragon cannelloni",
     "chaser_speed_stat": 249
   }
 }

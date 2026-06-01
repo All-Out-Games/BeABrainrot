@@ -30,6 +30,7 @@
     ],
     "chase_trigger": 1254514463,
     "jail_trigger": 1248081922,
+    "npc_name": "Udindindindun",
     "chaser_speed_stat": 79
   }
 }

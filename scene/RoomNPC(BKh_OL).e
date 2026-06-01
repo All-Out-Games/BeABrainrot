@@ -30,6 +30,7 @@
     ],
     "chase_trigger": 1249377453,
     "jail_trigger": 1241647856,
+    "npc_name": "Chicletera bicicletera",
     "chaser_speed_stat": 109
   }
 }

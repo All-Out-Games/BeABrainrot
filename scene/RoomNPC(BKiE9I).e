@@ -30,6 +30,7 @@
     ],
     "chase_trigger": 1249434043,
     "jail_trigger": 1252872259,
+    "npc_name": "Brr Brr Patapim",
     "chaser_speed_stat": 49
   }
 }

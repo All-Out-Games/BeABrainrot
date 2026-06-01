@@ -30,6 +30,7 @@
     ],
     "chase_trigger": 1253325375,
     "jail_trigger": 1253253777,
+    "npc_name": "John Pork",
     "chaser_speed_stat": 309
   }
 }

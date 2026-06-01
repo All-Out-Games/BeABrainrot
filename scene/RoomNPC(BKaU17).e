@@ -30,6 +30,7 @@
     ],
     "chase_trigger": 1248145287,
     "jail_trigger": 1241939042,
+    "npc_name": "Mateoo",
     "chaser_speed_stat": 139
   }
 }

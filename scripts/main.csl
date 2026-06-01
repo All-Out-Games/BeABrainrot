@@ -368,6 +368,10 @@ Player :: class : Player_Base {
     current_floor: s64;
     is_in_current_room: Room;
     my_room: Room;
+    // The one NPC room this player is currently allowed to be in / steal from
+    // (set to the last room entered while auto-walking). null = none, which
+    // means every room's roof blocks them. Cleared on steal / line-cross / hit.
+    active_steal_room: Room_Npc;
     pedestals_unlocked: s64;
     debug_show_le: bool;
     show_shop_v2: bool;
@@ -440,6 +444,17 @@ Player :: class : Player_Base {
                 is_in_current_room.clamp_player_inside(this);
         }
 
+        // NPC-room roof barrier: a roofed room blocks entry. The only room
+        // NOT roofed for this player is their active_steal_room. While
+        // auto-walking we let them pass freely (roofs are visual only there);
+        // once stopped, push them out of every other room's bounds.
+        if !auto_walking {
+            for r: g_npc_rooms {
+                if r == null continue;
+                if r == active_steal_room continue;
+                r.clamp_player_outside(this);
+            }
+        }
     }
 
     ao_late_update :: method(dt: float) {

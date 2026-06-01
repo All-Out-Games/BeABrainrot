@@ -449,6 +449,13 @@ room_npc_on_chase_enter :: proc(listener: Component, player: Player) {
     if player == null return;
     r := listener.(Room_Npc);
     if r == null return;
+
+    // While auto-walking, the last room entered becomes the player's active
+    // steal room — the only room they may stay in / steal from. Roof hide is
+    // handled client-side in Room_Npc.ao_late_update off this field.
+    _, auto_walking := get_effect(player.entity, Moving_Toward_Effect);
+    if auto_walking player.active_steal_room = r;
+
     if !npc_room_may_chase(player, r) return;
     c := claim_or_get_chaser_in_room(r, player);
     start_chase(c, false);
@@ -459,6 +466,7 @@ room_npc_on_chase_exit :: proc(listener: Component, player: Player) {
     if player == null return;
     r := listener.(Room_Npc);
     if r == null return;
+
     c := get_player_chaser_in_room(r, player);
     if c == null return;
     if c.state == Npc_Chaser_State.ESCORTING return;
@@ -541,6 +549,8 @@ npc_punish_player :: proc(c: Npc_Chaser) {
     if c == null return;
     if c.assigned_player == null return;
     if !#alive(c.assigned_player.entity) return;
+
+    c.assigned_player.active_steal_room = null; // hit re-roofs every room
 
     // Idempotent — if the hit already returned the brainrot, this is a no-op.
     return_stolen_brainrot_to_pedestal(c.assigned_player);

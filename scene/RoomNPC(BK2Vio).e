@@ -30,6 +30,7 @@
     ],
     "chase_trigger": 1254716832,
     "jail_trigger": 1256141139,
+    "npc_name": "Tung Tung Tung Sahur",
     "chaser_speed_stat": 29
   }
 }

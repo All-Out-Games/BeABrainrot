@@ -29,6 +29,7 @@
     ],
     "chase_trigger": 1250701451,
     "jail_trigger": 1246546652,
+    "npc_name": "Noo my hotspot",
     "chaser_speed_stat": 339
   }
 }

@@ -30,6 +30,7 @@
     ],
     "chase_trigger": 1247055732,
     "jail_trigger": 1246814287,
+    "npc_name": "Esok sekolah",
     "chaser_speed_stat": 219
   }
 }

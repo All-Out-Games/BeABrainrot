@@ -30,6 +30,7 @@
     ],
     "chase_trigger": 1248689633,
     "jail_trigger": 1251247456,
+    "npc_name": "Pakrahmatmamat",
     "chaser_speed_stat": 199
   }
 }

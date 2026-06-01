@@ -30,6 +30,7 @@
     ],
     "chase_trigger": 1255514542,
     "jail_trigger": 1248023821,
+    "npc_name": "Job Job Job Sahur",
     "chaser_speed_stat": 169
   }
 }

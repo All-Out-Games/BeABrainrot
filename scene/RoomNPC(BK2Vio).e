@@ -24,13 +24,17 @@
   "data": {
     "trigger": 1241623787,
     "spawnable_brainrot_ids": [
-      "tung_tung_sahur",
-      "boneca",
-      "trippi_troppi"
+      "tralalero",
+      "smurfcat",
+      "avocadorilla",
+      "bambini_crost",
+      "blueberrini",
+      "salamino_peng"
     ],
     "chase_trigger": 1254716832,
     "jail_trigger": 1256141139,
     "npc_name": "Tung Tung Tung Sahur",
-    "chaser_speed_stat": 29
+    "chaser_speed_stat": 29,
+    "max_spawn_level": 3
   }
 }

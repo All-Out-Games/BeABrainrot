@@ -24,9 +24,12 @@
   "data": {
     "trigger": 1241706325,
     "spawnable_brainrot_ids": [
-      "tung_tung_sahur",
-      "boneca",
-      "trippi_troppi"
+      "racooni",
+      "spijuniro",
+      "dragon_cann",
+      "gangster_foot",
+      "garama",
+      "brr_patapim"
     ],
     "chase_trigger": 1255514542,
     "jail_trigger": 1248023821,

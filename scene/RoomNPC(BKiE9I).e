@@ -24,9 +24,13 @@
   "data": {
     "trigger": 1250080394,
     "spawnable_brainrot_ids": [
-      "tung_tung_sahur",
-      "boneca",
-      "trippi_troppi"
+      "bombardino",
+      "karkerkar",
+      "glorbo",
+      "cocofanto",
+      "cavallo",
+      "gorillo_lemon",
+      "esok_sekolah"
     ],
     "chase_trigger": 1249434043,
     "jail_trigger": 1252872259,

@@ -24,9 +24,13 @@
   "data": {
     "trigger": 1245858616,
     "spawnable_brainrot_ids": [
-      "tung_tung_sahur",
-      "boneca",
-      "trippi_troppi"
+      "garama",
+      "brr_patapim",
+      "tetetete_sahur",
+      "tetetete_titi",
+      "tric_trac_bara",
+      "svinina",
+      "gorillo_water"
     ],
     "chase_trigger": 1248689633,
     "jail_trigger": 1251247456,

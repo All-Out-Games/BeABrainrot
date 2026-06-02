@@ -24,9 +24,12 @@
   "data": {
     "trigger": 1249703279,
     "spawnable_brainrot_ids": [
-      "tung_tung_sahur",
-      "boneca",
-      "trippi_troppi"
+      "svinina",
+      "gorillo_water",
+      "cappuccino",
+      "trigrullini",
+      "zibra_zurbra",
+      "tracotucotulu"
     ],
     "chase_trigger": 1253330440,
     "jail_trigger": 1254804782,

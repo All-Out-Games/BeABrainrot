@@ -2,7 +2,7 @@ PRICE_PER_LEVEL_MULT :: 1.5;
 GPS_PER_LEVEL_MULT   :: 1.25;
 SCALE_PER_LEVEL      :: 0.05;
 LIVING_ENTITY_MIN_SCALE :: 0.3;  // scale at level 1 (with base_scale = 1)
-LIVING_ENTITY_MAX_SCALE :: 2.0;  // hard cap at any level
+LIVING_ENTITY_MAX_SCALE :: 1.1;  // hard cap at any level
 SPRITE_PPU           :: 240.0;
 LABEL_TOP_PADDING    :: 0.15;
 LABEL_LINE_HEIGHT    :: 0.27;
@@ -278,27 +278,6 @@ LivingEntity :: class : Interactable {
         if level < 1 level = 1;
         if base_scale <= 0 base_scale = 1.0;
         update_visuals();
-
-        // DEBUG: dump texture metadata so we can confirm get_pivot / get_pixels_per_unit work.
-        if sprite != null {
-            tex := sprite.get_texture();
-            if tex != null {
-                ws := sprite.get_world_size();
-                log_info("LivingEntity[%]: tex w=% h=% pivot=(%, %) ppu=% world_size=(%, %)",
-                    {config_id,
-                     tex.get_width(),
-                     tex.get_height(),
-                     format_float(tex.get_pivot().x, decimals=3),
-                     format_float(tex.get_pivot().y, decimals=3),
-                     format_float(tex.get_pixels_per_unit(), decimals=3),
-                     format_float(ws.x, decimals=3),
-                     format_float(ws.y, decimals=3)});
-            } else {
-                log_info("LivingEntity[%]: sprite has no texture yet", {config_id});
-            }
-        } else {
-            log_info("LivingEntity[%]: sprite ref is null", {config_id});
-        }
     }
 
     ao_update :: method(dt: float) {

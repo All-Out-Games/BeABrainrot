@@ -24,9 +24,11 @@
   "data": {
     "trigger": 1253048095,
     "spawnable_brainrot_ids": [
-      "tung_tung_sahur",
-      "boneca",
-      "trippi_troppi"
+      "chicleteira",
+      "chimpanzini",
+      "ssundee_amba",
+      "quivioli",
+      "racooni"
     ],
     "chase_trigger": 1248145287,
     "jail_trigger": 1241939042,

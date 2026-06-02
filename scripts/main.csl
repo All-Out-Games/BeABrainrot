@@ -10,6 +10,8 @@ ao_before_scene_load :: proc() {
 CASH_SAVE_KEY  :: "cash";
 SPEED_SAVE_KEY           :: "speed";
 PURCHASED_SPEED_SAVE_KEY :: "purchased_speed";
+INITIALIZED_SAVE_KEY     :: "initialized"; // set once on first join so we only grant starting cash once
+STARTING_CASH            :: 1000.0;          // granted on first join and on /reset
 
 CASH_POPUP_DURATION :: 1.4;
 CASH_POPUP_RISE     :: 70.0;
@@ -121,6 +123,56 @@ set_floor_cmd :: proc(player: Player, floor: s64 = 0) {
     fm := get_floor_manager();
     if fm != null fm.apply_visibility(player);
     show_notification(player, "Current floor: %", {floor});
+} @chat_command
+
+// Full progress wipe: speed, sparks-bought speed, cash, rebirths (+ rebirth-
+// granted pedestal slots), the base's placed brainrots, and the inventory.
+reset :: proc(player: Player) {
+    if player == null return;
+
+    // Speed + permanent (sparks-bought) speed back to baseline.
+    player.set_permanent_speed(0);
+    set_speed(player, BASE_SPEED);
+
+    // Cash — back to the starting amount.
+    player.cash = STARTING_CASH;
+    player.displayed_cash = STARTING_CASH;
+    Save.set_f64(player, CASH_SAVE_KEY, STARTING_CASH);
+
+    // Rebirths + the pedestal slots they grant.
+    player.rebirth_level = 0;
+    Save.set_int(player, REBIRTH_SAVE_KEY, 0);
+    player.pedestals_unlocked = DEFAULT_PEDESTALS_UNLOCKED;
+    Save.set_int(player, PEDESTALS_SAVE_KEY, DEFAULT_PEDESTALS_UNLOCKED);
+
+    // Base: destroy every placed brainrot, persist the empty base, relock slots.
+    room := player.my_room;
+    if room != null {
+        for i: 0..room.pedestals.count - 1 {
+            p := room.pedestals[i];
+            if p == null continue;
+            if p.placed_brainrot != null && #alive(p.placed_brainrot.entity) {
+                p.placed_brainrot.entity.destroy();
+            }
+            p.placed_brainrot  = null;
+            p.accumulated_gold = 0;
+        }
+        room.refresh_pedestal_unlocks();
+        save_room_brainrots(player, room);
+    }
+
+    // Inventory: drop everything.
+    inv := player.default_inventory;
+    if inv != null {
+        for i: 0..inv.capacity - 1 {
+            item := inv.get_item(i);
+            if item == null continue;
+            if !#alive(item) continue;
+            Items.destroy_item_instance(item);
+        }
+    }
+
+    show_notification(player, "Reset complete!");
 } @chat_command
 
 srb :: proc(player: Player) {
@@ -397,6 +449,13 @@ Player :: class : Player_Base {
         speed = Save.get_int(this, SPEED_SAVE_KEY, BASE_SPEED);
         if speed < BASE_SPEED speed = BASE_SPEED;
         cash = Save.get_f64(this, CASH_SAVE_KEY, 0).(float);
+        // First time joining → grant starting cash (flag persisted so it's
+        // only ever granted once).
+        if Save.get_int(this, INITIALIZED_SAVE_KEY, 0) == 0 {
+            cash = STARTING_CASH;
+            Save.set_f64(this, CASH_SAVE_KEY, cash.(f64));
+            Save.set_int(this, INITIALIZED_SAVE_KEY, 1);
+        }
         displayed_cash = cash;
         rebirth_level = Save.get_int(this, REBIRTH_SAVE_KEY, 0);
         pedestals_unlocked = Save.get_int(this, PEDESTALS_SAVE_KEY, DEFAULT_PEDESTALS_UNLOCKED);

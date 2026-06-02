@@ -283,6 +283,7 @@ Room :: class : Component {
 }
 
 NPC_SPAWN_INTERVAL       :: 60.0;
+NPC_BRAINROT_MAX_LEVEL   :: 10; // NPC-room brainrots spawn at a random level 1..this
 BRAINROT_NPC_PREFAB_PATH :: "Brainrot_Npc.prefab";
 
 // Registry of every Room_Npc, maintained by ao_start / ao_end so callers can
@@ -307,6 +308,9 @@ Room_Npc :: class : Room {
     // this room on init so you don't have to edit each chaser individually.
     // 0 = leave each chaser's own speed_stat untouched.
     chaser_speed_stat:      s64                @ao_serialize;
+    // Highest level a spawned brainrot can roll in this room. 0 (unset) falls
+    // back to NPC_BRAINROT_MAX_LEVEL. Lower it for early rooms (e.g. 3).
+    max_spawn_level:        s64                @ao_serialize;
 
     pedestal_timers: [..]float;
     pedestal_locked: [..]bool;
@@ -532,9 +536,13 @@ respawn_npc_on_pedestal :: proc(r: Room_Npc, i: s64) {
         break;
     }
 
-    // Roll a mutation. Floor-1 (and above) pedestals are "boosted" — they ALWAYS
-    // get a modifier; floor-0 pedestals only have the rare chance.
+    // Roll a random level (1-10) so each spawn varies in GPS, then a mutation.
+    // Floor-1 (and above) pedestals are "boosted" — they ALWAYS get a modifier;
+    // floor-0 pedestals only have the rare chance.
     if le != null {
+        max_lvl := r.max_spawn_level;
+        if max_lvl <= 0 max_lvl = NPC_BRAINROT_MAX_LEVEL;
+        le.level = rng_range_int(ref r.rng, 1, max_lvl);
         boosted := p.floor_renderer != null && p.floor_renderer.floor >= 1;
         le.mutation = roll_mutation(ref r.rng, boosted);
         le.update_visuals();

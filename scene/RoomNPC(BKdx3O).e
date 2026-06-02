@@ -24,9 +24,11 @@
   "data": {
     "trigger": 1251615129,
     "spawnable_brainrot_ids": [
-      "tung_tung_sahur",
-      "boneca",
-      "trippi_troppi"
+      "la_grande",
+      "nightsmonster",
+      "bombombini",
+      "tralalero_baby",
+      "trippi_baby"
     ],
     "chase_trigger": 1253325375,
     "jail_trigger": 1253253777,

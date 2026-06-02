@@ -24,9 +24,12 @@
   "data": {
     "trigger": 1256562162,
     "spawnable_brainrot_ids": [
-      "tung_tung_sahur",
-      "boneca",
-      "trippi_troppi"
+      "lionel_cact",
+      "chef_crabra",
+      "rhino_toast",
+      "schleemerini",
+      "orcalero",
+      "chicleteira"
     ],
     "chase_trigger": 1249377453,
     "jail_trigger": 1241647856,

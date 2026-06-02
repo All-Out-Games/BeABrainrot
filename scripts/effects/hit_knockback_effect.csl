@@ -19,6 +19,17 @@ Hit_Knockback_Effect :: class : Effect_Base {
         if player != null && #alive(player.entity) {
             saved_rotation = player.entity.local_rotation;
         }
+        // Hit feedback — positional at the struck player so nearby players hear
+        // it too (it's a world event, not a private UI cue).
+        if player != null && #alive(player.entity) {
+            sfx := get_asset(SFX_Asset, "SFX/GetHit.wav");
+            if sfx != null {
+                desc := SFX.default_sfx_desc();
+                desc.entity_to_follow = player.entity.id;
+                desc.volume = 1.0;
+                SFX.play(sfx, desc);
+            }
+        }
     }
 
     effect_update :: method(dt: float) {

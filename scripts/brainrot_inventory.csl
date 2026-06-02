@@ -55,7 +55,7 @@ add_brainrot_to_inventory :: proc(player: Player, brainrot: LivingEntity, prefer
 
     defn := find_brainrot_definition(brainrot.config_id);
     if defn == null {
-        Notifier.notify(player, "No item definition for %", {brainrot.config_id});
+        show_notification(player, "No item definition for %", {brainrot.config_id});
         return false;
     }
 
@@ -66,7 +66,7 @@ add_brainrot_to_inventory :: proc(player: Player, brainrot: LivingEntity, prefer
     will_destroy: bool;
     if !Items.can_move_item_to_inventory(item, player.default_inventory, ref will_destroy) {
         Items.destroy_item_instance(item);
-        Notifier.notify(player, "Inventory full!");
+        show_notification(player, "Inventory full!");
         return false;
     }
     Items.move_item_to_inventory(item, player.default_inventory);
@@ -155,7 +155,17 @@ draw_selected_brainrot_above_player :: proc(player: Player) {
     right  := (1.0 - pivot.x) * half_w;
     left   := (1.0 + pivot.x) * half_w;
     rect := Rect{pos, pos}.grow(top, right, bottom, left);
-    UI.quad(rect, icon);
+
+    // Push the mutation material so a gold/diamond/rainbow brainrot held from
+    // the inventory shows its modifier shader, like the carry effects do.
+    mat := get_mutation_material(player.selected_brainrot_item.mutation);
+    if mat != null {
+        UI.push_material(mat);
+        UI.quad(rect, icon);
+        UI.pop_material();
+    } else {
+        UI.quad(rect, icon);
+    }
 }
 
 place_brainrot_from_item :: proc(pedestal: Pedestal, player: Player, item: Brainrot_Item) -> bool {
@@ -276,13 +286,13 @@ auto_equip_best :: proc(player: Player) {
     now := get_time();
     if now < player.equip_best_next_at {
         remaining := player.equip_best_next_at - now;
-        Notifier.notify(player, "Equip Best on cooldown (%s)", {format_float(remaining, decimals=1)});
+        show_notification(player, "Equip Best on cooldown (%s)", {format_float(remaining, decimals=1)});
         return;
     }
 
     room := player.my_room;
     if room == null {
-        Notifier.notify(player, "No base claimed.");
+        show_notification(player, "No base claimed.");
         return;
     }
     inv := player.default_inventory;
@@ -366,11 +376,11 @@ auto_equip_best :: proc(player: Player) {
 
     if swaps > 0 {
         save_room_brainrots(player, room);
-        Notifier.notify(player, "Equipped best (% swap%0)", {swaps, ""});
+        show_notification(player, "Equipped best (% swap%0)", {swaps, ""});
     } else if cashed_out > 0 {
-        Notifier.notify(player, "Collected %", {format_cash(cashed_out)});
+        show_notification(player, "Collected %", {format_cash(cashed_out)});
     } else {
-        Notifier.notify(player, "Already at best!");
+        show_notification(player, "Already at best!");
     }
 }
 

@@ -125,14 +125,14 @@ register_default_shop_items :: proc() {
 on_shop_item_clicked :: proc(player: Player, item: Shop_Item) {
     if item == null return;
     if item.price < 0 {
-        Notifier.notify(player, "Claimed %!", {item.title});
+        show_notification(player, "Claimed %!", {item.title});
         return;
     }
     if Economy.can_withdraw_currency(player, SPARKS_CURRENCY, item.price) {
         Economy.withdraw_currency(player, SPARKS_CURRENCY, item.price);
-        Notifier.notify(player, "Purchased % for % Sparks", {item.title, item.price});
+        show_notification(player, "Purchased % for % Sparks", {item.title, item.price});
     } else {
-        Notifier.notify(player, "Not enough Sparks!");
+        show_notification(player, "Not enough Sparks!");
     }
 }
 

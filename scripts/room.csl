@@ -455,6 +455,12 @@ init_npc_room :: proc(r: Room_Npc) {
     }
     for i: 0..r.pedestals.count - 1 {
         respawn_npc_on_pedestal(r, i);
+        // Stagger the FIRST respawn timer per pedestal so they don't all tick
+        // (and visibly refresh) in lockstep. Later respawns use the flat
+        // NPC_SPAWN_INTERVAL set inside respawn_npc_on_pedestal.
+        if i >= 1 && i < r.pedestal_timers.count {
+            r.pedestal_timers[i] = rng_range_float(ref r.rng, NPC_SPAWN_INTERVAL * 0.25, NPC_SPAWN_INTERVAL);
+        }
     }
 
     r.chasers.clear();
@@ -826,27 +832,27 @@ load_room_brainrots :: proc(player: Player, room: Room) {
 claim_room_cmd :: proc(player: Player) {
     existing := player.my_room;
     if existing != null {
-        Notifier.notify(player, "You already own a base.");
+        show_notification(player, "You already own a base.");
         return;
     }
     room := find_free_room();
     if room == null {
-        Notifier.notify(player, "No free base available.");
+        show_notification(player, "No free base available.");
         return;
     }
     room.claim_room(player);
-    Notifier.notify(player, "Base claimed!");
+    show_notification(player, "Base claimed!");
 } @chat_command @any
 
 place_brainrot_cmd :: proc(player: Player, id: string = "tralalero") {
     room := player.my_room;
     if room == null {
-        Notifier.notify(player, "Claim a base first with /claim_room_cmd");
+        show_notification(player, "Claim a base first with /claim_room_cmd");
         return;
     }
     pedestal := room.find_empty_pedestal();
     if pedestal == null {
-        Notifier.notify(player, "All pedestals are full.");
+        show_notification(player, "All pedestals are full.");
         return;
     }
     configs := get_brainrot_configs();
@@ -854,12 +860,12 @@ place_brainrot_cmd :: proc(player: Player, id: string = "tralalero") {
         if c.id == id {
             le := spawn_brainrot_on_pedestal(pedestal, c);
             if le == null {
-                Notifier.notify(player, "Spawn failed (check prefab + LivingEntity component).");
+                show_notification(player, "Spawn failed (check prefab + LivingEntity component).");
                 return;
             }
-            Notifier.notify(player, "Placed %", {c.display_name});
+            show_notification(player, "Placed %", {c.display_name});
             return;
         }
     }
-    Notifier.notify(player, "Unknown brainrot id: %", {id});
+    show_notification(player, "Unknown brainrot id: %", {id});
 } @chat_command

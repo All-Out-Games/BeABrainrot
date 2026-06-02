@@ -7,8 +7,11 @@
 // velocity via friction (≈ 60/s), so steady-state world-units/sec = speed / 60.
 MOVING_TOWARD_FRICTION_DIVISOR :: 60.0;
 // Final scale applied to the computed speed. 1.0 = matches normal movement's
-// steady-state rate (speed / 60); lower to slow the auto-walk down.
-MOVING_TOWARD_SPEED_SCALE      :: 1.0;
+// steady-state rate (speed / 60). When the player isn't steering, the ride is
+// slower (0.5) so the hands-off cruise doesn't feel too fast; pressing a
+// direction speeds it up to full.
+MOVING_TOWARD_SPEED_SCALE_IDLE  :: 0.5;
+MOVING_TOWARD_SPEED_SCALE_INPUT :: 1.0;
 
 Moving_Toward_Effect :: class : Effect_Base {
     saved_default_camera_size: float;
@@ -24,14 +27,17 @@ Moving_Toward_Effect :: class : Effect_Base {
         if player == null return;
         if !#alive(player.entity) return;
 
-        // Player pressing any direction → use their upgrade speed.
-        // No input → fall back to base speed (BASE_SPEED → 300 agent units).
+        // Player pressing any direction → use their upgrade speed at full scale.
+        // No input → fall back to base speed and the slower idle scale so the
+        // hands-off cruise isn't too fast.
         input := player.input_this_frame;
         stat_speed: s64 = BASE_SPEED;
+        scale := MOVING_TOWARD_SPEED_SCALE_IDLE;
         if input.x != 0 || input.y != 0 {
             stat_speed = player.speed;
+            scale = MOVING_TOWARD_SPEED_SCALE_INPUT;
         }
-        units_per_sec := compute_agent_movement_speed(stat_speed) / MOVING_TOWARD_FRICTION_DIVISOR * MOVING_TOWARD_SPEED_SCALE;
+        units_per_sec := compute_agent_movement_speed(stat_speed) / MOVING_TOWARD_FRICTION_DIVISOR * scale;
 
         pos := player.entity.local_position;
         pos.y += units_per_sec * dt;

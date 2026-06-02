@@ -167,7 +167,7 @@ draw_skin_shop :: proc(player: Player) {
     }
     for i: 0..rebirth_h.count - 1 {
         if UIK.clicked(rebirth_h[i]) {
-            Notifier.notify(player, "Reach Rebirth % to unlock!", {rebirth_n[i]});
+            show_notification(player, "Reach Rebirth % to unlock!", {rebirth_n[i]});
         }
     }
     for i: 0..buy_h.count - 1 {

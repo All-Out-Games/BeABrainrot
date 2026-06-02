@@ -1,5 +1,30 @@
 // Tag effect: player has been caught at least once by an NPC chaser. Read by
 // Npc_Chaser.on_catch to decide between first-catch (just tag) and second-catch
-// (escort to jail).
+// (escort to jail). Also drives the carry/drop SFX while the player is escorted.
 Catched_By_Npc_Effect :: class : Effect_Base {
+    effect_start :: method() {
+        if player == null return;
+        // Picked up by the NPC — play the carry sound for that player only.
+        sfx := get_asset(SFX_Asset, "SFX/CarryPlayer.wav");
+        if sfx != null {
+            desc := SFX.default_sfx_desc();
+            desc.specific_to_player = player;
+            desc.positional = false;
+            desc.volume = 0.8;
+            SFX.play(sfx, desc);
+        }
+    }
+
+    effect_end :: method(interrupt: bool) {
+        if player == null return;
+        // Dropped (escorted to jail / released) — play the drop sound.
+        sfx := get_asset(SFX_Asset, "SFX/DropPlayer.wav");
+        if sfx != null {
+            desc := SFX.default_sfx_desc();
+            desc.specific_to_player = player;
+            desc.positional = false;
+            desc.volume = 0.8;
+            SFX.play(sfx, desc);
+        }
+    }
 }

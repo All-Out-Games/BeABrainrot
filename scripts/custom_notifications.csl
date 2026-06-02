@@ -1,0 +1,144 @@
+// Custom notification stack — CSL port of MergeBrainrotRework's
+// scripts/ui/CustomNotifications.cs. A small list of timed text toasts, each
+// with a black strip sized to the text, stacked in the upper-center; the newest
+// sits at the base and older ones stack upward (Y grows up) as they expire.
+//
+// Per the engine's networking model the list lives on the Player (not a global
+// static) so it works with multiple connected players, mirroring cash_popups.
+// Append with show_notification(); tick in Player.ao_update; draw in
+// Player.ao_late_update under is_local_or_server.
+
+NOTIF_MAX            :: 6;
+NOTIF_DURATION       :: 6.0;
+NOTIF_SPACING        :: 84.0;   // vertical gap between stacked toasts (1080p ref px)
+NOTIF_BASE_OFFSET_Y  :: -320.0; // newest toast's offset from center (Y grows up, so negative = lower half, like the original)
+NOTIF_BOX_HALF_W     :: 300.0;  // autofit box half-width (1080p ref px)
+NOTIF_BOX_HALF_H     :: 46.0;   // autofit box half-height — drives how tall text can get
+NOTIF_TEXT_MIN       :: 44.0;   // autofit min font size
+NOTIF_TEXT_MAX       :: 92.0;   // autofit max font size
+NOTIF_BG_PAD         :: 12.0;   // black strip padding around the text
+NOTIF_LAYER          :: 80;     // text layer; strip drawn one below
+NOTIF_FADE_OUT       :: 0.6;    // seconds of fade-out at the end (the one addition)
+
+// Default toast color — the warm red the original used (callers usually pass one).
+NOTIF_DEFAULT_COLOR  :: v4{1.0, 0.35, 0.45, 1.0};
+
+// Notification sounds, copied from the C# project (References.StolenBrainrotSound
+// / ...SoundSuccess). The default "ding" plays on every toast; pass
+// notif_sound_success() for a celebratory one (rebirth, big claim, etc.).
+NOTIF_SOUND_DEFAULT_PATH :: "SFX/SFX_UI_Fillup_Star_1.wav";
+NOTIF_SOUND_SUCCESS_PATH :: "SFX/SFX_UI_Countdown_SciFi_Begin.wav";
+NOTIF_SOUND_VOLUME       :: 0.8;
+
+notif_sound_default :: proc() -> SFX_Asset { return get_asset(SFX_Asset, NOTIF_SOUND_DEFAULT_PATH); }
+notif_sound_success :: proc() -> SFX_Asset { return get_asset(SFX_Asset, NOTIF_SOUND_SUCCESS_PATH); }
+
+Custom_Note :: struct {
+    text:     string;
+    age:      float;
+    duration: float;
+    color:    v4;
+}
+
+// Queue a notification for the player. `args` are format args (same position as
+// the engine's Notifier.notify, so converting call sites is a pure rename).
+// Color defaults to the warm red; duration to 6s. `sound` left null plays the
+// default ding; pass notif_sound_success() for the celebratory one.
+show_notification :: proc(player: Player, message: string, args: [^]any = {}, color: v4 = NOTIF_DEFAULT_COLOR, duration: float = NOTIF_DURATION, sound: SFX_Asset = null) {
+    if player == null return;
+    if message.count == 0 return;
+    n: Custom_Note;
+    n.text     = format_string(message, args);
+    n.age      = 0;
+    n.duration = duration;
+    n.color    = color;
+    append(ref player.notifications, n);
+    // Keep the stack bounded — drop the oldest (front) when over the cap.
+    while player.notifications.count > NOTIF_MAX {
+        ordered_remove_by_index(ref player.notifications, 0);
+    }
+
+    // Play the sound for the actual player only. `specific_to_player` routes it
+    // to that one client (same as the purge-alarm SFX), and `positional = false`
+    // makes it a 2D UI sound with no spatial range, so it plays at full volume
+    // no matter where the player has moved.
+    s := sound;
+    if s == null s = notif_sound_default();
+    if s != null {
+        desc := SFX.default_sfx_desc();
+        desc.specific_to_player = player;
+        desc.positional = false;
+        desc.volume = NOTIF_SOUND_VOLUME;
+        SFX.play(s, desc);
+    }
+}
+
+// Test: spits out a few colored notifications. Try `/notif`.
+notif_test :: proc(player: Player) {
+    show_notification(player, "Gold brainrot spawned!", {}, v4{1.0, 0.85, 0.10, 1});
+    show_notification(player, "Rainbow brainrot spawned!", {}, v4{1.0, 0.5, 1.0, 1});
+    show_notification(player, "Welcome back!");
+} @chat_command
+
+tick_notifications :: proc(player: Player, dt: float) {
+    i := player.notifications.count - 1;
+    while i >= 0 {
+        player.notifications[i].age += dt;
+        if player.notifications[i].age >= player.notifications[i].duration {
+            // Order-preserving so stack positions stay stable as toasts age.
+            ordered_remove_by_index(ref player.notifications, i);
+        }
+        i -= 1;
+    }
+}
+
+draw_notifications :: proc(player: Player) {
+    n := player.notifications.count;
+    if n == 0 return;
+
+    UI.push_screen_draw_context();
+    defer UI.pop_draw_context();
+
+    // Base rect where the newest toast sits; older toasts offset upward.
+    base := UI.get_safe_screen_rect().center_rect().offset(0, NOTIF_BASE_OFFSET_Y).grow(NOTIF_BOX_HALF_H, NOTIF_BOX_HALF_W, NOTIF_BOX_HALF_H, NOTIF_BOX_HALF_W);
+
+    for i: 0..n - 1 {
+        note := player.notifications[i];
+
+        // Subtle fade-out over the final NOTIF_FADE_OUT seconds (the lone
+        // addition over the original, which popped out instantly).
+        alpha: float = 1.0;
+        remaining := note.duration - note.age;
+        if remaining < NOTIF_FADE_OUT {
+            alpha = remaining / NOTIF_FADE_OUT;
+            if alpha < 0 alpha = 0;
+        }
+
+        // Oldest gets the largest upward offset; newest gets 0 (sits at base).
+        y_offset := (n - 1 - i).(float) * NOTIF_SPACING;
+        rect := base.offset(0, y_offset);
+
+        ts := UI.default_text_settings();
+        ts.size              = NOTIF_TEXT_MAX;
+        ts.do_autofit        = true;
+        ts.autofit_min_size  = NOTIF_TEXT_MIN;
+        ts.autofit_max_size  = NOTIF_TEXT_MAX;
+        ts.halign            = .CENTER;
+        ts.valign            = .CENTER;
+        ts.do_outline        = true;
+        ts.outline_thickness = 3.0;
+        ts.outline_color     = v4{0, 0, 0, alpha};
+        c := note.color;
+        ts.color = v4{c.x, c.y, c.z, c.w * alpha};
+
+        // Text on the notification layer; the strip one layer below so it sits
+        // behind the text (matches the original's TextSync + Image(layer-1)).
+        UI.push_layer(NOTIF_LAYER);
+        text_rect := UI.text_sync(rect, ts, note.text);
+        UI.pop_layer();
+
+        UI.push_layer(NOTIF_LAYER - 1);
+        UI.quad(text_rect.grow(NOTIF_BG_PAD, NOTIF_BG_PAD, NOTIF_BG_PAD, NOTIF_BG_PAD), core_globals.white_sprite, v4{0, 0, 0, 0.5 * alpha});
+        UI.pop_layer();
+    }
+}

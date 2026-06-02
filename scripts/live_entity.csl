@@ -360,6 +360,20 @@ LivingEntity :: class : Interactable {
             // Picking up via carry needs empty hands AND a room to bring it back to.
             if is_carrying(player) return false;
             if player.my_room == null return false;
+
+            // NPC-room brainrots: you may only steal from the room you were
+            // assigned (active_steal_room, set on auto-walk entry). This stops a
+            // player from outrunning the chaser and stealing from a room they
+            // were never escorted into.
+            if this.#type == LivingEntity_Npc {
+                if player.active_steal_room == null return false;
+                my_npc_room: Room_Npc;
+                if pedestal != null && pedestal.room != null && pedestal.room.#type == Room_Npc {
+                    my_npc_room = pedestal.room.(Room_Npc);
+                }
+                if my_npc_room == null return false;
+                if player.active_steal_room != my_npc_room return false;
+            }
             return true;
         }
         // CLAIMED_IN_BASE — owner can pull it into inventory even while carrying.
@@ -402,7 +416,7 @@ LivingEntity :: class : Interactable {
     try_upgrade :: method(player: Player) -> bool {
         price := get_upgrade_price();
         if !withdraw_cash(player, price) {
-            Notifier.notify(player, "Not enough cash!");
+            show_notification(player, "Not enough cash!");
             return false;
         }
         level += 1;

@@ -70,7 +70,7 @@ gm_on_npc_line_enter :: proc(listener: Component, player: Player) {
         if player.my_room != null && #alive(player.my_room.entity) {
             player.entity.set_world_position(player.my_room.entity.world_position);
         }
-        Notifier.notify(player, "Inventory full!");
+        show_notification(player, "Inventory full!");
         return;
     }
 

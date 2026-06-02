@@ -158,7 +158,7 @@ do_rebirth :: proc(player: Player, force: bool = false) -> bool {
         if player.my_room != null player.my_room.refresh_pedestal_unlocks();
     }
 
-    Notifier.notify(player, "Rebirth %!", {player.rebirth_level});
+    show_notification(player, "Rebirth %!", {player.rebirth_level});
     return true;
 }
 
@@ -411,7 +411,7 @@ draw_rebirth_modal :: proc(player: Player) {
     }
     if UIK.clicked(rebirth_h) {
         if !do_rebirth(player) {
-            Notifier.notify(player, "Not enough speed for rebirth!");
+            show_notification(player, "Not enough speed for rebirth!");
         }
     }
     if UIK.clicked(skip_h) {
@@ -537,5 +537,5 @@ set_rebirth :: proc(player: Player, level: s64 = 0) {
     player.rebirth_level = level;
     Save.set_int(player, REBIRTH_SAVE_KEY, level);
     mult := get_rebirth_multiplier(player, "money");
-    Notifier.notify(player, "Rebirth set to % (%0x money)", {level, format_float(mult, decimals=1)});
+    show_notification(player, "Rebirth set to % (%0x money)", {level, format_float(mult, decimals=1)});
 } @chat_command

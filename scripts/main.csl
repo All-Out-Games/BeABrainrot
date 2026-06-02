@@ -93,7 +93,7 @@ ao_start :: proc() {
 
 give_cash :: proc(player: Player, amount: float = 1000) {
     deposit_cash(player, amount);
-    Notifier.notify(player, "+% cash", {format_cash(amount)});
+    show_notification(player, "+% cash", {format_cash(amount)});
 } @chat_command
 
 remove_cash :: proc(player: Player, amount: float = 1000) {
@@ -102,17 +102,17 @@ remove_cash :: proc(player: Player, amount: float = 1000) {
     player.cash -= take;
     Save.set_f64(player, CASH_SAVE_KEY, player.cash.(f64));
     push_cash_popup(player, take, true);
-    Notifier.notify(player, "-% cash", {format_cash(take)});
+    show_notification(player, "-% cash", {format_cash(take)});
 } @chat_command
 
 set_speed_cmd :: proc(player: Player, value: s64 = 18) {
     set_speed(player, value);
-    Notifier.notify(player, "Speed set to %", {player.speed});
+    show_notification(player, "Speed set to %", {player.speed});
 } @chat_command
 
 set_permanent_speed :: proc(player: Player, value: s64 = 0) {
     player.set_permanent_speed(value);
-    Notifier.notify(player, "Permanent speed set to +%", {player.purchased_speed});
+    show_notification(player, "Permanent speed set to +%", {player.purchased_speed});
 } @chat_command
 
 set_floor_cmd :: proc(player: Player, floor: s64 = 0) {
@@ -120,7 +120,7 @@ set_floor_cmd :: proc(player: Player, floor: s64 = 0) {
     player.current_floor = floor;
     fm := get_floor_manager();
     if fm != null fm.apply_visibility(player);
-    Notifier.notify(player, "Current floor: %", {floor});
+    show_notification(player, "Current floor: %", {floor});
 } @chat_command
 
 srb :: proc(player: Player) {
@@ -129,7 +129,7 @@ srb :: proc(player: Player) {
     rng: u64 = rng_seed(Time.nanoseconds_since_epoch());
     configs := get_brainrot_configs();
     if configs.count <= 0 {
-        Notifier.notify(player, "No brainrot configs registered.");
+        show_notification(player, "No brainrot configs registered.");
         return;
     }
 
@@ -146,7 +146,7 @@ srb :: proc(player: Player) {
     pos := player.entity.world_position;
     le := spawn_brainrot(config.id, pos);
     if le == null {
-        Notifier.notify(player, "Spawn failed (check Brainrot.prefab).");
+        show_notification(player, "Spawn failed (check Brainrot.prefab).");
         return;
     }
     le.mutation = mut;
@@ -154,9 +154,9 @@ srb :: proc(player: Player) {
     le.update_visuals();
 
     if mut == Mutation.NONE {
-        Notifier.notify(player, "Spawned % (Lv %)", {config.display_name, le.level});
+        show_notification(player, "Spawned % (Lv %)", {config.display_name, le.level});
     } else {
-        Notifier.notify(player, "Spawned % % (Lv %)", {get_mutation_name(mut), config.display_name, le.level});
+        show_notification(player, "Spawned % % (Lv %)", {get_mutation_name(mut), config.display_name, le.level});
     }
 } @chat_command
 
@@ -262,7 +262,7 @@ srbm :: proc(player: Player) {
     rng: u64 = rng_seed(Time.nanoseconds_since_epoch());
     configs := get_brainrot_configs();
     if configs.count <= 0 {
-        Notifier.notify(player, "No brainrot configs registered.");
+        show_notification(player, "No brainrot configs registered.");
         return;
     }
 
@@ -280,14 +280,14 @@ srbm :: proc(player: Player) {
     pos := player.entity.world_position;
     le := spawn_brainrot(config.id, pos);
     if le == null {
-        Notifier.notify(player, "Spawn failed (check Brainrot.prefab).");
+        show_notification(player, "Spawn failed (check Brainrot.prefab).");
         return;
     }
     le.mutation = mut;
     le.level = rng_range_int(ref rng, 1, 19);
     le.update_visuals();
 
-    Notifier.notify(player, "Spawned % % (Lv %)", {get_mutation_name(mut), config.display_name, le.level});
+    show_notification(player, "Spawned % % (Lv %)", {get_mutation_name(mut), config.display_name, le.level});
 } @chat_command
 
 ao_update :: proc(dt: float) {
@@ -359,6 +359,7 @@ Player :: class : Player_Base {
     cash: float;
     displayed_cash: float;
     cash_popups: [..]Cash_Popup;
+    notifications: [..]Custom_Note;
     selected_brainrot_item: Brainrot_Item;
     show_sell_modal: bool;
     show_sell_all_confirm: bool;
@@ -418,6 +419,7 @@ Player :: class : Player_Base {
             animator.layer = current_floor.(s32);
         }
         tick_cash_animations(this, dt);
+        tick_notifications(this, dt);
 
         // Zoom the camera out while the Being_Chased marker is active so you
         // can see the NPC and plan an escape. Skip while Moving_Toward is
@@ -519,6 +521,7 @@ Player :: class : Player_Base {
             draw_shop_v3(this);
             draw_skin_shop(this);
             draw_debug_living_entity(this);
+            draw_notifications(this);
         }
         if is_local() {
             draw_floor_shadow(this);

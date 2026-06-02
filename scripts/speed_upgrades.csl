@@ -71,7 +71,7 @@ speed_upgrade_cash_cost :: proc(current_speed: s64, amount: s64) -> float {
 try_buy_speed_upgrade_cash :: proc(player: Player, amount: s64) -> bool {
     cash_cost := speed_upgrade_cash_cost(player.speed, amount);
     if player.cash < cash_cost {
-        Notifier.notify(player, "Not enough Cash!");
+        show_notification(player, "Not enough Cash!");
         return false;
     }
     withdraw_cash(player, cash_cost);

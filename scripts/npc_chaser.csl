@@ -13,7 +13,7 @@ NPC_ARRIVED_RADIUS_SQ      :: 0.04;   // 0.2 wu
 NPC_HOME_RADIUS_SQ         :: 0.0025; // 0.05 wu
 NPC_CHASE_WINDUP_SPEED     :: 0.5;    // wu/s during the wind-up after a re-trigger
 NPC_CHASE_WINDUP_DURATION  :: 1;    // seconds of wind-up before sprint kicks in
-NPC_CHASE_SPRINT_MULT      :: 2.0;    // multiplier applied to NPC chase speed when its stat > player's (guarantees the slower player is caught regardless of starting gap)
+NPC_CHASE_SPRINT_MULT      :: 3.5;    // multiplier applied to NPC chase speed when its stat > player's (guarantees the slower player is caught regardless of starting gap — must comfortably exceed the player's auto-walk speed so they can't pass through a room before the catch)
 NPC_ESCORT_FREEZE_REASON   :: "escort_to_jail";
 
 Npc_Chaser :: class : Component {

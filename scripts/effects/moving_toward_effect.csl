@@ -6,8 +6,9 @@
 // Engine integrates `velocities += inputs * dt * movement_speed` and drains
 // velocity via friction (≈ 60/s), so steady-state world-units/sec = speed / 60.
 MOVING_TOWARD_FRICTION_DIVISOR :: 60.0;
-// Final scale applied to the computed speed (slow the auto-walk down).
-MOVING_TOWARD_SPEED_SCALE      :: 0.5;
+// Final scale applied to the computed speed. 1.0 = matches normal movement's
+// steady-state rate (speed / 60); lower to slow the auto-walk down.
+MOVING_TOWARD_SPEED_SCALE      :: 1.0;
 
 Moving_Toward_Effect :: class : Effect_Base {
     saved_default_camera_size: float;
@@ -34,6 +35,11 @@ Moving_Toward_Effect :: class : Effect_Base {
 
         pos := player.entity.local_position;
         pos.y += units_per_sec * dt;
+
+        // Hard ceiling: never auto-walk past the last NPC room's bounds Y.
+        ceiling, has_ceiling := get_last_npc_room_ceiling_y();
+        if has_ceiling && pos.y > ceiling pos.y = ceiling;
+
         player.entity.set_local_position(pos);
     }
 

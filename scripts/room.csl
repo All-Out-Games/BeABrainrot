@@ -289,6 +289,10 @@ BRAINROT_NPC_PREFAB_PATH :: "Brainrot_Npc.prefab";
 // iterate them without scanning the whole scene each frame.
 g_npc_rooms: [..]Room_Npc;
 
+// The "RoomNPCLast" room, cached on its init. Its bounds-trigger top Y is the
+// auto-walk ceiling. null until that room initializes.
+g_last_npc_room: Room_Npc;
+
 Room_Npc :: class : Room {
     spawnable_brainrot_ids: [..]string         @ao_serialize;
     chase_trigger:          Trigger_Volume     @ao_serialize;
@@ -387,6 +391,18 @@ is_local_active_steal_room :: proc(r: Room_Npc) -> bool {
     return local.active_steal_room == r;
 }
 
+// Top Y of the last NPC room's bounds trigger (g_last_npc_room) — the hard
+// ceiling for the auto-walk. Returns false until that room has initialized.
+get_last_npc_room_ceiling_y :: proc() -> float, bool {
+    r := g_last_npc_room;
+    if r == null return 0, false;
+    if r.trigger == null return 0, false;
+    if !#alive(r.trigger.corner_a) || !#alive(r.trigger.corner_b) return 0, false;
+    ay := r.trigger.corner_a.world_position.y;
+    by := r.trigger.corner_b.world_position.y;
+    return max(ay, by), true;
+}
+
 // Big world-space NPC name, drawn over the room while the roof is shown. The
 // label is anchored at the roof's 2nd child (index 1).
 NPC_ROOM_NAME_SIZE :: 2.2;
@@ -425,6 +441,7 @@ draw_npc_room_name :: proc(r: Room_Npc) {
 
 init_npc_room :: proc(r: Room_Npc) {
     append(ref g_npc_rooms, r); // register for g_npc_rooms iteration
+    if #alive(r.entity) && r.entity.get_name() == "RoomNPCLast" g_last_npc_room = r;
 
     seed_input: u64 = Time.nanoseconds_since_epoch();
     if #alive(r.entity) seed_input += r.entity.id.(u64);

@@ -19,17 +19,19 @@ format_compact :: proc(v: float) -> string {
 }
 
 format_cash :: proc(amount: float) -> string {
-    if amount < CASH_1K  return format_string("$%",   {format_compact(amount)});
-    if amount < CASH_1M  return format_string("$%K",  {format_compact(amount / CASH_1K)});
-    if amount < CASH_1B  return format_string("$%M",  {format_compact(amount / CASH_1M)});
-    if amount < CASH_1T  return format_string("$%B",  {format_compact(amount / CASH_1B)});
-    if amount < CASH_1Q  return format_string("$%T",  {format_compact(amount / CASH_1T)});
-    if amount < CASH_1QN return format_string("$%Q",  {format_compact(amount / CASH_1Q)});
-    if amount < CASH_1SX return format_string("$%Qn", {format_compact(amount / CASH_1QN)});
-    if amount < CASH_1SP return format_string("$%S",  {format_compact(amount / CASH_1SX)});
-    if amount < CASH_1OC return format_string("$%Sp", {format_compact(amount / CASH_1SP)});
-    if amount < CASH_1NO return format_string("$%Oc", {format_compact(amount / CASH_1OC)});
-    if amount < CASH_1DC return format_string("$%No", {format_compact(amount / CASH_1NO)});
-    return format_string("$%Dc", {format_compact(amount / CASH_1DC)});
+    // A space separates the number from the suffix so e.g. "120.1Oc" doesn't
+    // read as "120.10c" (the O running into the digit).
+    if amount < CASH_1K  return format_string("$%",    {format_compact(amount)});
+    if amount < CASH_1M  return format_string("$% K",  {format_compact(amount / CASH_1K)});
+    if amount < CASH_1B  return format_string("$% M",  {format_compact(amount / CASH_1M)});
+    if amount < CASH_1T  return format_string("$% B",  {format_compact(amount / CASH_1B)});
+    if amount < CASH_1Q  return format_string("$% T",  {format_compact(amount / CASH_1T)});
+    if amount < CASH_1QN return format_string("$% Q",  {format_compact(amount / CASH_1Q)});
+    if amount < CASH_1SX return format_string("$% Qn", {format_compact(amount / CASH_1QN)});
+    if amount < CASH_1SP return format_string("$% S",  {format_compact(amount / CASH_1SX)});
+    if amount < CASH_1OC return format_string("$% Sp", {format_compact(amount / CASH_1SP)});
+    if amount < CASH_1NO return format_string("$% Oc", {format_compact(amount / CASH_1OC)});
+    if amount < CASH_1DC return format_string("$% No", {format_compact(amount / CASH_1NO)});
+    return format_string("$% Dc", {format_compact(amount / CASH_1DC)});
 }
 

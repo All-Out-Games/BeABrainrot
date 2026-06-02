@@ -1,0 +1,110 @@
+ADO97_ssundee.png
+	size: 264, 724
+	filter: Linear, Linear
+ssundee/Paint Layer 37
+	bounds: 161, 470, 196, 48
+	offsets: 1, 1, 198, 50
+	rotate: 90
+ssundee/body
+	bounds: 3, 506, 155, 214
+ssundee/eye_L
+	bounds: 140, 23, 31, 29
+	offsets: 1, 1, 33, 31
+ssundee/eye_R
+	bounds: 228, 195, 28, 26
+	offsets: 1, 1, 30, 28
+ssundee/eye_closed_L
+	bounds: 228, 163, 28, 29
+	offsets: 1, 1, 30, 30
+ssundee/eye_closed_R
+	bounds: 3, 5, 24, 27
+	offsets: 1, 1, 26, 29
+	rotate: 90
+ssundee/eye_happy_L
+	bounds: 228, 9, 29, 23
+	offsets: 1, 1, 31, 25
+ssundee/eye_happy_R
+	bounds: 33, 3, 26, 23
+	offsets: 1, 1, 28, 25
+ssundee/eyebrow_L
+	bounds: 140, 4, 36, 16
+	offsets: 1, 1, 38, 18
+ssundee/eyebrow_R
+	bounds: 179, 6, 28, 13
+	offsets: 1, 1, 30, 15
+ssundee/eyebrow_disappointed_L
+	bounds: 223, 686, 34, 20
+	offsets: 1, 1, 36, 22
+ssundee/eyebrow_disappointed_R
+	bounds: 128, 513, 25, 17
+	offsets: 1, 1, 27, 19
+ssundee/hand_L
+	bounds: 3, 243, 70, 79
+	offsets: 1, 1, 72, 81
+ssundee/hand_L_open
+	bounds: 167, 384, 83, 81
+	offsets: 0, 1, 84, 83
+	rotate: 90
+ssundee/hand_R
+	bounds: 164, 303, 78, 78
+	offsets: 1, 1, 80, 80
+ssundee/hand_closed_L
+	bounds: 158, 163, 67, 66
+	offsets: 1, 1, 69, 68
+ssundee/hand_closed_R
+	bounds: 164, 232, 71, 68
+	offsets: 1, 1, 73, 70
+ssundee/hand_pointing_R
+	bounds: 79, 252, 82, 70
+	offsets: 1, 1, 84, 72
+ssundee/head
+	bounds: 3, 324, 163, 187
+ssundee/lower_arm_L
+	bounds: 100, 53, 56, 82
+	rotate: 270
+ssundee/lower_arm_R
+	bounds: 177, 21, 70, 75
+ssundee/lower_leg_L
+	bounds: 160, 96, 64, 76
+	rotate: 90
+ssundee/lower_leg_R
+	bounds: 3, 87, 64, 78
+	rotate: 270
+ssundee/mouth
+	bounds: 223, 632, 51, 35
+	offsets: 1, 1, 53, 37
+	rotate: 90
+ssundee/mouth_disappointed
+	bounds: 212, 578, 51, 35
+	offsets: 1, 1, 53, 37
+	rotate: 90
+ssundee/mouth_happy
+	bounds: 78, 8, 59, 44
+	offsets: 1, 1, 61, 46
+ssundee/mouth_speak_1
+	bounds: 212, 470, 51, 44
+	offsets: 1, 1, 53, 46
+	rotate: 90
+ssundee/mouth_speak_2
+	bounds: 161, 669, 59, 45
+	offsets: 1, 1, 61, 47
+ssundee/mouth_speak_3
+	bounds: 212, 524, 51, 40
+	offsets: 1, 1, 53, 42
+	rotate: 90
+ssundee/mouth_speak_4
+	bounds: 3, 472, 51, 35
+	offsets: 1, 1, 53, 37
+	rotate: 90
+ssundee/upper_arm_L
+	bounds: 3, 153, 79, 87
+	rotate: 180
+ssundee/upper_arm_R
+	bounds: 69, 172, 77, 88
+	rotate: 90
+ssundee/upper_leg_L
+	bounds: 78, 110, 64, 80
+	rotate: 90
+ssundee/upper_leg_R
+	bounds: 3, 28, 58, 74
+	rotate: 90

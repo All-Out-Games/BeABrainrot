@@ -519,10 +519,19 @@ respawn_npc_on_pedestal :: proc(r: Room_Npc, i: s64) {
     id  := r.spawnable_brainrot_ids[idx];
 
     configs := get_brainrot_configs();
+    le: LivingEntity_Npc;
     for c: configs {
         if c.id != id continue;
-        spawn_npc_brainrot_on_pedestal(p, c);
+        le = spawn_npc_brainrot_on_pedestal(p, c);
         break;
+    }
+
+    // Roll a mutation. Floor-1 (and above) pedestals are "boosted" — they ALWAYS
+    // get a modifier; floor-0 pedestals only have the rare chance.
+    if le != null {
+        boosted := p.floor_renderer != null && p.floor_renderer.floor >= 1;
+        le.mutation = roll_mutation(ref r.rng, boosted);
+        le.update_visuals();
     }
 
     if i < r.pedestal_timers.count {

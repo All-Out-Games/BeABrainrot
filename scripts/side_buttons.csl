@@ -44,7 +44,7 @@ side_button_box :: proc() -> Shop2_Box {
     b.bottom         = v4{0, 0, 0, 0.5};
     b.band_color     = v4{0, 0, 0, 0};
     b.band_h         = 0.0;
-    b.corner_radius  = 22.0;
+    b.corner_radius  = 10.0;
     b.outline_px     = 5.0;
     b.outline_color  = v4{0, 0, 0, 1};
     b.dot_alpha      = 0.0;
@@ -73,13 +73,6 @@ SIDE_PULSE_SPEED :: 3.0;   // breathing rate
 // `animate` is set the icon "breathes" (size pulses) using the phase offset so
 // buttons don't bob in unison. icon is optional — pass null for a placeholder.
 draw_side_icon_button :: proc(id: string, label: string, mat: Material, icon: Texture_Asset, phase: float, animate: bool = false, disabled: bool = false) -> Interact_Result {
-    col := UIK.layout_column();
-    col.width       = UIK.flex(1);
-    col.height      = UIK.fit();
-    col.gap         = 2;
-    col.cross_align = .CENTER;
-    UIK.panel_begin(col);
-
     sq := UIK.layout_column();
     sq.width                       = UIK.pixels(SIDE_ICON_BOX);
     sq.height                      = UIK.pixels(SIDE_ICON_BOX);
@@ -111,13 +104,14 @@ draw_side_icon_button :: proc(id: string, label: string, mat: Material, icon: Te
     if icon != null UIK.image_fitted(icon, UIK.image_desc(.CONTAIN));
     UIK.panel_end();
 
-    UIK.panel_end(); // sq
-
+    // Label overlaid on the bottom edge of the square (on top of the background).
+    UIK.overlay_begin(.BOTTOM_CENTER, {0, -6});
     lbl := UIK.text_button();
     lbl.set_outline(true, 3.0, v4{0, 0, 0, 1});
     UIK.text(label, lbl);
+    UIK.overlay_end();
 
-    UIK.panel_end(); // col
+    UIK.panel_end(); // sq
     return h;
 }
 
@@ -131,6 +125,7 @@ draw_side_buttons :: proc(player: Player) {
     col.height = UIK.flex(1);
     col.padding = v4{8, 8, 8, 8};
     col.main_align = .CENTER;
+    col.cross_align = .CENTER;
     col.gap = 18;
     UIK.panel_begin(col);
 

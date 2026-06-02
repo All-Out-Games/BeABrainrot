@@ -125,6 +125,36 @@ get_mutation_gps_multiplier :: proc(m: Mutation) -> float {
     return 1.0;
 }
 
+// --- Mutation roll chances (floor 0, normal pedestals) ---
+// Most spawns are Normal; modifiers are rare, with gold most common and
+// rainbow the rarest. Candy is intentionally NOT rollable here — it's reserved
+// for a future candy event.
+MUT_CHANCE_GOLD    :: 0.12;
+MUT_CHANCE_DIAMOND :: 0.04;
+MUT_CHANCE_RAINBOW :: 0.012;
+
+// --- Boosted roll weights (floor 1 / VIP pedestals — ALWAYS a modifier) ---
+BOOST_WEIGHT_GOLD    :: 0.65;
+BOOST_WEIGHT_DIAMOND :: 0.27;
+// remainder (0.08) -> rainbow
+
+// Roll a mutation for a freshly-spawned brainrot. When `force` is set the
+// result is guaranteed to be a modifier (gold/diamond/rainbow) — used for
+// boosted floor-1 pedestals. Otherwise modifiers roll at the rare chances
+// above and most spawns come back NONE.
+roll_mutation :: proc(rng: ref u64, force: bool) -> Mutation {
+    r := rng_range_float(ref rng, 0.0, 1.0);
+    if force {
+        if r < BOOST_WEIGHT_GOLD return Mutation.GOLD;
+        if r < BOOST_WEIGHT_GOLD + BOOST_WEIGHT_DIAMOND return Mutation.DIAMOND;
+        return Mutation.RAINBOW;
+    }
+    if r < MUT_CHANCE_RAINBOW return Mutation.RAINBOW;
+    if r < MUT_CHANCE_RAINBOW + MUT_CHANCE_DIAMOND return Mutation.DIAMOND;
+    if r < MUT_CHANCE_RAINBOW + MUT_CHANCE_DIAMOND + MUT_CHANCE_GOLD return Mutation.GOLD;
+    return Mutation.NONE;
+}
+
 get_rarity_color :: proc(r: Rarity) -> v4 {
     if r == Rarity.RARE      return v4{0.3, 0.7, 1.0, 1};
     if r == Rarity.EPIC      return v4{0.7, 0.3, 1.0, 1};

@@ -380,9 +380,80 @@ equip_best_cmd :: proc(player: Player) {
 
 // ===== Navigation topbar =====
 
+// Shader materials for the topbar buttons — same box_panel.aosl look as the
+// rebirth / shop UIs. One material per button so each gets its own rect_px.
+NAV_MAT_BUY:    Material;
+NAV_MAT_BASE:   Material;
+NAV_MAT_SELL:   Material;
+NAV_MATS_READY: bool;
+
+nav_ensure_materials :: proc() -> bool {
+    if NAV_MATS_READY return true;
+
+    // Dots take their color from band_color and are drawn at dot_alpha. The
+    // presets often use a band hue close to the body (so dots vanish, e.g. red),
+    // so give each a darker contrasting dot color and crank the intensity.
+    green_box := shop2_box_green();
+    green_box.band_color = v4{0.10, 0.26, 0.03, 1};
+    green_box.dot_alpha  = 0.80;
+    green_box.dot_min_radius = 0.05;
+    green_box.dot_max_radius = 0.24;
+
+    // Blue "Base" preset (no shop2 blue exists) — cool azure body, navy band.
+    blue_box := shop2_box_dark();
+    blue_box.top        = v4{0.26, 0.55, 0.98, 1};
+    blue_box.bottom     = v4{0.12, 0.32, 0.78, 1};
+    blue_box.band_color = v4{0.04, 0.10, 0.32, 1};
+    blue_box.dot_alpha  = 0.80;
+    blue_box.dot_min_radius = 0.05;
+    blue_box.dot_max_radius = 0.24;
+
+    red_box := shop2_box_red();
+    red_box.band_color = v4{0.42, 0.03, 0.03, 1};
+    red_box.dot_alpha  = 0.80;
+    red_box.dot_min_radius = 0.05;
+    red_box.dot_max_radius = 0.24;
+
+    NAV_MAT_BUY  = rebirth_make_box_material(green_box);
+    NAV_MAT_BASE = rebirth_make_box_material(blue_box);
+    NAV_MAT_SELL = rebirth_make_box_material(red_box);
+    if NAV_MAT_BUY == null return false; // shader still loading
+
+    NAV_MATS_READY = true;
+    return true;
+}
+
+NAV_BTN_W :: 240.0;
+NAV_BTN_H :: 96.0;
+
+// Box_panel shader button sized for the topbar, with press darkening fed from
+// active_t_eased (mirrors rebirth_shader_button).
+nav_shader_button :: proc(id: string, label: string, mat: Material) -> Interact_Result {
+    btn := UIK.layout_row();
+    btn.width                       = UIK.pixels(NAV_BTN_W);
+    btn.height                      = UIK.pixels(NAV_BTN_H);
+    btn.main_align                  = .CENTER;
+    btn.cross_align                 = .CENTER;
+    btn.show_background              = true;
+    btn.tint                        = v4{1, 1, 1, 1};
+    btn.background_sprite_override   = core_globals.white_sprite;
+    btn.background_material_override = mat;
+    h := UIK.panel_begin_interactive(id, btn);
+    if mat != null {
+        mat.set_float4("rect_px", v4{h.rect.min.x, h.rect.min.y, h.rect.max.x, h.rect.max.y});
+        mat.set_float("press", h.active_t_eased);
+    }
+    bd := UIK.text_button();
+    bd.set_size_mult(1.2);
+    UIK.text(label, bd);
+    UIK.panel_end();
+    return h;
+}
+
 draw_navigation_topbar :: proc(player: Player) {
     if player == null return;
     if !#alive(player.entity) return;
+    if !nav_ensure_materials() return;
 
     UIK.begin(UIK.window(UIK.rect_topbar()));
 
@@ -390,28 +461,14 @@ draw_navigation_topbar :: proc(player: Player) {
     bar.width = UIK.flex(1);
     bar.height = UIK.flex(1);
     bar.padding = v4{8, 16, 8, 16};
-    bar.gap = 16;
+    bar.gap = 56;
     bar.main_align = .CENTER;
     bar.cross_align = .CENTER;
     UIK.panel_begin(bar);
 
-    btn_w := UIK.pixels(160);
-    btn_h := UIK.pixels(70);
-
-    buy_d := UIK.widget_desc_button_auto_default(.BUTTON_BASIC_GREEN);
-    buy_d.panel.width = btn_w;
-    buy_d.panel.height = btn_h;
-    buy_h := UIK.button("nav_buy", "Buy", buy_d);
-
-    base_d := UIK.widget_desc_button_auto_default(.BUTTON_BASIC_BLUE);
-    base_d.panel.width = btn_w;
-    base_d.panel.height = btn_h;
-    base_h := UIK.button("nav_base", "Base", base_d);
-
-    sell_d := UIK.widget_desc_button_auto_default(.BUTTON_BASIC_RED);
-    sell_d.panel.width = btn_w;
-    sell_d.panel.height = btn_h;
-    sell_h := UIK.button("nav_sell", "Sell", sell_d);
+    buy_h  := nav_shader_button("nav_buy",  "Buy",  NAV_MAT_BUY);
+    base_h := nav_shader_button("nav_base", "Base", NAV_MAT_BASE);
+    sell_h := nav_shader_button("nav_sell", "Sell", NAV_MAT_SELL);
 
     UIK.panel_end();
     UIK.end();
@@ -436,9 +493,127 @@ draw_navigation_topbar :: proc(player: Player) {
 SELL_COLS_PER_ROW :: 3;
 SELL_CARD_HEIGHT  :: 260.0;
 
+// box_panel shader materials for the sell modal — red shell + gold "Sell All"
+// button (fixed), plus a growable pool of card materials (one per visible card,
+// since UIK batches its draws at end() and a shared material would race rect_px).
+SELL_MAT_SHELL:      Material;
+SELL_MAT_ALL:        Material;
+SELL_MAT_CANCEL:     Material;
+SELL_MAT_CONFIRM_BG: Material;
+SELL_CARD_MATS:      [..]Material;
+SELL_BTN_MATS:       [..]Material;
+SELL_MATS_READY:     bool;
+
+sell_btn_box :: proc() -> Shop2_Box {
+    // Green "money" button so it pops against the red shell instead of
+    // blending in like a red-on-red button would.
+    b := shop2_box_green();
+    b.band_color    = v4{0.10, 0.26, 0.03, 1};
+    b.band_h        = 8.0;
+    b.corner_radius = 12.0;
+    b.outline_px    = 4.0;
+    b.dot_alpha     = 0.0;
+    return b;
+}
+
+// Per-card sell button material pool (one per visible card, same rect_px
+// reasoning as the card pool).
+sell_button_material :: proc(idx: s64) -> Material {
+    while SELL_BTN_MATS.count <= idx {
+        append(ref SELL_BTN_MATS, rebirth_make_box_material(sell_btn_box()));
+    }
+    return SELL_BTN_MATS[idx];
+}
+
+// Box_panel shader sell button (110x56) with press darkening.
+sell_shader_button :: proc(id: string, label: string, mat: Material) -> Interact_Result {
+    btn := UIK.layout_row();
+    btn.width                       = UIK.pixels(110);
+    btn.height                      = UIK.pixels(56);
+    btn.main_align                  = .CENTER;
+    btn.cross_align                 = .CENTER;
+    btn.show_background              = true;
+    btn.tint                        = v4{1, 1, 1, 1};
+    btn.background_sprite_override   = core_globals.white_sprite;
+    btn.background_material_override = mat;
+    h := UIK.panel_begin_interactive(id, btn);
+    if mat != null {
+        mat.set_float4("rect_px", v4{h.rect.min.x, h.rect.min.y, h.rect.max.x, h.rect.max.y});
+        mat.set_float("press", h.active_t_eased);
+    }
+    bd := UIK.text_button();
+    bd.set_size_mult(1.2);
+    UIK.text(label, bd);
+    UIK.panel_end();
+    return h;
+}
+
+sell_card_box :: proc() -> Shop2_Box {
+    b := shop2_box_dark();
+    b.top           = v4{0.48, 0.16, 0.20, 1};
+    b.bottom        = v4{0.28, 0.08, 0.12, 1};
+    b.band_color    = v4{0.70, 0.14, 0.16, 1};
+    b.band_h        = 12.0;
+    b.corner_radius = 14.0;
+    b.outline_px    = 4.0;
+    b.dot_alpha     = 0.10;
+    b.dot_min_radius = 0.05;
+    b.dot_max_radius = 0.24;
+    return b;
+}
+
+sell_ensure_materials :: proc() -> bool {
+    if SELL_MATS_READY return true;
+
+    shell_box := shop2_box_red();
+    shell_box.top           = v4{0.62, 0.13, 0.15, 1};
+    shell_box.bottom        = v4{0.32, 0.05, 0.07, 1};
+    shell_box.band_h        = 0.0;
+    shell_box.corner_radius = 22.0;
+    shell_box.outline_px    = 4.0;
+    shell_box.dot_alpha     = 0.10;
+    shell_box.dot_min_radius = 0.05;
+    shell_box.dot_max_radius = 0.22;
+
+    // Confirm dialog background — deep indigo so the gold confirm + red cancel
+    // buttons pop against it (instead of red-on-red with the sell shell).
+    confirm_box := shop2_box_dark();
+    confirm_box.top           = v4{0.16, 0.14, 0.28, 1};
+    confirm_box.bottom        = v4{0.07, 0.06, 0.14, 1};
+    confirm_box.band_h        = 0.0;
+    confirm_box.corner_radius = 22.0;
+    confirm_box.outline_px    = 4.0;
+    confirm_box.dot_alpha     = 0.08;
+    confirm_box.dot_min_radius = 0.05;
+    confirm_box.dot_max_radius = 0.22;
+
+    SELL_MAT_SHELL      = rebirth_make_box_material(shell_box);
+    SELL_MAT_ALL        = rebirth_make_box_material(shop2_box_gold());
+    SELL_MAT_CANCEL     = rebirth_make_box_material(shop2_box_red());
+    SELL_MAT_CONFIRM_BG = rebirth_make_box_material(confirm_box);
+    if SELL_MAT_SHELL == null return false; // shader still loading
+
+    // Gold "Sell All" gets the diagonal shine sweep so it stands out.
+    SELL_MAT_ALL.set_float("shine_strength", 1.0);
+    SELL_MAT_ALL.set_float("shine_speed",    1.2);
+
+    SELL_MATS_READY = true;
+    return true;
+}
+
+// Lazily grow the per-card material pool so each visible card has a unique
+// material (and therefore a unique rect_px) when UIK flushes at end().
+sell_card_material :: proc(idx: s64) -> Material {
+    while SELL_CARD_MATS.count <= idx {
+        append(ref SELL_CARD_MATS, rebirth_make_box_material(sell_card_box()));
+    }
+    return SELL_CARD_MATS[idx];
+}
+
 draw_sell_modal :: proc(player: Player) {
     if player == null return;
     if !player.show_sell_modal return;
+    if !sell_ensure_materials() return; // shaders still loading
     inv := player.default_inventory;
     if inv == null return;
 
@@ -456,9 +631,14 @@ draw_sell_modal :: proc(player: Player) {
 
     UIK.begin(UIK.modal(UIK.rect_window(), 15));
 
-    shell := UIK.panel_modal(.RED);
-    shell.gap = 0;
-    UIK.panel_begin(shell);
+    shell := UIK.panel_modal(.BLACK);
+    shell.gap                        = 0;
+    shell.show_background              = true;
+    shell.tint                       = v4{1, 1, 1, 1};
+    shell.background_sprite_override   = core_globals.white_sprite;
+    shell.background_material_override = SELL_MAT_SHELL;
+    shell_h := UIK.panel_begin_interactive("sell_shell", shell);
+    SELL_MAT_SHELL.set_float4("rect_px", v4{shell_h.rect.min.x, shell_h.rect.min.y, shell_h.rect.max.x, shell_h.rect.max.y});
 
     title_d := UIK.title_area_desc("SELL BRAINROTS");
     exit_h := UIK.title_area(title_d);
@@ -506,67 +686,71 @@ draw_sell_modal :: proc(player: Player) {
                 continue;
             }
 
-            cdesc := UIK.card_desc(UIK.flex(1), UIK.pixels(SELL_CARD_HEIGHT), v4{0.12, 0.12, 0.12, 1}, .PORTRAIT, 0.55, 0.18, 0.27);
-            UIK.card_begin(format_string("sell_card_%", {slot_idx}), cdesc);
+            card_mat := sell_card_material(i);
+            card := UIK.layout_column();
+            card.width                       = UIK.flex(1);
+            card.height                      = UIK.pixels(SELL_CARD_HEIGHT);
+            card.gap                         = 4;
+            card.padding                     = v4{10, 10, 10, 10};
+            card.cross_align                 = .CENTER;
+            card.show_background              = true;
+            card.tint                        = v4{1, 1, 1, 1};
+            card.background_sprite_override   = core_globals.white_sprite;
+            card.background_material_override = card_mat;
+            card_h := UIK.panel_begin_interactive(format_string("sell_card_%", {slot_idx}), card);
+            if card_mat != null {
+                card_mat.set_float4("rect_px", v4{card_h.rect.min.x, card_h.rect.min.y, card_h.rect.max.x, card_h.rect.max.y});
+            }
 
-            UIK.card_zone(.HEADER);
-                name_desc := UIK.text_button();
-                UIK.text_set_word_wrap(&name_desc, false);
-                UIK.text(defn.name, name_desc);
-            UIK.card_zone_end();
+            name_desc := UIK.text_button();
+            UIK.text_set_word_wrap(&name_desc, false);
+            UIK.text(defn.name, name_desc);
 
-            UIK.card_zone(.MEDIA);
-                icon := defn.get_icon();
-                if icon != null UIK.image_fitted(icon, UIK.image_desc(.CONTAIN));
-            UIK.card_zone_end();
+            icon := defn.get_icon();
+            media := UIK.layout_centered(UIK.flex(1), UIK.flex(1));
+            UIK.panel_begin(media);
+            if icon != null UIK.image_fitted(icon, UIK.image_desc(.CONTAIN));
+            UIK.panel_end();
 
-            UIK.card_zone(.FOOTER);
-                foot_row := UIK.layout_row();
-                foot_row.width  = UIK.flex(1);
-                foot_row.height = UIK.flex(1);
-                foot_row.cross_align = .CENTER;
-                foot_row.gap = 6;
-                UIK.panel_begin(foot_row);
+            foot_row := UIK.layout_row();
+            foot_row.width  = UIK.flex(1);
+            foot_row.height = UIK.pixels(56);
+            foot_row.cross_align = .CENTER;
+            foot_row.gap = 6;
+            UIK.panel_begin(foot_row);
 
-                sd := UIK.widget_desc_button_default(.BUTTON_BASIC_RED);
-                sd.panel.width  = UIK.pixels(56);
-                sd.panel.height = UIK.pixels(56);
-                sd.panel.main_align = .CENTER;
-                sd.panel.cross_align = .CENTER;
-                sd.panel.padding = v4{0, 0, 0, 0};
-                UIK.text_set_halign(&sd.label_text, .CENTER);
-                UIK.text_set_valign(&sd.label_text, .CENTER);
-                UIK.text_set_size_mult(&sd.label_text, 1.6);
-                h := UIK.button(format_string("sell_one_%", {slot_idx}), "$", sd);
-                append(ref sell_handles, h);
-                append(ref sell_handle_indices, slot_idx);
+            btn_mat := sell_button_material(i);
+            h := sell_shader_button(format_string("sell_one_%", {slot_idx}), "$", btn_mat);
+            append(ref sell_handles, h);
+            append(ref sell_handle_indices, slot_idx);
 
-                UIK.spacer(UIK.flex(1), UIK.pixels(1));
+            UIK.spacer(UIK.flex(1), UIK.pixels(1));
 
-                info := UIK.layout_column();
-                info.width  = UIK.fit();
-                info.height = UIK.fit();
-                info.cross_align = .END;
-                info.gap = 2;
-                UIK.panel_begin(info);
+            info := UIK.layout_column();
+            info.width  = UIK.fit();
+            info.height = UIK.fit();
+            info.cross_align = .END;
+            info.gap = 2;
+            UIK.panel_begin(info);
 
-                mut_label := get_mutation_name(br.mutation);
-                if mut_label.count == 0 mut_label = "Normal";
-                mut_text := UIK.text_body();
-                mut_text.color = get_mutation_color(br.mutation);
-                UIK.text_set_word_wrap(&mut_text, false);
-                UIK.text(mut_label, mut_text);
+            mut_label := get_mutation_name(br.mutation);
+            if mut_label.count == 0 mut_label = "Normal";
+            mut_text := UIK.text_body();
+            mut_text.color = get_mutation_color(br.mutation);
+            mut_text.set_outline(true, 2.5, v4{0, 0, 0, 1});
+            UIK.text_set_word_wrap(&mut_text, false);
+            UIK.text(mut_label, mut_text);
 
-                price_desc := UIK.text_body();
-                price_desc.color = v4{0.3, 1.0, 0.3, 1};
-                UIK.text_set_word_wrap(&price_desc, false);
-                UIK.text(format_cash(get_brainrot_item_sell_price(br)), price_desc);
+            price_desc := UIK.text_body();
+            price_desc.color = v4{0.55, 1.0, 0.45, 1};
+            price_desc.set_outline(true, 2.5, v4{0, 0, 0, 1});
+            UIK.text_set_word_wrap(&price_desc, false);
+            UIK.text(format_cash(get_brainrot_item_sell_price(br)), price_desc);
 
-                UIK.panel_end(); // info
-                UIK.panel_end(); // foot_row
-            UIK.card_zone_end();
+            UIK.panel_end(); // info
+            UIK.panel_end(); // foot_row
 
-            UIK.card_end();
+            UIK.panel_end(); // card
             i += 1;
             c += 1;
         }
@@ -583,16 +767,14 @@ draw_sell_modal :: proc(player: Player) {
     footer.gap = 16;
     UIK.panel_begin(footer);
 
-    sell_all_d := UIK.widget_desc_button_auto_default(.BUTTON_BASIC_RED);
-    sell_all_d.panel.width = UIK.pixels(200);
-    sell_all_d.panel.height = UIK.flex(1);
-    sell_all_h := UIK.button("sell_all_brainrots", "Sell All", sell_all_d);
+    sell_all_h := rebirth_shader_button("sell_all_brainrots", "Sell All", SELL_MAT_ALL, sell_indices.count == 0);
 
     UIK.spacer(UIK.flex(1), UIK.pixels(1));
 
     summary := format_string("Total Brainrots: %\nTotal Value: %", {sell_indices.count, format_cash(total_value)});
     summary_desc := UIK.text_body();
     summary_desc.color = v4{1, 1, 1, 1};
+    summary_desc.set_outline(true, 2.5, v4{0, 0, 0, 1});
     UIK.text(summary, summary_desc);
 
     UIK.panel_end(); // footer
@@ -605,7 +787,8 @@ draw_sell_modal :: proc(player: Player) {
         return;
     }
     if UIK.clicked(sell_all_h) {
-        sell_all_brainrots(player);
+        // Confirm first — selling everything is easy to misclick.
+        player.show_sell_all_confirm = true;
         return;
     }
     for k: 0..sell_handles.count - 1 {
@@ -618,5 +801,67 @@ draw_sell_modal :: proc(player: Player) {
             sell_brainrot_item(player, it.(Brainrot_Item));
             return;
         }
+    }
+
+    draw_sell_all_confirm(player, sell_indices.count, total_value);
+}
+
+// Confirmation prompt shown before selling the entire inventory.
+draw_sell_all_confirm :: proc(player: Player, count: s64, total_value: float) {
+    if !player.show_sell_all_confirm return;
+
+    UIK.begin(UIK.modal(UIK.rect_window_small(), 25));
+
+    shell := UIK.panel_modal(.BLACK);
+    shell.gap                        = 0;
+    shell.show_background              = true;
+    shell.tint                       = v4{1, 1, 1, 1};
+    shell.background_sprite_override   = core_globals.white_sprite;
+    shell.background_material_override = SELL_MAT_CONFIRM_BG;
+    shell_h := UIK.panel_begin_interactive("sell_all_confirm_shell", shell);
+    SELL_MAT_CONFIRM_BG.set_float4("rect_px", v4{shell_h.rect.min.x, shell_h.rect.min.y, shell_h.rect.max.x, shell_h.rect.max.y});
+
+    exit_h := UIK.title_area(UIK.title_area_desc("SELL ALL?"));
+
+    body := UIK.layout_column();
+    body.width  = UIK.flex(1);
+    body.height = UIK.flex(1);
+    body.padding = v4{18, 20, 18, 20};
+    body.gap = 12;
+    body.cross_align = .CENTER;
+    UIK.panel_begin(body);
+
+    UIK.spacer(UIK.pixels(1), UIK.flex(1));
+
+    prompt := UIK.text_body();
+    prompt.set_color({1, 1, 1, 1});
+    prompt.set_outline(true, 2.5, v4{0, 0, 0, 1});
+    UIK.text(format_string("Sell all % brainrots for %?", {count, format_cash(total_value)}), prompt);
+
+    UIK.spacer(UIK.pixels(1), UIK.flex(1));
+
+    btn_row := UIK.layout_row();
+    btn_row.width  = UIK.flex(1);
+    btn_row.height = UIK.pixels(72);
+    btn_row.gap = 20;
+    btn_row.main_align = .CENTER;
+    UIK.panel_begin(btn_row);
+
+    cancel_h  := rebirth_shader_button("sell_all_cancel",  "Cancel",   SELL_MAT_CANCEL);
+    confirm_h := rebirth_shader_button("sell_all_confirm", "Sell All", SELL_MAT_ALL);
+
+    UIK.panel_end(); // btn_row
+    UIK.panel_end(); // body
+    UIK.panel_end(); // shell
+    UIK.end();
+
+    if UIK.clicked(exit_h) || UIK.clicked(cancel_h) {
+        player.show_sell_all_confirm = false;
+        return;
+    }
+    if UIK.clicked(confirm_h) {
+        sell_all_brainrots(player);
+        player.show_sell_all_confirm = false;
+        return;
     }
 }

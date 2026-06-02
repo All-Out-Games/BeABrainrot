@@ -363,17 +363,8 @@ draw_rebirth_modal :: proc(player: Player) {
         if speed_progress < 0.0 speed_progress = 0.0;
         speed_bar_color := v4{0.25, 0.65, 1.0, 1};
         if speed_progress >= 1.0 speed_bar_color = v4{0.2, 0.85, 0.35, 1};
-
-        speed_stack := UIK.layout_centered(UIK.flex(1), UIK.pixels(52));
-        UIK.panel_begin(speed_stack);
-        UIK.progress_bar(UIK.panel_progress_bar(.PROGRESS_BAR_STYLE_1, speed_progress, speed_bar_color, UIK.flex(1), UIK.flex(1)));
-        UIK.overlay_begin(.CENTER, {0, 0});
-        speed_label := UIK.text_body();
-        speed_label.set_word_wrap(false);
-        speed_label.set_outline(true, 3.0, {0, 0, 0, 1});
-        UIK.text(format_string("Speed: %0 / %", {player.speed, nxt.required_speed}), speed_label);
-        UIK.overlay_end();
-        UIK.panel_end(); // speed_stack
+        draw_rebirth_bar(speed_progress, speed_bar_color,
+            format_string("Speed: %0 / %", {player.speed, nxt.required_speed}));
 
         cash_progress: float = 1.0;
         if nxt.required_cash > 0 {
@@ -383,17 +374,8 @@ draw_rebirth_modal :: proc(player: Player) {
         }
         cash_bar_color := v4{1.0, 0.78, 0.20, 1};
         if cash_progress >= 1.0 cash_bar_color = v4{0.2, 0.85, 0.35, 1};
-
-        cash_stack := UIK.layout_centered(UIK.flex(1), UIK.pixels(52));
-        UIK.panel_begin(cash_stack);
-        UIK.progress_bar(UIK.panel_progress_bar(.PROGRESS_BAR_STYLE_1, cash_progress, cash_bar_color, UIK.flex(1), UIK.flex(1)));
-        UIK.overlay_begin(.CENTER, {0, 0});
-        cash_label := UIK.text_body();
-        cash_label.set_word_wrap(false);
-        cash_label.set_outline(true, 3.0, {0, 0, 0, 1});
-        UIK.text(format_string("Cash: % / %", {format_cash(player.cash), format_cash(nxt.required_cash)}), cash_label);
-        UIK.overlay_end();
-        UIK.panel_end(); // cash_stack
+        draw_rebirth_bar(cash_progress, cash_bar_color,
+            format_string("Cash: % / %", {format_cash(player.cash), format_cash(nxt.required_cash)}));
     }
 
     // Spacer below the bar — pushes the buttons to the bottom of the modal.
@@ -435,6 +417,73 @@ draw_rebirth_modal :: proc(player: Player) {
     if UIK.clicked(skip_h) {
         if skip_product_id.count > 0 Purchasing.prompt_purchase(player, skip_product_id);
     }
+}
+
+REBIRTH_BAR_HEIGHT   :: 46.0;
+REBIRTH_BAR_OUTLINE  :: 4.0;
+
+// Manual progress bar — black outline border (outer panel + padding), a dark
+// inner track, and a flex-weighted colored fill with a subtle lighter top edge.
+// More reliable than UIK.progress_bar against the shader-backed modal shell
+// (the widget's track/fill sprites weren't rendering there).
+draw_rebirth_bar :: proc(progress: float, fill_color: v4, label: string) {
+    p := progress;
+    if p < 0.0 p = 0.0;
+    if p > 1.0 p = 1.0;
+
+    // Outer black border — its padding becomes the outline thickness.
+    outer := UIK.layout_row();
+    outer.width                       = UIK.flex(1);
+    outer.height                      = UIK.pixels(REBIRTH_BAR_HEIGHT);
+    outer.padding                     = v4{REBIRTH_BAR_OUTLINE, REBIRTH_BAR_OUTLINE, REBIRTH_BAR_OUTLINE, REBIRTH_BAR_OUTLINE};
+    outer.show_background              = true;
+    outer.tint                        = v4{0, 0, 0, 1};
+    outer.background_sprite_override   = core_globals.white_sprite;
+    UIK.panel_begin(outer);
+
+    // Inner dark track.
+    inner := UIK.layout_row();
+    inner.width                       = UIK.flex(1);
+    inner.height                      = UIK.flex(1);
+    inner.show_background              = true;
+    inner.tint                        = v4{0.08, 0.08, 0.13, 1};
+    inner.background_sprite_override   = core_globals.white_sprite;
+    UIK.panel_begin(inner);
+
+    // Filled portion (flex weight = p), then the empty remainder (flex 1-p).
+    if p > 0.001 {
+        fill := UIK.layout_column();
+        fill.width                       = UIK.flex(p);
+        fill.height                      = UIK.flex(1);
+        fill.show_background              = true;
+        fill.tint                        = fill_color;
+        fill.background_sprite_override   = core_globals.white_sprite;
+        UIK.panel_begin(fill);
+        // Lighter highlight strip along the top of the fill for a glossy look.
+        hi := UIK.layout_row();
+        hi.width                       = UIK.flex(1);
+        hi.height                      = UIK.pixels(8);
+        hi.show_background              = true;
+        hi.tint                        = v4{1, 1, 1, 0.28};
+        hi.background_sprite_override   = core_globals.white_sprite;
+        UIK.panel_begin(hi);
+        UIK.panel_end();
+        UIK.panel_end(); // fill
+    }
+    if p < 0.999 {
+        UIK.spacer(UIK.flex(1.0 - p), UIK.flex(1));
+    }
+
+    UIK.panel_end(); // inner
+
+    UIK.overlay_begin(.CENTER, {0, 0});
+    lbl := UIK.text_body();
+    lbl.set_word_wrap(false);
+    lbl.set_outline(true, 3.0, {0, 0, 0, 1});
+    UIK.text(label, lbl);
+    UIK.overlay_end();
+
+    UIK.panel_end(); // outer
 }
 
 draw_rebirth_preview_card :: proc(title: string, body_label: string, bg_mat: Material, panel_id: string, icon: Texture_Asset = null) {

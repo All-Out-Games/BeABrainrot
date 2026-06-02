@@ -1,0 +1,160 @@
+// Right-sidebar screen buttons (Rebirth / Equip Best / Shop) — rounded
+// box_panel shader squares with a colorful icon glyph and a label underneath,
+// styled after the reference side menu.
+
+SIDE_MAT_REBIRTH: Material;
+SIDE_MAT_EQUIP:   Material;
+SIDE_MAT_SHOP:    Material;
+SIDE_MATS_READY:  bool;
+
+side_make_box_material :: proc(box: Shop2_Box) -> Material {
+    shader := get_asset(Shader_Asset, "shaders/box_panel.aosl");
+    if shader == null return null;
+    mat := Material.create(shader);
+    mat.set_float4("top_color",         box.top);
+    mat.set_float4("bottom_color",      box.bottom);
+    mat.set_float ("dot_cell_px",       box.dot_cell);
+    mat.set_float ("dot_min_radius",    box.dot_min_radius);
+    mat.set_float ("dot_max_radius",    box.dot_max_radius);
+    mat.set_float ("dot_alpha",         box.dot_alpha);
+    mat.set_float ("bottom_band_h",     box.band_h);
+    mat.set_float4("bottom_band_color", box.band_color);
+    mat.set_float ("outline_px",        box.outline_px);
+    mat.set_float4("outline_color",     box.outline_color);
+    mat.set_float ("corner_radius_px",  box.corner_radius);
+    mat.set_float ("rainbow_strength",  box.rainbow);
+    mat.set_float ("rainbow_speed",     box.rainbow_speed);
+    mat.set_float ("rainbow_hue_span",  box.rainbow_hue_span);
+    mat.set_float ("shine_strength",    0.0);
+    mat.set_float ("shine_speed",       1.0);
+    return mat;
+}
+
+side_feed_rect :: proc(mat: Material, r: Rect) {
+    if mat == null return;
+    mat.set_float4("rect_px", v4{r.min.x, r.min.y, r.max.x, r.max.y});
+}
+
+// Translucent black square — the icons are colorful standalone glyphs, so a
+// dark semi-transparent backing (like the reference) lets them pop while
+// staying subtle over the world.
+side_button_box :: proc() -> Shop2_Box {
+    b := shop2_box_dark();
+    b.top            = v4{0, 0, 0, 0.5};
+    b.bottom         = v4{0, 0, 0, 0.5};
+    b.band_color     = v4{0, 0, 0, 0};
+    b.band_h         = 0.0;
+    b.corner_radius  = 22.0;
+    b.outline_px     = 5.0;
+    b.outline_color  = v4{0, 0, 0, 1};
+    b.dot_alpha      = 0.0;
+    return b;
+}
+
+side_ensure_materials :: proc() -> bool {
+    if SIDE_MATS_READY return true;
+
+    // Separate material instances (each needs its own rect_px) but the same look.
+    SIDE_MAT_REBIRTH = side_make_box_material(side_button_box());
+    SIDE_MAT_EQUIP   = side_make_box_material(side_button_box());
+    SIDE_MAT_SHOP    = side_make_box_material(side_button_box());
+    if SIDE_MAT_REBIRTH == null return false; // shader still loading
+
+    SIDE_MATS_READY = true;
+    return true;
+}
+
+SIDE_ICON_BOX    :: 120.0; // rounded square button size
+SIDE_ICON_INNER  :: 88.0;  // base icon size inside the square
+SIDE_PULSE_AMP   :: 8.0;   // breathing amplitude (px)
+SIDE_PULSE_SPEED :: 3.0;   // breathing rate
+
+// Rounded shader square with a centered icon and a label underneath. When
+// `animate` is set the icon "breathes" (size pulses) using the phase offset so
+// buttons don't bob in unison. icon is optional — pass null for a placeholder.
+draw_side_icon_button :: proc(id: string, label: string, mat: Material, icon: Texture_Asset, phase: float, animate: bool = false, disabled: bool = false) -> Interact_Result {
+    col := UIK.layout_column();
+    col.width       = UIK.flex(1);
+    col.height      = UIK.fit();
+    col.gap         = 2;
+    col.cross_align = .CENTER;
+    UIK.panel_begin(col);
+
+    sq := UIK.layout_column();
+    sq.width                       = UIK.pixels(SIDE_ICON_BOX);
+    sq.height                      = UIK.pixels(SIDE_ICON_BOX);
+    sq.main_align                  = .CENTER;
+    sq.cross_align                 = .CENTER;
+    sq.show_background              = true;
+    sq.tint                        = v4{1, 1, 1, 1};
+    sq.background_sprite_override   = core_globals.white_sprite;
+    sq.background_material_override = mat;
+    h := UIK.panel_begin_interactive(id, sq, disabled);
+    side_feed_rect(mat, h.rect);
+    mat.set_float("press", h.active_t_eased);
+
+    // Breathing pulse — the icon gently grows/shrinks around its base size.
+    icon_size := SIDE_ICON_INNER;
+    if animate {
+        pulse := sin(get_time() * SIDE_PULSE_SPEED + phase);
+        icon_size = SIDE_ICON_INNER + pulse * SIDE_PULSE_AMP;
+    }
+
+    icon_holder := UIK.layout_centered(UIK.pixels(icon_size), UIK.pixels(icon_size));
+    if icon == null {
+        // Placeholder square so the slot is visible until a real icon is set.
+        icon_holder.show_background              = true;
+        icon_holder.tint                        = v4{1, 1, 1, 0.85};
+        icon_holder.background_sprite_override   = core_globals.white_sprite;
+    }
+    UIK.panel_begin(icon_holder);
+    if icon != null UIK.image_fitted(icon, UIK.image_desc(.CONTAIN));
+    UIK.panel_end();
+
+    UIK.panel_end(); // sq
+
+    lbl := UIK.text_button();
+    lbl.set_outline(true, 3.0, v4{0, 0, 0, 1});
+    UIK.text(label, lbl);
+
+    UIK.panel_end(); // col
+    return h;
+}
+
+draw_side_buttons :: proc(player: Player) {
+    if !side_ensure_materials() return;
+
+    UIK.begin(UIK.window(UIK.rect_sidebar_right()));
+
+    col := UIK.layout_column();
+    col.width = UIK.flex(1);
+    col.height = UIK.flex(1);
+    col.padding = v4{8, 8, 8, 8};
+    col.main_align = .CENTER;
+    col.gap = 18;
+    UIK.panel_begin(col);
+
+    rebirth_icon := get_asset(Texture_Asset, "Textures/UI/rebirth.png");
+    equip_icon   := get_asset(Texture_Asset, "Textures/UI/EquipBest.png");
+    shop_icon    := get_asset(Texture_Asset, "Textures/UI/shopicon.png");
+
+    rebirth_h := draw_side_icon_button("rebirth_toggle", "REBIRTH", SIDE_MAT_REBIRTH, rebirth_icon, 0.0, false);
+
+    equip_label := "EQUIP";
+    equip_disabled := false;
+    cooldown_left := player.equip_best_next_at - get_time();
+    if cooldown_left > 0 {
+        equip_disabled = true;
+        equip_label = format_string("EQUIP (%s)", {format_float(cooldown_left, decimals=1)});
+    }
+    equip_h := draw_side_icon_button("equip_best", equip_label, SIDE_MAT_EQUIP, equip_icon, 2.1, false, equip_disabled);
+
+    shop_h := draw_side_icon_button("shop_toggle", "SHOP", SIDE_MAT_SHOP, shop_icon, 4.2, true);
+
+    UIK.panel_end();
+    UIK.end();
+
+    if UIK.clicked(rebirth_h) player.show_rebirth_modal = !player.show_rebirth_modal;
+    if UIK.clicked(equip_h)   auto_equip_best(player);
+    if UIK.clicked(shop_h)    player.show_shop_v3       = !player.show_shop_v3;
+}

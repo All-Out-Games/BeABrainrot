@@ -374,7 +374,29 @@ auto_equip_best :: proc(player: Player) {
         swaps += 1;
     }
 
-    if swaps > 0 {
+    // Phase 3: reorder the placed brainrots so the highest GPS sits on the
+    // first pedestals (selection sort by current GPS, empties sink to the end).
+    // Gold was cashed out in phase 1, so swapping stands only moves brainrots.
+    reordered := false;
+    n := room.pedestals.count;
+    if player.pedestals_unlocked < n n = player.pedestals_unlocked;
+    for i: 0..n - 1 {
+        best_j := i;
+        best_g := pedestal_gps(room.pedestals[i]);
+        for j: i + 1..n - 1 {
+            g := pedestal_gps(room.pedestals[j]);
+            if g > best_g {
+                best_g = g;
+                best_j = j;
+            }
+        }
+        if best_j != i {
+            swap_placed_brainrots(room.pedestals[i], room.pedestals[best_j]);
+            reordered = true;
+        }
+    }
+
+    if swaps > 0 || reordered {
         save_room_brainrots(player, room);
         show_notification(player, "Equipped best (% swap%0)", {swaps, ""});
     } else if cashed_out > 0 {

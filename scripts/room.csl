@@ -785,6 +785,47 @@ Saved_Brainrots :: class {
     items: [..]Saved_Brainrot @ao_serialize;
 }
 
+// The floor a pedestal lives on (0 when it has no floor renderer).
+pedestal_floor :: proc(p: Pedestal) -> s64 {
+    if p == null return 0;
+    if p.floor_renderer == null return 0;
+    return p.floor_renderer.floor;
+}
+
+// GPS of the brainrot on a pedestal, or -1 if empty (so empties sort last).
+pedestal_gps :: proc(p: Pedestal) -> float {
+    if p == null return -1.0;
+    if p.placed_brainrot == null return -1.0;
+    if !#alive(p.placed_brainrot.entity) return -1.0;
+    return p.placed_brainrot.get_gps();
+}
+
+// Swap the placed brainrots between two pedestals — moves each entity onto the
+// other's stand and re-points its `pedestal`/floor. Gold isn't moved (callers
+// cash out first), so this is purely a visual/ownership reorder.
+swap_placed_brainrots :: proc(pa: Pedestal, pb: Pedestal) {
+    if pa == null || pb == null || pa == pb return;
+    a := pa.placed_brainrot;
+    b := pb.placed_brainrot;
+    pa.placed_brainrot = b;
+    pb.placed_brainrot = a;
+    if a != null && #alive(a.entity) {
+        a.pedestal = pb;
+        if pb.brainrot_pedestal != null a.entity.set_world_position(pb.brainrot_pedestal.world_position);
+        // Update the jump rest position too — a brainrot mid-jump (e.g. from
+        // the equip-best cash-out) would otherwise snap back to its OLD spot,
+        // landing on top of whatever was moved here.
+        a.jump_rest_pos = a.entity.local_position;
+        sync_brainrot_floor_to_pedestal(a, pb);
+    }
+    if b != null && #alive(b.entity) {
+        b.pedestal = pa;
+        if pa.brainrot_pedestal != null b.entity.set_world_position(pa.brainrot_pedestal.world_position);
+        b.jump_rest_pos = b.entity.local_position;
+        sync_brainrot_floor_to_pedestal(b, pa);
+    }
+}
+
 save_room_brainrots :: proc(player: Player, room: Room) {
     if player == null return;
     if room == null return;

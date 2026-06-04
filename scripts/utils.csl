@@ -1,0 +1,14 @@
+// Generic helpers with no project-specific dependencies.
+
+// Parse a string that is entirely ASCII digits. Returns (value, true) only when
+// the string is non-empty and every char is 0-9.
+parse_uint_string :: proc(s: string) -> s64, bool {
+    if s.count == 0 return 0, false;
+    val: s64 = 0;
+    for i: 0..s.count - 1 {
+        c := s[i].(s64);
+        if c < 48 || c > 57 return 0, false; // '0'..'9'
+        val = val * 10 + (c - 48);
+    }
+    return val, true;
+}

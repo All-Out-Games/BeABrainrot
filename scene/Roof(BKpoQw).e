@@ -3,7 +3,7 @@
 1252426800
 {
   "name": "Roof",
-  "local_enabled": true,
+  "local_enabled": false,
   "local_position": {
 
   },

@@ -143,6 +143,33 @@ speed_skip_product_id :: proc(current_speed: s64) -> string {
     return SPEED_SKIP_PRODUCT_IDS[speed_skip_tier_index(current_speed)];
 }
 
+// ===== PRIME pass =====
+// Non-consumable VIP pass: unlocks the VIP floor + boosted brainrots and
+// auto-collects coins. Ownership of the product IS the grant (no consumable
+// state), so has_prime just checks ownership.
+
+PRIME_PASS_PRODUCT_ID :: "6a21489bd533b740baa6d56b";
+
+has_prime :: proc(player: Player) -> bool {
+    if player == null return false;
+    return Purchasing.owns_product(player, PRIME_PASS_PRODUCT_ID);
+}
+
+// ===== Pricing / discount helper =====
+// Convention: a product's DESCRIPTION, when it's a plain number string, is the
+// pre-discount ("original") price. We have no real discount field, so this is
+// how a sale is expressed — e.g. price 399 + description "699" => 699 -> 399.
+// (parse_uint_string lives in utils.csl.)
+
+// Returns (price, original, on_sale). `original`/`on_sale` are only meaningful
+// when the description is a number greater than the current price.
+product_pricing :: proc(id: string) -> s64, s64, bool {
+    prod := Purchasing.get_product(id);
+    orig, ok := parse_uint_string(prod.description);
+    on_sale := ok && orig > prod.price;
+    return prod.price, orig, on_sale;
+}
+
 // ===== Central purchase dispatcher =====
 // Engine calls this when ANY purchase completes. Return true to confirm the
 // grant (and consume, if consumable). Add new product branches here as the

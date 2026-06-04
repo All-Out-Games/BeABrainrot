@@ -13,14 +13,22 @@
 
 // ===== Materials ===== (one per panel — UIK batches draws at UIK.end()).
 
-SHOP3_MAT_ORANGE:  Material;
-SHOP3_MAT_YELLOW:  Material;
-SHOP3_MAT_RAINBOW: Material;
-SHOP3_MAT_PURPLE:  Material;
-SHOP3_MAT_RAY_A:   Material; // spinning ray burst behind each card icon
-SHOP3_MAT_RAY_B:   Material;
-SHOP3_MAT_RAY_C:   Material;
-SHOP3_MATS_READY:  bool;
+SHOP3_MAT_ORANGE:     Material;
+SHOP3_MAT_YELLOW:     Material;
+SHOP3_MAT_RAINBOW:    Material;
+SHOP3_MAT_PURPLE:     Material;
+SHOP3_MAT_BANNER:     Material; // rainbow background for the PRIME pass banner
+SHOP3_MAT_PRICE:      Material; // gold shader for the PRIME price button
+SHOP3_MAT_RAY_A:      Material; // spinning ray burst behind each card icon
+SHOP3_MAT_RAY_B:      Material;
+SHOP3_MAT_RAY_C:      Material;
+SHOP3_MAT_RAY_BANNER: Material; // rays behind the PRIME icon
+SHOP3_MATS_READY:     bool;
+
+// PRIME icon "breathing" pulse (1080p ref px).
+PRIME_ICON_BASE   :: 150.0;
+PRIME_PULSE_AMP   :: 12.0;
+PRIME_PULSE_SPEED :: 2.5;
 
 shop3_make_box_material :: proc(box: Shop2_Box) -> Material {
     shader := get_asset(Shader_Asset, "shaders/box_panel.aosl");
@@ -60,10 +68,17 @@ shop3_ensure_materials :: proc() -> bool {
     SHOP3_MAT_YELLOW  = shop3_make_box_material(shop2_box_yellow());
     SHOP3_MAT_RAINBOW = shop3_make_box_material(shop2_box_rainbow());
     SHOP3_MAT_PURPLE  = shop3_make_box_material(shop2_box_purple());
+    SHOP3_MAT_BANNER  = shop3_make_box_material(shop2_box_rainbow());
+    SHOP3_MAT_PRICE   = shop3_make_box_material(shop2_box_green());
     if SHOP3_MAT_ORANGE == null return false; // shader still loading
     SHOP3_MAT_RAY_A = shop3_make_ray_material();
     SHOP3_MAT_RAY_B = shop3_make_ray_material();
     SHOP3_MAT_RAY_C = shop3_make_ray_material();
+    SHOP3_MAT_RAY_BANNER = shop3_make_ray_material();
+    // Smaller burst radius so the rays fade fully to transparent INSIDE the
+    // panel (no hard rectangular cut against the banner). The cards use 1.6 to
+    // intentionally overflow their square; the banner panel must not.
+    SHOP3_MAT_RAY_BANNER.set_float("fill_scale", 0.95);
     SHOP3_MATS_READY = true;
     return true;
 }
@@ -72,6 +87,54 @@ shop3_ensure_materials :: proc() -> bool {
 shop3_feed_rect :: proc(mat: Material, r: Rect) {
     if mat == null return;
     mat.set_float4("rect_px", v4{r.min.x, r.min.y, r.max.x, r.max.y});
+}
+
+// Box_panel shader price button: spark icon + current price. The original
+// (pre-discount) price, if any, is drawn separately in the banner above this.
+draw_shop3_price_button :: proc(id: string, product_id: string, mat: Material) -> Interact_Result {
+    price, _, _ := product_pricing(product_id);
+    spark := get_asset(Texture_Asset, "$AO/new/icons/sparks/spark_icon.png");
+
+    btn := UIK.layout_row();
+    btn.width                       = UIK.pixels(300);
+    btn.height                      = UIK.pixels(100);
+    btn.gap                         = 8;
+    btn.main_align                  = .CENTER;
+    btn.cross_align                 = .CENTER;
+    btn.show_background              = true;
+    btn.tint                        = v4{1, 1, 1, 1};
+    btn.background_sprite_override   = core_globals.white_sprite;
+    btn.background_material_override = mat;
+    h := UIK.panel_begin_interactive(id, btn);
+    shop3_feed_rect(mat, h.rect);
+    mat.set_float("press", h.active_t_eased);
+
+    icon_holder := UIK.layout_centered(UIK.pixels(36), UIK.pixels(36));
+    UIK.panel_begin(icon_holder);
+    if spark != null UIK.image_fitted(spark, UIK.image_desc(.CONTAIN));
+    UIK.panel_end();
+
+    UIK.text(format_string("%", {price}), UIK.text_button());
+
+    UIK.panel_end(); // btn
+    return h;
+}
+
+// The original price (red) drawn in the banner above the price button when a
+// product is on sale. Returns the text's screen rect so the caller can draw a
+// diagonal strike line over it after UIK.end() (UIK can't rotate).
+draw_shop3_struck_price :: proc(orig: s64) -> Rect {
+    wrap := UIK.layout_row();
+    wrap.width  = UIK.fit();
+    wrap.height = UIK.fit();
+    h := UIK.panel_begin_interactive("shop3_struck", wrap);
+    od := UIK.text_title();
+    od.set_size_mult(0.6);
+    od.set_color({1.0, 0.3, 0.3, 1});
+    od.set_outline(true, 3.0, v4{0, 0, 0, 1});
+    UIK.text(format_string("%", {orig}), od);
+    UIK.panel_end(); // wrap
+    return h.rect;
 }
 
 draw_shop_v3 :: proc(player: Player) {
@@ -90,23 +153,38 @@ draw_shop_v3 :: proc(player: Player) {
 
     exit_handle := UIK.title_area(UIK.title_area_desc("Store"));
 
-    // ---- Subscription banner ----
+    // ---- PRIME pass banner ----
     banner_desc := UIK.layout_row();
     banner_desc.height                       = UIK.pixels(220);
     banner_desc.gap                          = 16;
     banner_desc.padding                      = v4{14, 14, 14, 14};
+    banner_desc.cross_align                  = .CENTER;
     banner_desc.show_background              = true;
     banner_desc.tint                         = v4{1, 1, 1, 1};
     banner_desc.background_sprite_override   = core_globals.white_sprite;
-    banner_desc.background_material_override = SHOP3_MAT_ORANGE;
+    banner_desc.background_material_override = SHOP3_MAT_BANNER;
     h_banner := UIK.panel_begin_interactive("shop3_banner", banner_desc);
-    shop3_feed_rect(SHOP3_MAT_ORANGE, h_banner.rect);
+    shop3_feed_rect(SHOP3_MAT_BANNER, h_banner.rect);
 
-    icon_panel := UIK.layout_centered(UIK.pixels(180), UIK.flex(1));
-    UIK.panel_begin(icon_panel);
-    coin := get_asset(Texture_Asset, "Textures/UI/coin2_deef5c.png");
-    if coin != null UIK.image_fitted(coin, UIK.image_desc(.CONTAIN));
+    // PRIME icon over a spinning ray burst, with a breathing pulse. The icon
+    // panel is interactive so the ray material gets its own rect (centered on
+    // the icon rather than the whole banner).
+    icon_panel := UIK.layout_centered(UIK.pixels(260), UIK.flex(1));
+    icon_panel.show_background              = true;
+    icon_panel.tint                         = v4{1, 1, 1, 0.9};
+    icon_panel.background_sprite_override   = core_globals.white_sprite;
+    icon_panel.background_material_override = SHOP3_MAT_RAY_BANNER;
+    h_icon := UIK.panel_begin_interactive("shop3_prime_rays", icon_panel);
+    shop3_feed_rect(SHOP3_MAT_RAY_BANNER, h_icon.rect);
+
+    prime_pulse := sin(get_time() * PRIME_PULSE_SPEED);
+    prime_size  := PRIME_ICON_BASE + prime_pulse * PRIME_PULSE_AMP;
+    prime_holder := UIK.layout_centered(UIK.pixels(prime_size), UIK.pixels(prime_size));
+    UIK.panel_begin(prime_holder);
+    prime_icon := get_asset(Texture_Asset, "Textures/PRIME_Icon.png");
+    if prime_icon != null UIK.image_fitted(prime_icon, UIK.image_desc(.CONTAIN));
     UIK.panel_end();
+    UIK.panel_end(); // icon_panel
 
     text_col := UIK.layout_column();
     text_col.width      = UIK.flex(1);
@@ -114,17 +192,24 @@ draw_shop_v3 :: proc(player: Player) {
     text_col.gap        = 4;
     text_col.main_align = .CENTER;
     UIK.panel_begin(text_col);
-    UIK.text("Trade Pack Subscription", UIK.text_title());
+    UIK.text("PRIME Pass", UIK.text_title());
     sub_ts := UIK.text_title();
-    UIK.text_set_size_mult(&sub_ts, 0.55);
-    UIK.text("First 20 are granted instantly!", sub_ts);
+    UIK.text_set_size_mult(&sub_ts, 0.5);
+    UIK.text("VIP floor + boosted brainrots", sub_ts);
+    UIK.text("Auto-collects your coins", sub_ts);
     UIK.panel_end();
 
-    price_desc := UIK.widget_desc_button_default(.BUTTON_BASIC_PURPLE);
-    price_desc.panel.width  = UIK.pixels(220);
-    price_desc.panel.height = UIK.pixels(100);
-    spark_icon := get_asset(Texture_Asset, "$AO/new/icons/sparks/spark_icon.png");
-    sub_handle := UIK.icon_button_label("shop3_sub", spark_icon, "100/mo", price_desc);
+    _, prime_orig, prime_on_sale := product_pricing(PRIME_PASS_PRODUCT_ID);
+    prime_struck_rect: Rect;
+    price_col := UIK.layout_column();
+    price_col.width       = UIK.pixels(300);
+    price_col.height      = UIK.fit();
+    price_col.cross_align = .CENTER;
+    price_col.gap         = 2;
+    UIK.panel_begin(price_col);
+    if prime_on_sale prime_struck_rect = draw_shop3_struck_price(prime_orig);
+    sub_handle := draw_shop3_price_button("shop3_sub", PRIME_PASS_PRODUCT_ID, SHOP3_MAT_PRICE);
+    UIK.panel_end(); // price_col
 
     UIK.panel_end(); // banner
 
@@ -165,6 +250,16 @@ draw_shop_v3 :: proc(player: Player) {
     if c2000.max.x > c2000.min.x {
         draw_shop_v3_badge(c2000, "+100 Free");
     }
+    // Diagonal strike line over the struck-through original price (bottom-left
+    // to top-right, extended past the text), drawn here since UIK can't rotate.
+    if prime_on_sale && prime_struck_rect.max.x > prime_struck_rect.min.x {
+        sf   := UI.get_current_scale_factor();
+        lo   := prime_struck_rect.min; // bottom-left (Y grows up)
+        hi   := prime_struck_rect.max; // top-right
+        dir  := normalize(hi - lo);
+        ext  := 18.0 * sf;
+        UI.line(lo - dir * ext, hi + dir * ext, 6.0 * sf, core_globals.white_sprite, v4{1.0, 0.15, 0.15, 1});
+    }
     UI.pop_layer();
     UI.pop_draw_context();
 
@@ -173,7 +268,13 @@ draw_shop_v3 :: proc(player: Player) {
         player.shop3_popup_text = "";
         return;
     }
-    if UIK.clicked(sub_handle) {}
+    if UIK.clicked(sub_handle) {
+        if has_prime(player) {
+            show_notification(player, "You already own PRIME!");
+        } else {
+            Purchasing.prompt_purchase(player, PRIME_PASS_PRODUCT_ID);
+        }
+    }
     if UIK.clicked(h100)  player.shop3_popup_text = "100 Trade Tokens";
     if UIK.clicked(h500)  player.shop3_popup_text = "500 Trade Tokens";
     if UIK.clicked(h2000) player.shop3_popup_text = "2,000 Trade Tokens";

@@ -5,6 +5,8 @@
 SIDE_MAT_REBIRTH: Material;
 SIDE_MAT_EQUIP:   Material;
 SIDE_MAT_SHOP:    Material;
+AUTO_COLLECT_MAT_GREEN: Material; // PRIME auto-collect button when active
+AUTO_COLLECT_MAT_RED:   Material; // ...when inactive
 SIDE_MATS_READY:  bool;
 
 side_make_box_material :: proc(box: Shop2_Box) -> Material {
@@ -58,6 +60,16 @@ side_ensure_materials :: proc() -> bool {
     SIDE_MAT_REBIRTH = side_make_box_material(side_button_box());
     SIDE_MAT_EQUIP   = side_make_box_material(side_button_box());
     SIDE_MAT_SHOP    = side_make_box_material(side_button_box());
+
+    green_box := shop2_box_green();
+    green_box.corner_radius = 18.0;
+    green_box.outline_px    = 5.0;
+    red_box := shop2_box_red();
+    red_box.band_color    = v4{0.42, 0.03, 0.03, 1};
+    red_box.corner_radius = 18.0;
+    red_box.outline_px    = 5.0;
+    AUTO_COLLECT_MAT_GREEN = side_make_box_material(green_box);
+    AUTO_COLLECT_MAT_RED   = side_make_box_material(red_box);
     if SIDE_MAT_REBIRTH == null return false; // shader still loading
 
     SIDE_MATS_READY = true;
@@ -152,4 +164,63 @@ draw_side_buttons :: proc(player: Player) {
     if UIK.clicked(rebirth_h) player.show_rebirth_modal = !player.show_rebirth_modal;
     if UIK.clicked(equip_h)   auto_equip_best(player);
     if UIK.clicked(shop_h)    player.show_shop_v3       = !player.show_shop_v3;
+}
+
+// PRIME-only left-side toggle: green when auto-collect is on, red when off.
+// While on, Player.ao_update sweeps base income every second.
+draw_auto_collect_button :: proc(player: Player) {
+    if player == null return;
+    if !#alive(player.entity) return;
+    if !has_prime(player) return;
+    if !side_ensure_materials() return;
+
+    UIK.begin(UIK.window(UIK.rect_sidebar_left()));
+
+    col := UIK.layout_column();
+    col.width = UIK.flex(1);
+    col.height = UIK.flex(1);
+    col.padding = v4{8, 8, 8, 8};
+    col.main_align = .CENTER;
+    col.cross_align = .CENTER;
+    UIK.panel_begin(col);
+
+    mat := AUTO_COLLECT_MAT_RED;
+    if player.auto_collect_enabled mat = AUTO_COLLECT_MAT_GREEN;
+
+    btn := UIK.layout_column();
+    btn.width                       = UIK.pixels(190);
+    btn.height                      = UIK.pixels(108);
+    btn.main_align                  = .CENTER;
+    btn.cross_align                 = .CENTER;
+    btn.gap                         = 2;
+    btn.show_background              = true;
+    btn.tint                        = v4{1, 1, 1, 1};
+    btn.background_sprite_override   = core_globals.white_sprite;
+    btn.background_material_override = mat;
+    h := UIK.panel_begin_interactive("auto_collect_btn", btn);
+    side_feed_rect(mat, h.rect);
+    mat.set_float("press", h.active_t_eased);
+
+    lbl := UIK.text_button();
+    lbl.set_size_mult(0.8);
+    lbl.set_outline(true, 3.0, v4{0, 0, 0, 1});
+    UIK.text("Auto Collect", lbl);
+
+    status := UIK.text_body();
+    status.set_size_mult(0.75);
+    status.set_outline(true, 2.5, v4{0, 0, 0, 1});
+    state_txt := "OFF";
+    if player.auto_collect_enabled state_txt = "ON";
+    UIK.text(state_txt, status);
+
+    UIK.panel_end(); // btn
+    UIK.panel_end(); // col
+    UIK.end();
+
+    if UIK.clicked(h) {
+        player.auto_collect_enabled = !player.auto_collect_enabled;
+        saved: s64 = 0;
+        if player.auto_collect_enabled saved = 1;
+        Save.set_int(player, AUTO_COLLECT_SAVE_KEY, saved);
+    }
 }

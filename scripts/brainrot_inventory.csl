@@ -271,6 +271,30 @@ sell_all_brainrots :: proc(player: Player) {
     if total > 0 deposit_cash(player, total);
 }
 
+// Sweep pending gold off every unlocked base pedestal and deposit the total in
+// one go (single cash popup) + jump the brainrots. Shared by the PRIME
+// auto-collect tick. Returns the total collected.
+collect_all_pedestal_gold :: proc(player: Player) -> float {
+    if player == null return 0;
+    room := player.my_room;
+    if room == null return 0;
+    total: float = 0;
+    for i: 0..room.pedestals.count - 1 {
+        if i >= player.pedestals_unlocked break;
+        p := room.pedestals[i];
+        if p == null continue;
+        if p.accumulated_gold <= 0 continue;
+        total += p.accumulated_gold;
+        p.accumulated_gold = 0;
+        p.gps_tick_timer = 0;
+        if p.placed_brainrot != null && #alive(p.placed_brainrot.entity) {
+            p.placed_brainrot.start_jump();
+        }
+    }
+    if total > 0 deposit_cash(player, total);
+    return total;
+}
+
 // ===== Auto-equip best =====
 //
 // Walks every pedestal in the player's room and, if the player owns a

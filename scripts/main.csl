@@ -12,6 +12,8 @@ SPEED_SAVE_KEY           :: "speed";
 PURCHASED_SPEED_SAVE_KEY :: "purchased_speed";
 INITIALIZED_SAVE_KEY     :: "initialized"; // set once on first join so we only grant starting cash once
 STARTING_CASH            :: 1000.0;          // granted on first join and on /reset
+AUTO_COLLECT_SAVE_KEY    :: "auto_collect";  // PRIME auto-collect toggle (persisted)
+AUTO_COLLECT_INTERVAL    :: 1.0;             // seconds between auto-collects
 
 CASH_POPUP_DURATION :: 1.4;
 CASH_POPUP_RISE     :: 70.0;
@@ -412,6 +414,10 @@ Player :: class : Player_Base {
     displayed_cash: float;
     cash_popups: [..]Cash_Popup;
     notifications: [..]Custom_Note;
+    auto_collect_enabled: bool;  // PRIME perk: auto-collect base income each second
+    auto_collect_timer: float;
+    upgrade_combo: s64;          // consecutive brainrot upgrades, for SFX intensity
+    upgrade_combo_time: float;
     selected_brainrot_item: Brainrot_Item;
     show_sell_modal: bool;
     show_sell_all_confirm: bool;
@@ -459,6 +465,7 @@ Player :: class : Player_Base {
         displayed_cash = cash;
         rebirth_level = Save.get_int(this, REBIRTH_SAVE_KEY, 0);
         pedestals_unlocked = Save.get_int(this, PEDESTALS_SAVE_KEY, DEFAULT_PEDESTALS_UNLOCKED);
+        auto_collect_enabled = Save.get_int(this, AUTO_COLLECT_SAVE_KEY, 0) != 0;
 
         default_camera_size = camera.size;
 
@@ -479,6 +486,15 @@ Player :: class : Player_Base {
         }
         tick_cash_animations(this, dt);
         tick_notifications(this, dt);
+
+        // PRIME auto-collect: sweep all base pedestal income once per second.
+        if auto_collect_enabled && has_prime(this) {
+            auto_collect_timer += dt;
+            if auto_collect_timer >= AUTO_COLLECT_INTERVAL {
+                auto_collect_timer = 0;
+                collect_all_pedestal_gold(this);
+            }
+        }
 
         // Zoom the camera out while the Being_Chased marker is active so you
         // can see the NPC and plan an escape. Skip while Moving_Toward is
@@ -523,6 +539,7 @@ Player :: class : Player_Base {
         if is_local_or_server() {
             draw_player_hud(this);
             draw_side_buttons(this);
+            draw_auto_collect_button(this);
             draw_speed_upgrade_ui(this);
             draw_upgrade_hud(this);
 

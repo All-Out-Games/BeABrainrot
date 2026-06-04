@@ -117,6 +117,37 @@ draw_debug_living_entity :: proc(player: Player) {
     UIK.end();
 }
 
+// Brainrot upgrade sound. Plays only for the upgrading player (specific_to_player,
+// non-positional so there's no spatial range). Chaining upgrades quickly builds a
+// combo that raises the pitch + volume so rapid upgrading feels increasingly
+// intense; the combo resets after UPGRADE_COMBO_WINDOW of no upgrades.
+UPGRADE_COMBO_WINDOW :: 1.5;
+UPGRADE_COMBO_MAX    :: 10;
+
+play_brainrot_upgrade_sfx :: proc(player: Player) {
+    if player == null return;
+
+    now := get_time();
+    if now - player.upgrade_combo_time <= UPGRADE_COMBO_WINDOW {
+        player.upgrade_combo += 1;
+        if player.upgrade_combo > UPGRADE_COMBO_MAX player.upgrade_combo = UPGRADE_COMBO_MAX;
+    } else {
+        player.upgrade_combo = 0;
+    }
+    player.upgrade_combo_time = now;
+
+    sfx := get_asset(SFX_Asset, "SFX/upgrade_brainrot.wav");
+    if sfx == null return;
+
+    t := player.upgrade_combo.(float) / UPGRADE_COMBO_MAX.(float); // 0..1
+    desc := SFX.default_sfx_desc();
+    desc.specific_to_player = player;
+    desc.positional = false;
+    desc.volume = 0.6 + t * 0.4; // 0.6 -> 1.0
+    desc.speed  = 1.0 + t * 0.6; // 1.0 -> 1.6 pitch
+    SFX.play(sfx, desc);
+}
+
 get_mutation_gps_multiplier :: proc(m: Mutation) -> float {
     if m == Mutation.GOLD return 1.25;
     if m == Mutation.DIAMOND return 1.5;
@@ -377,6 +408,19 @@ LivingEntity :: class : Interactable {
         if is_carrying(player) return;
 
         if this.#type == LivingEntity_Npc {
+            // VIP floor (floor >= 1) NPC brainrots can only be stolen with PRIME.
+            // If they try without it, open the PRIME purchase popup instead of
+            // picking up (no notification).
+            npc_floor: s64 = 0;
+            if floor_renderer != null {
+                npc_floor = floor_renderer.floor;
+            } else if pedestal != null && pedestal.floor_renderer != null {
+                npc_floor = pedestal.floor_renderer.floor;
+            }
+            if npc_floor >= 1 && !has_prime(player) {
+                Purchasing.prompt_purchase(player, PRIME_PASS_PRODUCT_ID);
+                return;
+            }
             this.(LivingEntity_Npc).handle_npc_pickup(player);
             return;
         }
@@ -399,6 +443,7 @@ LivingEntity :: class : Interactable {
             return false;
         }
         level += 1;
+        play_brainrot_upgrade_sfx(player);
         update_visuals();
         // Persist the new level so it survives rejoin (cash is saved by
         // withdraw_cash above; without this the upgrade is paid but lost).

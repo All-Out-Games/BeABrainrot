@@ -7,6 +7,7 @@ SIDE_MAT_EQUIP:   Material;
 SIDE_MAT_SHOP:    Material;
 AUTO_COLLECT_MAT_GREEN: Material; // PRIME auto-collect button when active
 AUTO_COLLECT_MAT_RED:   Material; // ...when inactive
+SIDE_MAT_INDEX:   Material;       // Index (collection dex) open button
 SIDE_MATS_READY:  bool;
 
 side_make_box_material :: proc(box: Shop2_Box) -> Material {
@@ -70,6 +71,7 @@ side_ensure_materials :: proc() -> bool {
     red_box.outline_px    = 5.0;
     AUTO_COLLECT_MAT_GREEN = side_make_box_material(green_box);
     AUTO_COLLECT_MAT_RED   = side_make_box_material(red_box);
+    SIDE_MAT_INDEX         = side_make_box_material(shop2_box_purple());
     if SIDE_MAT_REBIRTH == null return false; // shader still loading
 
     SIDE_MATS_READY = true;
@@ -174,7 +176,6 @@ draw_left_buttons :: proc(player: Player) {
 
     show_auto := has_prime(player);
     show_mail := player.unclaimed_brainrots.count > 0;
-    if !show_auto && !show_mail return;
     if !side_ensure_materials() return;
 
     UIK.begin(UIK.window(UIK.rect_sidebar_left()));
@@ -230,8 +231,27 @@ draw_left_buttons :: proc(player: Player) {
         mail_h = UIK.button("mailbox_btn", format_string("Mailbox (%)", {player.unclaimed_brainrots.count}), mail_d);
     }
 
+    // Index (collection dex) — always available, box_panel shader button.
+    ibtn := UIK.layout_centered(UIK.pixels(190), UIK.pixels(90));
+    ibtn.show_background              = true;
+    ibtn.tint                        = v4{1, 1, 1, 1};
+    ibtn.background_sprite_override   = core_globals.white_sprite;
+    ibtn.background_material_override = SIDE_MAT_INDEX;
+    index_h := UIK.panel_begin_interactive("index_btn", ibtn);
+    side_feed_rect(SIDE_MAT_INDEX, index_h.rect);
+    SIDE_MAT_INDEX.set_float("press", index_h.active_t_eased);
+    ilbl := UIK.text_button();
+    ilbl.set_size_mult(0.8);
+    ilbl.set_outline(true, 3.0, v4{0, 0, 0, 1});
+    UIK.text("Index", ilbl);
+    UIK.panel_end(); // ibtn
+
     UIK.panel_end(); // col
     UIK.end();
+
+    if UIK.clicked(index_h) {
+        player.show_index_modal = true;
+    }
 
     if show_auto && UIK.clicked(auto_h) {
         player.auto_collect_enabled = !player.auto_collect_enabled;

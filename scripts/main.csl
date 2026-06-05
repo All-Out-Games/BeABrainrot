@@ -485,6 +485,12 @@ Player :: class : Player_Base {
     // One-shot: force the hotbar selection to slot 0 on the next draw (set when a
     // stolen brainrot lands at the front).
     select_slot_0_request: bool;
+    // Brainrot index (collection dex).
+    discovered_brainrots: [..]Discovered_Brainrot;
+    show_index_modal: bool;
+    index_category: s64;      // active mutation filter = a Mutation int
+    index_rarity_filter: s64; // -1 = all rarities, else a Rarity int
+    index_only_unlocked: bool;
     pedestals_unlocked: s64;
     debug_show_le: bool;
     show_shop_v2: bool;
@@ -529,6 +535,7 @@ Player :: class : Player_Base {
         pedestals_unlocked = Save.get_int(this, PEDESTALS_SAVE_KEY, DEFAULT_PEDESTALS_UNLOCKED);
         auto_collect_enabled = Save.get_int(this, AUTO_COLLECT_SAVE_KEY, 0) != 0;
         load_unclaimed_brainrots(this);
+        load_brainrot_index(this);
 
         default_camera_size = camera.size;
 
@@ -676,6 +683,7 @@ Player :: class : Player_Base {
             draw_skin_shop(this);
             draw_debug_living_entity(this);
             draw_unclaimed_modal(this);
+            draw_index_modal(this);
             draw_notifications(this);
         }
         if is_local() {

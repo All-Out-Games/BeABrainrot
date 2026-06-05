@@ -80,6 +80,9 @@ add_brainrot_to_inventory :: proc(player: Player, brainrot: LivingEntity, prefer
     // Also select slot 0 so the stolen brainrot is the one in hand.
     if prefer_front player.select_slot_0_request = true;
 
+    // Record it in the collection index.
+    mark_brainrot_discovered(player, brainrot.config_id, brainrot.mutation);
+
     brainrot.entity.destroy();
 
     room := player.my_room;

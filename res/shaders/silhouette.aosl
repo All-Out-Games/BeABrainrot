@@ -1,0 +1,39 @@
+!!inputs {
+    texture albedo ALBEDO
+    float alpha   // silhouette opacity (0..1)
+}
+
+!!pipeline {
+    Pixel_Format: HDR
+    Blend_Enabled: true
+    Depth_Enabled: true
+    Blend_Src: ONE
+    Blend_Dst: ONE_MINUS_SRC_ALPHA
+    Blend_Op: ADD
+    Alpha_Blend_Src: ONE
+    Alpha_Blend_Dst: ONE
+    Alpha_Blend_Op: ADD
+    Blend_Color: (1, 1, 1, 1)
+}
+
+!!vs
+struct vs_out {
+    float4 color: COLOR0;
+    float2 uv: UV;
+    float4 pos: SV_Position;
+};
+vs_out vs_main(vs_in inp) {
+    vs_out outp;
+    outp.pos   = mul(mvp, float4(inp.pos.xy, 0, 1.0f));
+    outp.uv    = inp.uv;
+    outp.color = inp.color;
+    return outp;
+}
+
+!!ps
+float4 ps_main(float4 vtxColor: COLOR0, float2 uv: UV): SV_Target0 {
+    // Black where the source texture is opaque -> a locked silhouette. Output is
+    // premultiplied (rgb is black so rgb*a stays black).
+    float a = albedo.Sample(albedo_smp, uv).a * saturate(alpha);
+    return float4(0.0f, 0.0f, 0.0f, a);
+}

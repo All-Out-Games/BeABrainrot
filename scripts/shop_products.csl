@@ -194,19 +194,21 @@ has_2x_speed :: proc(player: Player) -> bool {
 STARTER_PACK_PRODUCT_ID :: "6a22d0fc40c27018a8bbfebd"; // 67
 RAINBOW_PACK_PRODUCT_ID :: "6a22d10654407744c2f8e47b"; // 249
 
-STARTER_PACK_CASH       :: 100000000.0; // $100M
+STARTER_PACK_CASH       :: 50000000.0; // $50M
 STARTER_PACK_BRAINROT   :: "lirili_larila";
+STARTER_PACK_LEVEL      :: 25;
+RAINBOW_PACK_LEVEL      :: 25;
 BUNDLE_BRAINROT_LEVEL   :: 10;
 
 grant_starter_pack :: proc(player: Player) {
     deposit_cash(player, STARTER_PACK_CASH);
-    grant_brainrot(player, STARTER_PACK_BRAINROT, BUNDLE_BRAINROT_LEVEL, Mutation.NONE);
+    grant_brainrot(player, STARTER_PACK_BRAINROT, STARTER_PACK_LEVEL, Mutation.NONE);
 }
 
 grant_rainbow_pack :: proc(player: Player) {
-    grant_brainrot(player, "chimpanzini", BUNDLE_BRAINROT_LEVEL, Mutation.RAINBOW);
-    grant_brainrot(player, "racooni",     BUNDLE_BRAINROT_LEVEL, Mutation.RAINBOW);
-    grant_brainrot(player, "garama",      BUNDLE_BRAINROT_LEVEL, Mutation.RAINBOW);
+    grant_brainrot(player, "chimpanzini", RAINBOW_PACK_LEVEL, Mutation.RAINBOW);
+    grant_brainrot(player, "spijuniro",   RAINBOW_PACK_LEVEL, Mutation.RAINBOW);
+    grant_brainrot(player, "garama",      RAINBOW_PACK_LEVEL, Mutation.RAINBOW);
 }
 
 // ===== Central purchase dispatcher =====

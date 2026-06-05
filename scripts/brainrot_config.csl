@@ -96,7 +96,6 @@ get_brainrot_configs :: proc() -> [..]Brainrot_Config {
     add_brainrot(ref list, "chimpanzini",     "Chimpanzini Bananini",   Rarity.MYTHIC,    3500,    1200,    "Textures/memes/chimpanzini_bananini.png");
     add_brainrot(ref list, "ssundee_amba",    "SSundee Ambalabu",       Rarity.MYTHIC,    4000,    1400,    "Textures/memes/SSundeeAmbalabu.png");
     add_brainrot(ref list, "quivioli",        "Quivioli Ameleonni",     Rarity.MYTHIC,    4500,    1600,    "Textures/memes/Quivioli_Ameleonni.png");
-    add_brainrot(ref list, "racooni",         "Racooni Jandelini",      Rarity.MYTHIC,    5000,    1800,    "Textures/memes/Racooni_Jandelini.png");
     add_brainrot(ref list, "spijuniro",       "Spijuniro Golubiro",     Rarity.MYTHIC,    5500,    2000,    "Textures/memes/Spijuniro_Golubiro.png");
     add_brainrot(ref list, "dragon_cann",     "Dragon Cannelloni",      Rarity.MYTHIC,    6000,    2200,    "Textures/memes/Dragon_Cannelloni.png");
     add_brainrot(ref list, "ganganzelli",     "Ganganzelli Trulala",    Rarity.MYTHIC,    6500,    2350,    "Textures/memes/Ganganzelli_Trulala.png");

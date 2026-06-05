@@ -81,8 +81,8 @@ shop3_ensure_materials :: proc() -> bool {
     SHOP3_MAT_PURPLE  = shop3_make_box_material(shop2_box_purple());
     SHOP3_MAT_BANNER  = shop3_make_box_material(shop2_box_rainbow());
     SHOP3_MAT_PRICE   = shop3_make_box_material(shop2_box_green());
-    SHOP3_MAT_BUNDLE_A = shop3_make_box_material(shop2_box_green());
-    SHOP3_MAT_BUNDLE_B = shop3_make_box_material(shop2_box_rainbow());
+    SHOP3_MAT_BUNDLE_A = shop3_make_box_material(shop2_box_orange());
+    SHOP3_MAT_BUNDLE_B = shop3_make_box_material(shop2_box_purple());
     SHOP3_MAT_PRICE_A  = shop3_make_box_material(shop2_box_green());
     SHOP3_MAT_PRICE_B  = shop3_make_box_material(shop2_box_green());
     SHOP3_MAT_GP_MONEY = shop3_make_box_material(shop2_box_green());
@@ -180,7 +180,7 @@ draw_shop3_struck_price :: proc(orig: s64) {
 // Wide bundle banner: each brainrot preview sits over its OWN ray burst (one
 // ray material per brainrot, from ray_mats), an optional cash reward fills its
 // own cell, and the pack title + shader price button sit on the right.
-draw_shop3_bundle :: proc(panel_id: string, product_id: string, bg_mat: Material, ray_mats: []Material, price_mat: Material, title: string, brainrot_ids: []string, cash_text: string) -> Interact_Result {
+draw_shop3_bundle :: proc(panel_id: string, product_id: string, bg_mat: Material, ray_mats: []Material, price_mat: Material, title: string, brainrot_ids: []string, cash_text: string, subtitle: string = "") -> Interact_Result {
     banner := UIK.layout_row();
     banner.width                       = UIK.flex(1);
     banner.height                      = UIK.pixels(210);
@@ -257,6 +257,18 @@ draw_shop3_bundle :: proc(panel_id: string, product_id: string, bg_mat: Material
     UIK.panel_begin(right);
     tt := UIK.text_title();
     UIK.text(title, tt);
+    if subtitle.count > 0 {
+        // Animated rainbow tint so it reads as "these come rainbow".
+        t := get_time();
+        rc := 0.5 + 0.5 * sin(t * 2.0);
+        gc := 0.5 + 0.5 * sin(t * 2.0 + 2.094);
+        bc := 0.5 + 0.5 * sin(t * 2.0 + 4.188);
+        st := UIK.text_title();
+        st.set_size_mult(0.55);
+        st.set_color({rc, gc, bc, 1});
+        st.set_outline(true, 3.0, {0, 0, 0, 1});
+        UIK.text(subtitle, st);
+    }
     buy_h := draw_shop3_price_button(format_string("%_buy", {panel_id}), product_id, price_mat);
     UIK.panel_end(); // right
 
@@ -402,7 +414,7 @@ draw_shop_v3 :: proc(player: Player) {
     gp_row.gap    = 12;
     UIK.panel_begin(gp_row);
     money_icon := get_asset(Texture_Asset, "money_stack_1_f9a568.png");
-    speed_icon := get_asset(Texture_Asset, "arrow_right_e47b99.png");
+    speed_icon := get_asset(Texture_Asset, "Textures/speed_boost_icon.png");
     money_h := draw_shop3_gamepass_card("shop3_2xmoney", TWO_X_MONEY_PRODUCT_ID, SHOP3_MAT_GP_MONEY, SHOP3_MAT_RAY_D, SHOP3_MAT_PRICE_C, "2X Money", "Earn double money!", money_icon, has_2x_money(player));
     speed_h := draw_shop3_gamepass_card("shop3_2xspeed", TWO_X_SPEED_PRODUCT_ID, SHOP3_MAT_GP_SPEED, SHOP3_MAT_RAY_E, SHOP3_MAT_PRICE_D, "2X Speed", "Double your speed!", speed_icon, has_2x_speed(player));
     UIK.panel_end(); // gp_row
@@ -422,7 +434,7 @@ draw_shop_v3 :: proc(player: Player) {
     append(ref starter_brainrots, STARTER_PACK_BRAINROT);
     rainbow_brainrots: [..]string;
     append(ref rainbow_brainrots, "chimpanzini");
-    append(ref rainbow_brainrots, "racooni");
+    append(ref rainbow_brainrots, "spijuniro");
     append(ref rainbow_brainrots, "garama");
 
     starter_rays: [..]Material;
@@ -432,8 +444,8 @@ draw_shop_v3 :: proc(player: Player) {
     append(ref rainbow_rays, SHOP3_MAT_RAY_C);
     append(ref rainbow_rays, SHOP3_MAT_RAY_F);
 
-    starter_h := draw_shop3_bundle("shop3_starter", STARTER_PACK_PRODUCT_ID, SHOP3_MAT_BUNDLE_A, starter_rays, SHOP3_MAT_PRICE_A, "Starter Pack!", starter_brainrots, "$100,000,000");
-    rainbow_h := draw_shop3_bundle("shop3_rainbow", RAINBOW_PACK_PRODUCT_ID, SHOP3_MAT_BUNDLE_B, rainbow_rays, SHOP3_MAT_PRICE_B, "Rainbow Pack!", rainbow_brainrots, "");
+    starter_h := draw_shop3_bundle("shop3_starter", STARTER_PACK_PRODUCT_ID, SHOP3_MAT_BUNDLE_A, starter_rays, SHOP3_MAT_PRICE_A, "Starter Pack!", starter_brainrots, "$50,000,000");
+    rainbow_h := draw_shop3_bundle("shop3_rainbow", RAINBOW_PACK_PRODUCT_ID, SHOP3_MAT_BUNDLE_B, rainbow_rays, SHOP3_MAT_PRICE_B, "Rainbow Pack!", rainbow_brainrots, "", "All Rainbow!");
 
     UIK.panel_end(); // bundles_col
 

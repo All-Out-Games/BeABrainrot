@@ -1,0 +1,383 @@
+// Brainrot Index (collection "dex"). Tracks which (brainrot, mutation) combos
+// the player has discovered, persisted by the STABLE config_id + mutation int
+// (a JSON list — not a hardcoded-index bitset, so reordering/adding brainrots
+// never corrupts saves). UIK modal with box_panel-shader category buttons.
+
+INDEX_SAVE_KEY :: "brainrot_index";
+
+Discovered_Brainrot :: class {
+    config_id: string @ao_serialize;
+    mutation:  s64    @ao_serialize;
+}
+Discovered_Brainrots :: class {
+    items: [..]Discovered_Brainrot @ao_serialize;
+}
+
+// ===== Tracking / save =====
+
+load_brainrot_index :: proc(player: Player) {
+    player.index_rarity_filter = -1; // default: all rarities
+    player.discovered_brainrots.clear();
+    payload: Discovered_Brainrots;
+    if !Save.try_get_json(player, INDEX_SAVE_KEY, ref payload) return;
+    if payload == null return;
+    for it: payload.items {
+        if it == null continue;
+        append(ref player.discovered_brainrots, it);
+    }
+}
+
+save_brainrot_index :: proc(player: Player) {
+    payload := new(Discovered_Brainrots);
+    for it: player.discovered_brainrots {
+        append(ref payload.items, it);
+    }
+    Save.set_json(player, INDEX_SAVE_KEY, ref payload);
+}
+
+is_brainrot_discovered :: proc(player: Player, config_id: string, mutation: Mutation) -> bool {
+    if player == null return false;
+    mi := mutation.(s64);
+    for d: player.discovered_brainrots {
+        if d == null continue;
+        if d.config_id == config_id && d.mutation == mi return true;
+    }
+    return false;
+}
+
+// Record a (brainrot, mutation) as discovered. No-op if already known.
+mark_brainrot_discovered :: proc(player: Player, config_id: string, mutation: Mutation) {
+    if player == null return;
+    if config_id.count == 0 return;
+    if is_brainrot_discovered(player, config_id, mutation) return;
+    d := new(Discovered_Brainrot);
+    d.config_id = config_id;
+    d.mutation  = mutation.(s64);
+    append(ref player.discovered_brainrots, d);
+    save_brainrot_index(player);
+}
+
+count_discovered_for_mutation :: proc(player: Player, mutation: Mutation) -> s64 {
+    if player == null return 0;
+    mi := mutation.(s64);
+    n: s64 = 0;
+    for d: player.discovered_brainrots {
+        if d != null && d.mutation == mi n += 1;
+    }
+    return n;
+}
+
+// ===== UI =====
+
+// Categories shown as filter tabs (one bucket per mutation).
+index_categories :: proc() -> [..]Mutation {
+    out: [..]Mutation;
+    append(ref out, Mutation.NONE);
+    append(ref out, Mutation.GOLD);
+    append(ref out, Mutation.DIAMOND);
+    append(ref out, Mutation.RAINBOW);
+    append(ref out, Mutation.CANDY);
+    return out;
+}
+
+index_category_label :: proc(m: Mutation) -> string {
+    if m == Mutation.NONE return "Normal";
+    return get_mutation_name(m);
+}
+
+INDEX_MAT_CAT:          [..]Material; // one box material per category (rect-fed each draw)
+INDEX_MAT_RARITY:       Material;     // rarity-cycle button
+INDEX_MAT_UNLOCKED_ON:  Material;     // unlocked toggle, ON  (green)
+INDEX_MAT_UNLOCKED_OFF: Material;     // unlocked toggle, OFF (red)
+INDEX_MAT_SILHOUETTE:   Material;     // blacks out an icon into a locked silhouette
+INDEX_MATS_READY:       bool;
+
+// box_panel shader button filling its cell. Feeds rect + press each draw.
+draw_index_shader_button :: proc(id: string, label: string, mat: Material) -> Interact_Result {
+    btn := UIK.layout_centered(UIK.flex(1), UIK.flex(1));
+    btn.show_background              = true;
+    btn.tint                        = v4{1, 1, 1, 1};
+    btn.background_sprite_override   = core_globals.white_sprite;
+    btn.background_material_override = mat;
+    h := UIK.panel_begin_interactive(id, btn);
+    shop3_feed_rect(mat, h.rect);
+    mat.set_float("press", h.active_t_eased);
+    lbl := UIK.text_button();
+    lbl.set_size_mult(0.65);
+    lbl.set_outline(true, 3.0, v4{0, 0, 0, 1});
+    UIK.text(label, lbl);
+    UIK.panel_end();
+    return h;
+}
+
+index_box_for :: proc(m: Mutation) -> Shop2_Box {
+    if m == Mutation.RAINBOW return shop2_box_rainbow();
+    col := get_mutation_color(m);
+    if m == Mutation.NONE col = v4{0.45, 0.6, 0.85, 1}; // neutral blue for Normal
+    b := shop2_default_box(col, v4{col.x * 0.55, col.y * 0.55, col.z * 0.55, 1});
+    b.band_color = v4{col.x * 0.35, col.y * 0.35, col.z * 0.35, 1};
+    return b;
+}
+
+index_ensure_materials :: proc() -> bool {
+    if INDEX_MATS_READY return true;
+    cats := index_categories();
+    for m: cats {
+        mat := shop3_make_box_material(index_box_for(m));
+        if mat == null return false; // shader still loading
+        append(ref INDEX_MAT_CAT, mat);
+    }
+    INDEX_MAT_RARITY      = shop3_make_box_material(index_box_for(Mutation.NONE));
+    INDEX_MAT_UNLOCKED_ON = shop3_make_box_material(shop2_box_green());
+    red_box := shop2_default_box(v4{0.95, 0.35, 0.35, 1}, v4{0.70, 0.15, 0.15, 1});
+    red_box.band_color = v4{0.40, 0.08, 0.08, 1};
+    INDEX_MAT_UNLOCKED_OFF = shop3_make_box_material(red_box);
+
+    sil_shader := get_asset(Shader_Asset, "shaders/silhouette.aosl");
+    if sil_shader == null return false;
+    INDEX_MAT_SILHOUETTE = Material.create(sil_shader);
+    INDEX_MAT_SILHOUETTE.set_float("alpha", 0.9);
+
+    INDEX_MATS_READY = true;
+    return true;
+}
+
+INDEX_COLUMNS    :: 4;
+INDEX_CARD_H     :: 190.0;
+INDEX_ICON_H     :: 108.0;
+
+draw_index_modal :: proc(player: Player) {
+    if player == null return;
+    if !player.show_index_modal return;
+    if !index_ensure_materials() return;
+
+    selected := player.index_category.(Mutation);
+    configs := get_brainrot_configs();
+
+    UIK.begin(UIK.modal(UIK.rect_window(), 16));
+
+    shell := UIK.panel_modal(.BLACK);
+    shell.gap     = 8;
+    shell.padding = v4{14, 16, 14, 16};
+    UIK.panel_begin(shell);
+
+    exit_h := UIK.title_area(UIK.title_area_desc("Index"));
+
+    // Progress line for the active category.
+    disc := count_discovered_for_mutation(player, selected);
+    prog := UIK.text_body();
+    prog.set_outline(true, 2.5, v4{0, 0, 0, 1});
+    UIK.text(format_string("% / %  discovered", {disc, configs.count}), prog);
+
+    // ---- Category tabs (box_panel shader buttons) ----
+    cats := index_categories();
+    cat_row := UIK.layout_row();
+    cat_row.width  = UIK.flex(1);
+    cat_row.height = UIK.pixels(72);
+    cat_row.gap    = 8;
+    UIK.panel_begin(cat_row);
+    cat_handles: [..]Interact_Result;
+    for ci: 0..cats.count - 1 {
+        m := cats[ci];
+        mat := INDEX_MAT_CAT[ci];
+        active := m == selected;
+        btn := UIK.layout_centered(UIK.flex(1), UIK.flex(1));
+        btn.show_background              = true;
+        btn.tint                        = v4{1, 1, 1, 1};
+        if !active btn.tint              = v4{0.5, 0.5, 0.5, 1}; // dim inactive
+        btn.background_sprite_override   = core_globals.white_sprite;
+        btn.background_material_override = mat;
+        ch := UIK.panel_begin_interactive(format_string("index_cat_%", {ci}), btn);
+        shop3_feed_rect(mat, ch.rect);
+        mat.set_float("press", ch.active_t_eased);
+        // Selected tab gets a bright outline so it's obvious which is active.
+        if active {
+            mat.set_float ("outline_px",    8.0);
+            mat.set_float4("outline_color", v4{1, 1, 1, 1});
+        } else {
+            mat.set_float ("outline_px",    2.0);
+            mat.set_float4("outline_color", v4{0, 0, 0, 0.6});
+        }
+        lbl := UIK.text_button();
+        lbl.set_size_mult(0.7);
+        lbl.set_outline(true, 3.0, v4{0, 0, 0, 1});
+        UIK.text(index_category_label(m), lbl);
+        UIK.panel_end();
+        append(ref cat_handles, ch);
+    }
+    UIK.panel_end(); // cat_row
+
+    // ---- Filter controls: rarity cycle + "unlocked only" toggle ----
+    ctrl_row := UIK.layout_row();
+    ctrl_row.width  = UIK.flex(1);
+    ctrl_row.height = UIK.pixels(64);
+    ctrl_row.gap    = 8;
+    UIK.panel_begin(ctrl_row);
+
+    rarity_label := "Rarity: All";
+    if player.index_rarity_filter >= 0 rarity_label = format_string("Rarity: %", {get_rarity_name(player.index_rarity_filter.(Rarity))});
+    rar_h := draw_index_shader_button("index_rarity", rarity_label, INDEX_MAT_RARITY);
+
+    unlocked_label := "Unlocked: OFF";
+    unl_mat := INDEX_MAT_UNLOCKED_OFF;
+    if player.index_only_unlocked {
+        unlocked_label = "Unlocked: ON";
+        unl_mat = INDEX_MAT_UNLOCKED_ON;
+    }
+    unl_h := draw_index_shader_button("index_unlocked", unlocked_label, unl_mat);
+
+    UIK.panel_end(); // ctrl_row
+
+    // Build the filtered list (rarity + unlocked filters applied).
+    filtered: [..]Brainrot_Config;
+    for c: configs {
+        if player.index_rarity_filter >= 0 && c.rarity.(s64) != player.index_rarity_filter continue;
+        if player.index_only_unlocked && !is_brainrot_discovered(player, c.id, selected) continue;
+        append(ref filtered, c);
+    }
+
+    // ---- Grid of cards (scrollable) ----
+    list_panel := UIK.layout_column();
+    list_panel.width  = UIK.flex(1);
+    list_panel.height = UIK.flex(1);
+    list_panel.gap    = 8;
+    UIK.list_begin("index_scroll", list_panel);
+
+    if filtered.count == 0 {
+        empty := UIK.text_body();
+        UIK.text("Nothing matches this filter.", empty);
+    }
+
+    rows := (filtered.count + INDEX_COLUMNS - 1) / INDEX_COLUMNS;
+    for r: 0..rows - 1 {
+        row := UIK.layout_row();
+        row.width  = UIK.flex(1);
+        row.height = UIK.pixels(INDEX_CARD_H);
+        row.gap    = 8;
+        UIK.panel_begin(row);
+        for c: 0..INDEX_COLUMNS - 1 {
+            idx := r * INDEX_COLUMNS + c;
+            if idx >= filtered.count {
+                UIK.spacer(UIK.flex(1), UIK.pixels(1));
+                continue;
+            }
+            draw_index_card(filtered[idx], is_brainrot_discovered(player, filtered[idx].id, selected), selected);
+        }
+        UIK.panel_end(); // row
+    }
+
+    UIK.list_end();
+    UIK.panel_end(); // shell
+    UIK.end();
+
+    if UIK.clicked(exit_h) {
+        player.show_index_modal = false;
+        return;
+    }
+    if UIK.clicked(rar_h) {
+        player.index_rarity_filter = index_next_rarity_filter(player.index_rarity_filter);
+        return;
+    }
+    if UIK.clicked(unl_h) {
+        player.index_only_unlocked = !player.index_only_unlocked;
+        return;
+    }
+    for ci: 0..cat_handles.count - 1 {
+        if UIK.clicked(cat_handles[ci]) {
+            player.index_category = cats[ci].(s64);
+            return;
+        }
+    }
+}
+
+// Cycle: All (-1) -> each rarity present in the catalog -> back to All.
+index_next_rarity_filter :: proc(current: s64) -> s64 {
+    rarities: [..]s64;
+    seen: [..]s64;
+    for c: get_brainrot_configs() {
+        ri := c.rarity.(s64);
+        dup := false;
+        for s: seen { if s == ri { dup = true; break; } }
+        if dup continue;
+        append(ref seen, ri);
+        append(ref rarities, ri);
+    }
+    if rarities.count == 0 return -1;
+    // -1 (All) -> first rarity.
+    if current < 0 return rarities[0];
+    // current rarity -> next, or wrap to All after the last.
+    for i: 0..rarities.count - 1 {
+        if rarities[i] != current continue;
+        if i + 1 >= rarities.count return -1; // wrap to All
+        return rarities[i + 1];
+    }
+    return -1;
+}
+
+draw_index_card :: proc(c: Brainrot_Config, discovered: bool, mutation: Mutation) {
+    rcol := get_rarity_color(c.rarity);
+
+    card := UIK.layout_column();
+    card.width                       = UIK.flex(1);
+    card.height                      = UIK.flex(1);
+    card.gap                         = 2;
+    card.padding                     = v4{6, 6, 6, 6};
+    card.cross_align                 = .CENTER;
+    card.main_align                  = .CENTER;
+    card.show_background              = true;
+    card.tint                        = v4{rcol.x, rcol.y, rcol.z, 0.22};
+    card.background_sprite_override   = core_globals.white_sprite;
+    UIK.panel_begin(card);
+
+    // Rarity label (top).
+    rt := UIK.text_body();
+    rt.set_size_mult(0.55);
+    rt.set_color(rcol);
+    rt.set_outline(true, 2.0, v4{0, 0, 0, 1});
+    UIK.text(get_rarity_name(c.rarity), rt);
+
+    // Icon. Discovered = normal art. Undiscovered = the same art rendered black
+    // by the silhouette shader (a panel whose background IS the icon texture,
+    // sized to the icon's aspect so it isn't stretched).
+    holder := UIK.layout_centered(UIK.flex(1), UIK.pixels(INDEX_ICON_H));
+    UIK.panel_begin(holder);
+    icon := get_asset(Texture_Asset, c.sprite_path);
+    if icon != null {
+        // Pick a material: silhouette when locked, the mutation shimmer when the
+        // category has a mutation (so e.g. Rainbow previews look rainbow), else
+        // plain art.
+        mat: Material = null;
+        if !discovered mat = INDEX_MAT_SILHOUETTE;
+        else if mutation != Mutation.NONE mat = get_mutation_material(mutation);
+
+        if mat == null {
+            UIK.image_fitted(icon, UIK.image_desc(.CONTAIN));
+        } else {
+            // Aspect-fit the shaded panel so the icon isn't stretched.
+            asp := icon.get_aspect();
+            w := INDEX_ICON_H;
+            h := INDEX_ICON_H;
+            if asp >= 1.0 h = INDEX_ICON_H / asp;
+            else          w = INDEX_ICON_H * asp;
+            shaded := UIK.layout_centered(UIK.pixels(w), UIK.pixels(h));
+            shaded.show_background              = true;
+            shaded.tint                        = v4{1, 1, 1, 1};
+            shaded.background_sprite_override   = icon;
+            shaded.background_material_override = mat;
+            UIK.panel_begin(shaded);
+            UIK.panel_end();
+        }
+    }
+    UIK.panel_end();
+
+    // Name (bottom) or ??? .
+    nt := UIK.text_body();
+    nt.set_size_mult(0.6);
+    nt.set_word_wrap(false);
+    nt.set_outline(true, 2.0, v4{0, 0, 0, 1});
+    name := "???";
+    if discovered name = c.display_name;
+    UIK.text(name, nt);
+
+    UIK.panel_end(); // card
+}

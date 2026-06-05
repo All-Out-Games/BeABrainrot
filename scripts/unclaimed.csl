@@ -66,6 +66,7 @@ try_give_brainrot_item :: proc(player: Player, config_id: string, level: s64, mu
 // Give the player a brainrot. If the inventory is full it goes to the mailbox
 // instead of being lost. Returns true if it went straight to the inventory.
 grant_brainrot :: proc(player: Player, config_id: string, level: s64, mutation: Mutation) -> bool {
+    mark_brainrot_discovered(player, config_id, mutation); // counts as collected either way
     if try_give_brainrot_item(player, config_id, level, mutation) return true;
     add_unclaimed_brainrot(player, config_id, level, mutation);
     show_notification(player, "Inventory full! Items sent to your mailbox.");

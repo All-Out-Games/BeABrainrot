@@ -30,6 +30,8 @@ do_steal_secure :: proc(eff: Carry_Brainrot_Stealing_Npc_Effect) {
     // Celebratory full-screen confetti on the thief's own screen.
     eff.player.entity.add_passive_effect(new(Confetti_Effect));
 
+    tutorial_advance(eff.player, TUT_STEAL); // stole a brainrot
+
     eff.player.active_steal_room = null; // securing a steal re-roofs every room
     if eff.origin_room != null && #alive(eff.origin_room.entity) {
         if eff.origin_pedestal_index >= 0 && eff.origin_pedestal_index < eff.origin_room.pedestal_locked.count {

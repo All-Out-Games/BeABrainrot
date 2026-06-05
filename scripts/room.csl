@@ -682,8 +682,14 @@ draw_upgrade_hud :: proc(player: Player) {
     UIK.panel_end();
     UIK.end();
 
+    // Stash the upgrade button rect for the tutorial arrow (this frame).
+    player.upgrade_btn_rect       = handle.rect;
+    player.upgrade_btn_rect_frame = get_frame_number();
+
     if UIK.clicked(handle) {
-        target.try_upgrade(player);
+        if target.try_upgrade(player) {
+            tutorial_advance(player, TUT_UPGRADE); // upgraded a brainrot
+        }
     }
 }
 

@@ -68,6 +68,18 @@ speed_upgrade_cash_cost :: proc(current_speed: s64, amount: s64) -> float {
 // Sparks price now lives on the product itself — query via
 // `Purchasing.get_product(speed_skip_product_id(speed)).price`.
 
+// Local "ka-ching" played for the buyer on any speed upgrade purchase.
+play_speed_buy_sfx :: proc(player: Player) {
+    if player == null return;
+    sfx := get_asset(SFX_Asset, "SFX/gain_money_03.wav");
+    if sfx == null return;
+    desc := SFX.default_sfx_desc();
+    desc.specific_to_player = player;
+    desc.positional = false;
+    desc.volume = 0.7;
+    SFX.play(sfx, desc);
+}
+
 try_buy_speed_upgrade_cash :: proc(player: Player, amount: s64) -> bool {
     cash_cost := speed_upgrade_cash_cost(player.speed, amount);
     if player.cash < cash_cost {
@@ -76,6 +88,7 @@ try_buy_speed_upgrade_cash :: proc(player: Player, amount: s64) -> bool {
     }
     withdraw_cash(player, cash_cost);
     add_speed(player, amount);
+    play_speed_buy_sfx(player);
     return true;
 }
 
@@ -339,10 +352,14 @@ draw_speed_upgrade_ui :: proc(player: Player) {
     UIK.panel_end(); // shell
     UIK.end();
 
+    // Stash the first cash button rect for the tutorial arrow (this frame).
+    player.speed_upgrade_rect       = handles.row_1.cash.rect;
+    player.speed_upgrade_rect_frame = get_frame_number();
+
     if UIK.clicked(handles.exit) player.show_speed_upgrades = false;
-    if UIK.clicked(handles.row_1.cash)  try_buy_speed_upgrade_cash(player, 1);
-    if UIK.clicked(handles.row_5.cash)  try_buy_speed_upgrade_cash(player, 5);
-    if UIK.clicked(handles.row_10.cash) try_buy_speed_upgrade_cash(player, 10);
+    if UIK.clicked(handles.row_1.cash)  { if try_buy_speed_upgrade_cash(player, 1)  tutorial_advance(player, TUT_BUY_SPEED); }
+    if UIK.clicked(handles.row_5.cash)  { if try_buy_speed_upgrade_cash(player, 5)  tutorial_advance(player, TUT_BUY_SPEED); }
+    if UIK.clicked(handles.row_10.cash) { if try_buy_speed_upgrade_cash(player, 10) tutorial_advance(player, TUT_BUY_SPEED); }
     if UIK.clicked(handles.sparks)      prompt_buy_speed_upgrade_sparks(player);
 }
 

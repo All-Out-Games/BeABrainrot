@@ -1,0 +1,6 @@
+// Step 5 (TUT_SPEED_BUTTON): head to the shop. Arrow bobs onto the "Buy" nav
+// button (next to Base). Completed when Buy is pressed (draw_navigation_topbar).
+draw_tut_speed_button :: proc(player: Player) {
+    if player.nav_buy_rect_frame != get_frame_number() return;
+    draw_tutorial_ui_arrow(player.nav_buy_rect);
+}

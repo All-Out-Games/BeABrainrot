@@ -1,5 +1,6 @@
 import "core:ao"
 import "effects"
+import "tutorial"
 
 ao_before_scene_load :: proc() {
     Scene.set_auto_save_player_inventory(true);
@@ -485,6 +486,19 @@ Player :: class : Player_Base {
     // One-shot: force the hotbar selection to slot 0 on the next draw (set when a
     // stolen brainrot lands at the front).
     select_slot_0_request: bool;
+    // Current tutorial step (persisted); TUT_DONE = finished. See tutorial/.
+    tutorial_step: s64;
+    // Base nav-button screen rect, captured each frame it's drawn (for the
+    // tutorial arrow). nav_base_rect_frame stamps the frame so a stale rect
+    // isn't used when the nav bar isn't showing.
+    nav_base_rect: Rect;
+    nav_base_rect_frame: u64;
+    nav_buy_rect: Rect;
+    nav_buy_rect_frame: u64;
+    upgrade_btn_rect: Rect;
+    upgrade_btn_rect_frame: u64;
+    speed_upgrade_rect: Rect;
+    speed_upgrade_rect_frame: u64;
     // Brainrot index (collection dex).
     discovered_brainrots: [..]Discovered_Brainrot;
     show_index_modal: bool;
@@ -536,6 +550,7 @@ Player :: class : Player_Base {
         auto_collect_enabled = Save.get_int(this, AUTO_COLLECT_SAVE_KEY, 0) != 0;
         load_unclaimed_brainrots(this);
         load_brainrot_index(this);
+        load_tutorial(this);
 
         default_camera_size = camera.size;
 
@@ -684,6 +699,7 @@ Player :: class : Player_Base {
             draw_debug_living_entity(this);
             draw_unclaimed_modal(this);
             draw_index_modal(this);
+            draw_tutorial(this);
             draw_notifications(this);
         }
         if is_local() {

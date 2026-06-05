@@ -1,0 +1,7 @@
+// Step 6 (TUT_BUY_SPEED): buy a speed upgrade. Once the speed upgrade modal is
+// open, the arrow bobs onto the first (+1) buy button. Buying any cash upgrade
+// finishes the tutorial (draw_speed_upgrade_ui).
+draw_tut_buy_speed :: proc(player: Player) {
+    if player.speed_upgrade_rect_frame != get_frame_number() return; // modal open this frame
+    draw_tutorial_ui_arrow(player.speed_upgrade_rect);
+}

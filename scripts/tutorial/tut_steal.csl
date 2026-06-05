@@ -1,0 +1,38 @@
+// Step 2: steal the closest brainrot. Walk the player's CURRENT room
+// (active_steal_room) pedestals — not every NPC brainrot in the world — and
+// point at the nearest brainrot on the player's floor. Completed in
+// do_steal_secure.
+draw_tut_steal :: proc(player: Player) {
+    pp := player.entity.world_position;
+
+    // Already grabbed one? Point back to the line so they run it out to secure it.
+    _, carrying := get_effect(player.entity, Carry_Brainrot_Stealing_Npc_Effect);
+    if carrying {
+        gm := get_game_manager();
+        if gm == null return;
+        if gm.npc_line == null || !#alive(gm.npc_line) return;
+        draw_tutorial_dotted_line(pp, gm.npc_line.world_position, TUT_LINE_COLOR);
+        return;
+    }
+
+    room := player.active_steal_room;
+    if room == null return;
+    best: LivingEntity;
+    best_d := 999999.0;
+    for ped: room.pedestals {
+        if ped == null continue;
+        if ped.floor_renderer == null continue;
+        if ped.floor_renderer.floor != player.current_floor continue; // reachable floor
+        le := ped.placed_brainrot;
+        if le == null continue;
+        if !#alive(le.entity) continue;
+        if le.carried_by != null continue;   // not already being carried off
+        d := length_squared(le.entity.world_position - pp);
+        if d < best_d {
+            best_d = d;
+            best = le;
+        }
+    }
+    if best == null return;
+    draw_tutorial_dotted_line(pp, best.entity.world_position, TUT_LINE_COLOR);
+}

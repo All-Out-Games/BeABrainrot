@@ -243,6 +243,7 @@ ao_purchase_handler :: proc(player: Player, id: string) -> bool {
             if t != speed_skip_tier_index(player.speed) return false;
             add_speed(player, SPEED_SKIP_GRANT_AMOUNT);
             player.set_permanent_speed(player.purchased_speed + SPEED_SKIP_GRANT_AMOUNT);
+            play_speed_buy_sfx(player);
             return true;
         }
     }

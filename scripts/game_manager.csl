@@ -84,6 +84,8 @@ gm_on_npc_line_enter :: proc(listener: Component, player: Player) {
     }
     eff := new(Moving_Toward_Effect);
     player.entity.add_passive_effect(eff);
+
+    tutorial_advance(player, TUT_PASS_LINE); // crossed the line
 }
 
 gm_on_npc_line_exit :: proc(listener: Component, player: Player) {

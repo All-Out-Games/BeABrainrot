@@ -1,0 +1,23 @@
+// Step 3 (TUT_BASE_BUTTON): get to your plot and place the stolen brainrot.
+//   - Not in your room  -> arrow on the Base button (go home).
+//   - In your room      -> dotted line to your first pedestal (place it there).
+// Completed when a brainrot is placed (place_brainrot_from_item).
+draw_tut_base_button :: proc(player: Player) {
+    in_own_room := player.is_in_current_room != null && player.is_in_current_room == player.my_room;
+
+    if !in_own_room {
+        // Go home: arrow on the Base button (only while its nav bar is showing).
+        if player.nav_base_rect_frame != get_frame_number() return;
+        draw_tutorial_ui_arrow(player.nav_base_rect);
+        return;
+    }
+
+    // Home: point at the first pedestal to drop the brainrot.
+    room := player.my_room;
+    if room == null return;
+    if room.pedestals.count <= 0 return;
+    ped := room.pedestals[0];
+    if ped == null return;
+    if ped.brainrot_pedestal == null || !#alive(ped.brainrot_pedestal) return;
+    draw_tutorial_dotted_line(player.entity.world_position, ped.brainrot_pedestal.world_position, TUT_LINE_COLOR);
+}

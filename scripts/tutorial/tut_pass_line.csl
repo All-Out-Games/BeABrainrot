@@ -1,0 +1,12 @@
+// Step 1: cross the npc line into the steal area. Dotted line points from the
+// player up to the red line. Completed in gm_on_npc_line_enter.
+draw_tut_pass_line :: proc(player: Player) {
+    gm := get_game_manager();
+    if gm == null return;
+    if gm.npc_line == null || !#alive(gm.npc_line) return;
+
+    pp     := player.entity.world_position;
+    line_y := gm.npc_line.world_position.y;
+    target := v2{pp.x, line_y};
+    draw_tutorial_dotted_line(pp, target, TUT_LINE_COLOR);
+}

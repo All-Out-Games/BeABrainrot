@@ -1,0 +1,31 @@
+// Step 4 (TUT_UPGRADE): upgrade a placed brainrot.
+//   - Upgrade button showing (you're next to a brainrot) -> arrow on the button.
+//   - Otherwise -> dotted line to the nearest placed brainrot in your room.
+// Completed when an upgrade succeeds (draw_upgrade_hud).
+draw_tut_upgrade :: proc(player: Player) {
+    // Close enough that the upgrade button is up? Point the arrow at it.
+    if player.upgrade_btn_rect_frame == get_frame_number() {
+        draw_tutorial_ui_arrow(player.upgrade_btn_rect);
+        return;
+    }
+
+    // Otherwise walk them to the nearest placed brainrot in their room.
+    room := player.my_room;
+    if room == null return;
+    pp := player.entity.world_position;
+    best: LivingEntity;
+    best_d := 999999.0;
+    for ped: room.pedestals {
+        if ped == null continue;
+        if ped.placed_brainrot == null continue;
+        if !#alive(ped.placed_brainrot.entity) continue;
+        if ped.floor_renderer != null && ped.floor_renderer.floor != player.current_floor continue;
+        d := length_squared(ped.placed_brainrot.entity.world_position - pp);
+        if d < best_d {
+            best_d = d;
+            best = ped.placed_brainrot;
+        }
+    }
+    if best == null return;
+    draw_tutorial_dotted_line(pp, best.entity.world_position, TUT_LINE_COLOR);
+}

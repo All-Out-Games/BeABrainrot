@@ -1,0 +1,127 @@
+// New-player tutorial. A linear sequence of steps; the current step is a
+// persisted index on the player (Player.tutorial_step). Each step lives in its
+// own file (tut_*.csl) and draws guidance for the LOCAL player; completion is
+// detected in the relevant gameplay event, which calls tutorial_advance().
+//
+// Guidance style:
+//   - World destinations -> a pulsing dotted line from the player to the target.
+//   - UI targets         -> a pulsing top->bottom arrow bobbing onto the element.
+
+TUT_PASS_LINE    :: 0; // cross the npc line into the steal area
+TUT_STEAL        :: 1; // steal the closest brainrot (securing it = crossing back)
+TUT_BASE_BUTTON  :: 2; // press the Base button to go to your plot
+TUT_UPGRADE      :: 3; // upgrade a placed brainrot
+TUT_SPEED_BUTTON :: 4; // open the speed shop
+TUT_BUY_SPEED    :: 5; // buy a speed upgrade
+TUT_DONE         :: 6;
+
+TUTORIAL_SAVE_KEY :: "tutorial_step";
+
+load_tutorial :: proc(player: Player) {
+    player.tutorial_step = Save.get_int(player, TUTORIAL_SAVE_KEY, 0);
+}
+
+// Advance only if we're on the expected step (so an event can't skip ahead).
+tutorial_advance :: proc(player: Player, from_step: s64) {
+    if player == null return;
+    if player.tutorial_step != from_step return;
+    player.tutorial_step = from_step + 1;
+    Save.set_int(player, TUTORIAL_SAVE_KEY, player.tutorial_step);
+}
+
+// Cheat: restart the tutorial from the beginning (for retesting).
+reset_tutorial :: proc(player: Player) {
+    if player == null return;
+    player.tutorial_step = 0;
+    Save.set_int(player, TUTORIAL_SAVE_KEY, 0);
+    show_notification(player, "Tutorial reset!");
+} @chat_command
+
+// Drawn from the local player's late_update. Dispatches to the current step.
+draw_tutorial :: proc(player: Player) {
+    if player == null return;
+    if !#alive(player.entity) return;
+    if player.tutorial_step >= TUT_DONE return;
+
+    step := player.tutorial_step;
+    if step == TUT_PASS_LINE    { draw_tut_pass_line(player);    return; }
+    if step == TUT_STEAL        { draw_tut_steal(player);        return; }
+    if step == TUT_BASE_BUTTON  { draw_tut_base_button(player);  return; }
+    if step == TUT_UPGRADE      { draw_tut_upgrade(player);      return; }
+    if step == TUT_SPEED_BUTTON { draw_tut_speed_button(player); return; }
+    if step == TUT_BUY_SPEED    { draw_tut_buy_speed(player);    return; }
+}
+
+// ===== Guidance helpers =====
+
+TUT_LINE_COLOR :: v4{0.25, 1.0, 0.35, 1.0}; // green guidance
+
+// World-space pulsing dotted line from -> to, dots flowing toward the target.
+draw_tutorial_dotted_line :: proc(from: v2, to: v2, color: v4) {
+    seg := to - from;
+    len := length(seg);
+    if len < 0.15 return;
+    dir := seg / len;
+
+    UI.push_world_draw_context();
+    defer UI.pop_draw_context();
+    UI.push_layer(120);
+    defer UI.pop_layer();
+    UI.push_z(99999.0);
+    defer UI.pop_z();
+
+    white   := get_asset(Texture_Asset, "$AO/white.png");
+    spacing := 0.6;  // world units between dots
+    dot_r   := 0.14; // dot half-size (world units)
+
+    tt   := get_time() * 1.6;
+    flow := (tt - (tt.(s64)).(float)) * spacing; // 0..spacing, animates the dots along the line
+    d    := flow;
+    while d < len {
+        p := from + dir * d;
+        // brightness wave travelling toward the target
+        a := 0.4 + 0.6 * (0.5 + 0.5 * sin((d / len) * 9.0 - tt * 3.0));
+        rect := Rect{p, p}.grow(dot_r);
+        UI.quad(rect, white, v4{color.x, color.y, color.z, color.w * a});
+        d = d + spacing;
+    }
+}
+
+// Screen-space arrow that bobs onto a UI element. Placed on whichever side has
+// room: elements near the top of the screen get an arrow BELOW them pointing up;
+// lower elements get one ABOVE pointing down (big_arrow points right at 0deg).
+draw_tutorial_ui_arrow :: proc(target: Rect) {
+    arrow := core_globals.tutorial_arrow;
+    if arrow == null return;
+
+    sf     := UI.get_current_scale_factor();
+    screen := UI.get_screen_rect();
+    scy    := (screen.min.y + screen.max.y) * 0.5;
+
+    // half is a 1080p-reference value fed to grow() (which scales it); the
+    // POSITION offsets (gap/bob) are added to already-scaled rect coords, so
+    // they need the *sf themselves.
+    half := 60.0; // 1.5x base arrow size
+    t    := get_time();
+    bob  := (0.5 + 0.5 * sin(t * 4.0)) * 28.0 * sf;
+    gap  := (half + 10.0) * sf;
+
+    cxp := target.center().x;
+    rot := -90.0; // point down
+    ay  := target.max.y + gap + bob; // above, pointing down (default)
+    if target.center().y > scy {
+        // element in the top half -> arrow below it, pointing up
+        rot = 90.0;
+        ay  = target.min.y - gap - bob;
+    }
+
+    arect := Rect{v2{cxp, ay}, v2{cxp, ay}}.grow(half).fit_aspect(arrow.get_aspect());
+
+    UI.push_screen_draw_context();
+    defer UI.pop_draw_context();
+    UI.push_layer(180);
+    defer UI.pop_layer();
+    UI.push_matrix(Matrix4.rotate_about_point(arect.center(), rot));
+    defer UI.pop_matrix();
+    UI.quad(arect, arrow);
+}

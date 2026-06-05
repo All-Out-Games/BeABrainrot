@@ -10,13 +10,25 @@ Floor_Renderer :: class : Component {
     sprites: [..]Sprite_Renderer  @ao_serialize;
     spines:  [..]Spine_Animator   @ao_serialize;
 
+    // Spatial-grid bookkeeping (floor_manager.csl). Lets the Floor_Manager only
+    // touch renderers near the camera instead of walking every one each frame.
+    grid_registered: bool;
+    grid_bucket:     s64;
+    grid_cx:         s64;
+    grid_cy:         s64;
+
     ao_start :: method() {
         apply_layer();
     }
 
+    ao_end :: method() {
+        floor_grid_remove(this);
+    }
+
     // Push our floor value onto each sprite/spine's draw layer. Call after
     // mutating `floor` at runtime (e.g. when a placed brainrot inherits a
-    // pedestal's floor).
+    // pedestal's floor). Also (re)buckets us in the spatial grid — every
+    // reposition site already calls this, so the grid stays in sync for free.
     apply_layer :: method() {
         layer := floor.(s32);
         for s: sprites {
@@ -27,6 +39,7 @@ Floor_Renderer :: class : Component {
             if sa == null continue;
             sa.layer = layer;
         }
+        floor_renderer_update_grid(this);
     }
 
     apply_for_viewer_floor :: method(viewer_floor: s64) {

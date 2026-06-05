@@ -1,0 +1,50 @@
+// Spatial hash grid for Floor_Renderers. Buckets renderers by a uniform
+// world-space cell so the Floor_Manager (floor_manager.csl) only visits the
+// ~handful near the camera instead of walking every renderer each frame.
+//
+// Renderers (re)register through Floor_Renderer.apply_layer(), which every
+// reposition site already calls (spawn ao_start, pedestal placement, carry), so
+// the grid stays correct automatically; ao_end removes them.
+
+FLOOR_GRID_CELL    :: 40.0;    // world units per cell
+FLOOR_GRID_BUCKETS :: 256;     // hash buckets
+FLOOR_GRID_OFFSET  :: 10000.0; // keeps cell coords non-negative (world is small)
+
+g_floor_grid: [FLOOR_GRID_BUCKETS][..]Floor_Renderer;
+
+floor_grid_cell :: proc(coord: float) -> s64 {
+    return ((coord + FLOOR_GRID_OFFSET) / FLOOR_GRID_CELL).(s64);
+}
+
+floor_grid_bucket :: proc(cx: s64, cy: s64) -> s64 {
+    // cx,cy are non-negative (offset), so this stays positive — no overflow.
+    return (cx * 1000 + cy) % FLOOR_GRID_BUCKETS;
+}
+
+floor_renderer_update_grid :: proc(r: Floor_Renderer) {
+    if r == null return;
+    if !#alive(r.entity) return;
+    pos := r.entity.world_position;
+    cx  := floor_grid_cell(pos.x);
+    cy  := floor_grid_cell(pos.y);
+    if r.grid_registered && r.grid_cx == cx && r.grid_cy == cy return; // unchanged
+    if r.grid_registered floor_grid_remove(r);
+    r.grid_cx         = cx;
+    r.grid_cy         = cy;
+    r.grid_bucket     = floor_grid_bucket(cx, cy);
+    r.grid_registered = true;
+    append(ref g_floor_grid[r.grid_bucket], r);
+}
+
+floor_grid_remove :: proc(r: Floor_Renderer) {
+    if r == null return;
+    if !r.grid_registered return;
+    b := r.grid_bucket;
+    for i: 0..g_floor_grid[b].count - 1 {
+        if g_floor_grid[b][i] == r {
+            unordered_remove_by_index(ref g_floor_grid[b], i);
+            break;
+        }
+    }
+    r.grid_registered = false;
+}

@@ -28,13 +28,53 @@ Floor_Manager :: class : Component {
     apply_visibility :: method(viewer: Player) {
         if viewer == null return;
         viewer_floor := viewer.current_floor;
-        for r: component_iterator(Floor_Renderer) {
-            if r == null continue;
-            r.apply_for_viewer_floor(viewer_floor);
+
+        cam_pos  := viewer.camera.position;
+        cam_size := viewer.camera.size;
+
+        // Camera not ready (size 0) — fall back to the full walk so nothing is
+        // left un-applied on the first frames.
+        if cam_size <= 0.0 {
+            for r: component_iterator(Floor_Renderer) {
+                if r == null continue;
+                r.apply_for_viewer_floor(viewer_floor);
+            }
+            apply_other_player_visibility(viewer);
+            return;
+        }
+
+        // Spatial-grid query: only visit renderers in the cells the camera
+        // overlaps, then cull within. Drops a few-hundred-renderer walk to ~the
+        // handful actually near the player.
+        radius  := cam_size * FLOOR_CULL_RADIUS_MULT;
+        cull_sq := radius * radius;
+        min_cx  := floor_grid_cell(cam_pos.x - radius);
+        max_cx  := floor_grid_cell(cam_pos.x + radius);
+        min_cy  := floor_grid_cell(cam_pos.y - radius);
+        max_cy  := floor_grid_cell(cam_pos.y + radius);
+
+        for cx: min_cx..max_cx {
+            for cy: min_cy..max_cy {
+                b := floor_grid_bucket(cx, cy);
+                for i: 0..g_floor_grid[b].count - 1 {
+                    r := g_floor_grid[b][i];
+                    if r == null continue;
+                    // Exact-cell filter (buckets can mix cells via hash collisions).
+                    if r.grid_cx != cx || r.grid_cy != cy continue;
+                    if !#alive(r.entity) continue;
+                    if length_squared(r.entity.world_position - cam_pos) > cull_sq continue;
+                    r.apply_for_viewer_floor(viewer_floor);
+                }
+            }
         }
         apply_other_player_visibility(viewer);
     }
 }
+
+// Generous multiple of the camera's orthographic size — wide enough that the
+// visible diagonal (and a margin) is always inside it, so we never skip a
+// renderer that's actually on screen.
+FLOOR_CULL_RADIUS_MULT :: 2.5;
 
 FLOOR_INVIS_REASON :: "different_floor";
 

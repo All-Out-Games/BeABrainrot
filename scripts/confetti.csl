@@ -1,0 +1,92 @@
+// Full-screen confetti cannon, as a passive effect. Two cannons fire from the
+// bottom corners toward the top-middle, then gravity arcs them down.
+//
+// STORES NOTHING per-frame: each piece's params are derived deterministically
+// from its index, and its position is recomputed every frame from the effect's
+// own get_elapsed_time(). is_local state gets wiped each server update, so any
+// stored particle/spawn-time would reset and the burst would re-spawn at the
+// corners (which is what kept happening) — recomputing from the effect timer
+// sidesteps that entirely. The effect auto-removes after CONFETTI_LIFE.
+
+CONFETTI_COUNT   :: 260;
+CONFETTI_GRAVITY :: -1600.0; // px/s^2 (Y grows up, so down is negative)
+CONFETTI_LIFE    :: 4.5;     // seconds
+CONFETTI_SPREAD  :: 0.70;    // launch cone half-angle (radians)
+CONFETTI_SPEED_LO :: 1800.0;
+CONFETTI_SPEED_HI :: 2700.0;
+
+confetti_palette :: proc(pick: s64) -> v4 {
+    if pick == 0 return v4{0.95, 0.25, 0.30, 1}; // red
+    if pick == 1 return v4{0.30, 0.55, 1.00, 1}; // blue
+    if pick == 2 return v4{0.35, 0.85, 0.35, 1}; // green
+    if pick == 3 return v4{1.00, 0.85, 0.20, 1}; // yellow
+    if pick == 4 return v4{1.00, 0.45, 0.80, 1}; // pink
+    if pick == 5 return v4{0.30, 0.90, 0.95, 1}; // cyan
+    if pick == 6 return v4{1.00, 0.55, 0.15, 1}; // orange
+    return v4{0.70, 0.40, 1.00, 1};               // purple
+}
+
+Confetti_Effect :: class : Effect_Base {
+    effect_start :: method() {
+        set_duration(CONFETTI_LIFE);
+    }
+
+    effect_late_update :: method(dt: float) {
+        if player == null return;
+        if !player.is_local() return; // the thief's own screen
+
+        t      := get_elapsed_time();
+        screen := UI.get_screen_rect();
+        cx     := (screen.min.x + screen.max.x) * 0.5;
+        top    := screen.max.y;
+        bl     := v2{screen.min.x, screen.min.y}; // bottom-left cannon
+        br     := v2{screen.max.x, screen.min.y}; // bottom-right cannon
+        white  := get_asset(Texture_Asset, "$AO/white.png");
+
+        // get_screen_rect is in scaled px, but the raw speeds/sizes below aren't —
+        // scale them by the UI factor (screen_height / 1080) so the burst looks
+        // identical at any resolution. CONFETTI_* constants are 1080p-reference.
+        sf  := UI.get_current_scale_factor();
+        grv := CONFETTI_GRAVITY * sf;
+
+        alpha := 1.0;
+        rem   := CONFETTI_LIFE - t;
+        if rem < 0.8 alpha = rem / 0.8;
+        if alpha <= 0.0 return;
+
+        UI.push_screen_draw_context();
+        defer UI.pop_draw_context();
+        UI.push_layer(200);
+        defer UI.pop_layer();
+
+        for i: 0..CONFETTI_COUNT - 1 {
+            origin := bl;
+            if i >= CONFETTI_COUNT / 2 origin = br;
+
+            // Per-particle PRNG, re-seeded from the index each frame -> stable but
+            // well-distributed params (a linear hash banded them into arcs).
+            prng: u64 = rng_seed(((i + 1) * 2654435761).(u64));
+            ang    := rng_range_float(ref prng, -CONFETTI_SPREAD, CONFETTI_SPREAD);
+            speed  := rng_range_float(ref prng, CONFETTI_SPEED_LO, CONFETTI_SPEED_HI) * sf;
+            rot0   := rng_range_float(ref prng, 0, 6.283);
+            rspeed := rng_range_float(ref prng, -10, 10);
+            size   := rng_range_float(ref prng, 16, 34) * sf;
+            col    := rng_range_int(ref prng, 0, 6);
+
+            dir := normalize(v2{cx, top} - origin);
+            ca  := cos(ang);
+            sa  := sin(ang);
+            ndx := dir.x * ca - dir.y * sa;
+            ndy := dir.x * sa + dir.y * ca;
+
+            x := origin.x + ndx * speed * t;
+            y := origin.y + ndy * speed * t + 0.5 * grv * t * t;
+
+            rot  := rot0 + rspeed * t;
+            half := v2{cos(rot), sin(rot)} * (size * 0.5);
+            c    := confetti_palette(col);
+            c.w  = alpha;
+            UI.line(v2{x, y} - half, v2{x, y} + half, size * 0.45, white, c);
+        }
+    }
+}

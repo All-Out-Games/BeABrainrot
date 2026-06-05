@@ -482,6 +482,9 @@ Player :: class : Player_Base {
     // (set to the last room entered while auto-walking). null = none, which
     // means every room's roof blocks them. Cleared on steal / line-cross / hit.
     active_steal_room: Room_Npc;
+    // One-shot: force the hotbar selection to slot 0 on the next draw (set when a
+    // stolen brainrot lands at the front).
+    select_slot_0_request: bool;
     pedestals_unlocked: s64;
     debug_show_le: bool;
     show_shop_v2: bool;
@@ -535,6 +538,9 @@ Player :: class : Player_Base {
         snap_player_to_navmesh(this);
         register_player_jump_emote(this);
         register_player_carry_anims(this);
+
+        // Always-on background music (normal loop; chase effect swaps tracks).
+        entity.add_passive_effect(new(Background_Music_Effect));
     }
 
     ao_update :: method(dt: float) {
@@ -556,16 +562,23 @@ Player :: class : Player_Base {
             }
         }
 
-        // Zoom the camera out while the Being_Chased marker is active so you
-        // can see the NPC and plan an escape. Skip while Moving_Toward is
-        // auto-walking — it owns the camera and zooms further on its own.
+        // While being chased, zoom IN the closer the NPC gets — ramps the
+        // pressure as it closes in. Skip while Moving_Toward is auto-walking —
+        // it owns the camera and zooms out on its own.
         _, auto_walking := get_effect(entity, Moving_Toward_Effect);
         if !auto_walking {
-            _, being_chased := get_effect(entity, Being_Chased_Effect);
+            bc, being_chased := get_effect(entity, Being_Chased_Effect);
             target_size := default_camera_size;
-            if being_chased target_size = CHASE_CAMERA_SIZE;
+            if being_chased {
+                d := chaser_distance(this, bc.chaser);
+                prox := 1.0 - (d - CHASE_ZOOM_NEAR_DIST) / (CHASE_ZOOM_FAR_DIST - CHASE_ZOOM_NEAR_DIST);
+                if prox < 0.0 prox = 0.0;
+                if prox > 1.0 prox = 1.0;
+                target_size = lerp(CHASE_CAMERA_SIZE, CHASE_CAMERA_CLOSE, prox);
+            }
             camera.size = lerp(camera.size, target_size, clamp(dt * 6.0, 0, 1));
         }
+
 
         // If we don't own a room (joined when full, or our previous room got
         // wiped), keep retrying — a room may free up later as players leave.
@@ -608,6 +621,11 @@ Player :: class : Player_Base {
             options.enable_selection = true;
             options.scroll_item_selection = true;
             options.enable_use_from_hotbar = true;
+            // Just stole a brainrot → force-select the front slot once.
+            if select_slot_0_request {
+                options.force_select_hotbar_index = 0;
+                select_slot_0_request = false;
+            }
             result := Items.draw_hotbar(this, default_inventory, options);
 
             prev_selected := selected_brainrot_item;

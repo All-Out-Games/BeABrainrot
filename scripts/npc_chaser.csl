@@ -172,15 +172,24 @@ NPC_ANIM_SPEED_MAX    :: 4.0;
 start_chase :: proc(c: Npc_Chaser, is_re_chase: bool) {
     if c == null return;
     if c.state == Npc_Chaser_State.ESCORTING return;
-    // Re-chase only resumes from IDLE — don't restart windup mid-chase.
-    if is_re_chase && c.state != Npc_Chaser_State.IDLE return;
+    // Already chasing → ignore re-triggers (e.g. re-entering the room's trigger
+    // volume mid-chase). Restarting would reset is_re_chase to false, flipping a
+    // matched re-chase into a first-chase sprint and making the NPC speed up.
+    // Chases only (re)start from IDLE.
+    if c.state == Npc_Chaser_State.CHASING return;
     if c.assigned_player != null && #alive(c.assigned_player.entity) {
-        // "Being chased" marker — drives the chase camera zoom. Removed on
-        // line-cross (escape) or on catch. Dedupe so two chasers targeting
-        // the same player don't stack it.
-        _, has_chased := get_effect(c.assigned_player.entity, Being_Chased_Effect);
-        if !has_chased {
-            c.assigned_player.entity.add_passive_effect(new(Being_Chased_Effect));
+        // "Being chased" marker — drives the chase camera zoom + chase music.
+        // Skipped during the auto-walk conveyor ride (the first catch happens
+        // then anyway); only present while actually fleeing. Dedupe so two
+        // chasers targeting the same player don't stack it.
+        _, auto_walking := get_effect(c.assigned_player.entity, Moving_Toward_Effect);
+        bc, has_chased := get_effect(c.assigned_player.entity, Being_Chased_Effect);
+        if !auto_walking && !has_chased {
+            bc = new(Being_Chased_Effect);
+            bc.chaser = c;
+            c.assigned_player.entity.add_passive_effect(bc);
+        } else if bc != null {
+            bc.chaser = c;
         }
         // "You've been spotted" alarm (camera shake + red flash) on re-chase only.
         if is_re_chase {
@@ -236,6 +245,17 @@ chaser_speed_wu_per_sec :: proc(stat: s64) -> float {
     return compute_agent_movement_speed_uncapped(stat) / 60.0;
 }
 
+// Distance from the player to a specific chaser. Large value if none / stale
+// (not alive or no longer chasing). Drives the proximity chase-camera zoom + sway.
+chaser_distance :: proc(player: Player, c: Npc_Chaser) -> float {
+    if player == null return 999999.0;
+    if !#alive(player.entity) return 999999.0;
+    if c == null return 999999.0;
+    if !#alive(c.entity) return 999999.0;
+    if c.state != Npc_Chaser_State.CHASING return 999999.0;
+    return length(c.entity.world_position - player.entity.world_position);
+}
+
 tick_chaser_idle :: proc(c: Npc_Chaser, dt: float) {
     my_world := c.entity.world_position;
     diff := c.home_position - my_world;
@@ -253,6 +273,10 @@ tick_chaser_idle :: proc(c: Npc_Chaser, dt: float) {
 tick_chaser_chasing :: proc(c: Npc_Chaser, dt: float) {
     if c.assigned_player == null { c.state = Npc_Chaser_State.IDLE; return; }
     if !#alive(c.assigned_player.entity) { c.state = Npc_Chaser_State.IDLE; return; }
+    // Keep the Being_Chased effect's chaser reference fresh so the camera reads
+    // its chaser directly without scanning all chasers.
+    bc, has_bc := get_effect(c.assigned_player.entity, Being_Chased_Effect);
+    if has_bc && bc != null bc.chaser = c;
     // Pause the chase while the player is on an upper floor (mid-jump or in an
     // upper room). Stays in CHASING so it picks back up when they're on 0.
     if c.assigned_player.current_floor != 0 return;

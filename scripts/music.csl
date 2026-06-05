@@ -1,0 +1,43 @@
+// Background music, event-driven (no per-frame tick — that re-triggers under
+// client-side prediction/rollback). The always-on Background_Music_Effect plays
+// the normal track on a seamless loop. The chase effect mutes it and plays the
+// chase track, then resumes the normal track on chase end. The looping music
+// handle is stored on the effect (effect fields survive; a per-player field
+// would clobber across the wire). One-shot effect_start/end fire server-side and
+// route to the player via specific_to_player, so each player hears their own.
+//
+// NOTE: seamless loop, no gap between repeats. A timed gap needs a per-frame
+// timer (which the netcode breaks) — bake the silence into music_normal.wav and
+// it'll loop with the gap.
+
+MUSIC_NORMAL_VOLUME :: 1.0;
+MUSIC_CHASE_VOLUME  :: 0.6;
+
+music_play :: proc(player: Player, path: string, loop: bool, volume: float) -> u64 {
+    sfx := get_asset(SFX_Asset, path);
+    if sfx == null return 0;
+    desc := SFX.default_sfx_desc();
+    desc.specific_to_player = player;
+    desc.positional = false;
+    desc.loop       = loop;
+    desc.volume     = volume;
+    desc.channel    = .MUSIC;
+    return SFX.play(sfx, desc);
+}
+
+// Always on the player (added in ao_start). Owns the looping normal track.
+Background_Music_Effect :: class : Effect_Base {
+    normal_id: u64;
+
+    effect_start :: method() {
+        if player == null return;
+        normal_id = music_play(player, "SFX/music_normal.wav", true, MUSIC_NORMAL_VOLUME);
+    }
+
+    effect_end :: method(interrupt: bool) {
+        if normal_id != 0 {
+            SFX.stop(normal_id);
+            normal_id = 0;
+        }
+    }
+}

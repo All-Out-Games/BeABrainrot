@@ -3,7 +3,10 @@ game_manager_instance: Game_Manager;
 ZOOMED_OUT_CAMERA_SIZE :: 13.0;
 // Camera zoom applied while an NPC is actively chasing the player. Higher =
 // more zoomed out. Lerped to/from the scene's default size in Player.ao_update.
-CHASE_CAMERA_SIZE      :: 7.0;
+CHASE_CAMERA_SIZE      :: 7.0; // chase zoom when the NPC is far
+CHASE_CAMERA_CLOSE     :: 5.0; // chase zoom when the NPC is point-blank (more zoomed in)
+CHASE_ZOOM_NEAR_DIST   :: 2.5; // wu — fully zoomed in when the NPC is this close
+CHASE_ZOOM_FAR_DIST    :: 11.0; // wu — back to CHASE_CAMERA_SIZE beyond this
 
 Game_Manager :: class : Component {
     navmesh:      Navmesh @ao_serialize;

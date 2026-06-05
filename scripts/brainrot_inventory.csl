@@ -77,6 +77,8 @@ add_brainrot_to_inventory :: proc(player: Player, brainrot: LivingEntity, prefer
     if prefer_front && item.slot_index != 0 {
         Items.swap_items(player.default_inventory, player.default_inventory, item.slot_index, 0);
     }
+    // Also select slot 0 so the stolen brainrot is the one in hand.
+    if prefer_front player.select_slot_0_request = true;
 
     brainrot.entity.destroy();
 

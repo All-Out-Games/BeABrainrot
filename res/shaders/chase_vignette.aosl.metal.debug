@@ -1,0 +1,167 @@
+MSL(OSX)
+Vertex Shader:
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct type_params
+{
+    float4x4 mvp;
+    float4 resolution_time;
+    int matrix_image_size;
+};
+
+struct vs_main_out
+{
+    float4 out_var_COLOR0 [[user(locn0)]];
+    float2 out_var_UV [[user(locn1)]];
+    float4 gl_Position [[position]];
+};
+
+struct vs_main_in
+{
+    float2 in_var_POS [[attribute(0)]];
+    float2 in_var_UV [[attribute(1)]];
+    float4 in_var_COLOR [[attribute(3)]];
+};
+
+vertex vs_main_out vs_main(vs_main_in in [[stage_in]], constant type_params& params [[buffer(0)]])
+{
+    vs_main_out out = {};
+    out.out_var_COLOR0 = in.in_var_COLOR;
+    out.out_var_UV = in.in_var_UV;
+    out.gl_Position = params.mvp * float4(in.in_var_POS, 0.0, 1.0);
+    return out;
+}
+
+
+
+Fragment Shader:
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct type_user_input
+{
+    float4 vignette_color;
+    float strength;
+    float inner_radius;
+    float outer_radius;
+    float _ao_pad0;
+    float2 shake_offset;
+};
+
+struct ps_main_out
+{
+    float4 out_var_SV_Target0 [[color(0)]];
+};
+
+struct ps_main_in
+{
+    float2 in_var_UV [[user(locn1)]];
+};
+
+fragment ps_main_out ps_main(ps_main_in in [[stage_in]], constant type_user_input& user_input [[buffer(1)]])
+{
+    ps_main_out out = {};
+    float _54 = fast::clamp((smoothstep(user_input.inner_radius, user_input.outer_radius, length(in.in_var_UV - (float2(0.5) + user_input.shake_offset)) * 2.0) * user_input.strength) * user_input.vignette_color.w, 0.0, 1.0);
+    out.out_var_SV_Target0 = float4(powr(precise::max(user_input.vignette_color.xyz, float3(0.0)), float3(2.2000000476837158203125)) * _54, _54);
+    return out;
+}
+
+
+MSL(iOS)
+Vertex Shader:
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct type_params
+{
+    float4x4 mvp;
+    float4 resolution_time;
+    int matrix_image_size;
+};
+
+struct vs_main_in
+{
+    float2 in_var_POS [[attribute(0)]];
+    float2 in_var_UV [[attribute(1)]];
+    float4 in_var_COLOR [[attribute(3)]];
+};
+
+struct vs_main_out
+{
+    float4 out_out_var_COLOR0 [[user(locn0)]];
+    float2 out_out_var_UV [[user(locn1)]];
+    float4 out_gl_Position [[position]];
+};
+
+struct vs_main_in_1
+{
+    float2 in_in_var_POS [[attribute(0)]];
+    float2 in_in_var_UV [[attribute(1)]];
+    float4 in_in_var_COLOR [[attribute(3)]];
+};
+
+vertex vs_main_out vs_main(vs_main_in_1 in [[stage_in]], constant type_params& params [[buffer(0)]])
+{
+    vs_main_out out = {};
+    vs_main_out out_1 = {};
+    out.out.out_var_COLOR0 = in.in.in_var_COLOR;
+    out.out.out_var_UV = in.in.in_var_UV;
+    out.gl_Position = params.mvp * float4(in.in.in_var_POS, 0.0, 1.0);
+    return out_1;
+}
+
+
+
+Fragment Shader:
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct type_user_input
+{
+    float4 vignette_color;
+    float strength;
+    float inner_radius;
+    float outer_radius;
+    float _ao_pad0;
+    float2 shake_offset;
+};
+
+struct ps_main_out
+{
+    float4 out_var_SV_Target0 [[color(0)]];
+};
+
+struct ps_main_in
+{
+    float2 in_var_UV [[user(locn1)]];
+};
+
+struct ps_main_out_1
+{
+    float4 out_out_var_SV_Target0 [[color(0)]];
+};
+
+struct ps_main_in_1
+{
+    float2 in_in_var_UV [[user(locn1)]];
+};
+
+fragment ps_main_out_1 ps_main(ps_main_in_1 in [[stage_in]], constant type_user_input& user_input [[buffer(1)]])
+{
+    ps_main_out out = {};
+    ps_main_out_1 out_1 = {};
+    float _54 = fast::clamp((smoothstep(user_input.inner_radius, user_input.outer_radius, length(in.in.in_var_UV - (float2(0.5) + user_input.shake_offset)) * 2.0) * user_input.strength) * user_input.vignette_color.w, 0.0, 1.0);
+    out.out.out_var_SV_Target0 = float4(powr(precise::max(user_input.vignette_color.xyz, float3(0.0)), float3(2.2000000476837158203125)) * _54, _54);
+    return out_1;
+}
+
+

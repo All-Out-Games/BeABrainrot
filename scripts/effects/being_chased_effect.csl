@@ -1,6 +1,87 @@
-// Marker effect: the player is currently being chased by an NPC. Added when a
-// chase starts (entering a room / jailbreak / steal-while-jailed) and removed
-// when the player crosses back over the game-manager line (escape) or gets
-// caught. Player.ao_update lerps the camera out while this is present.
+// Marker effect: the player is currently FLEEING an NPC chaser. Added by
+// start_chase only when the player is NOT auto-walking (so it's absent during
+// the conveyor ride / first catch) and removed when they cross back over the
+// game-manager line (escape) or get caught. Player.ao_update zooms the camera
+// IN the closer the chaser gets while this is present.
+//
+// The chase MUSIC is owned by the music manager (music.csl) — it watches for
+// this effect and swaps tracks. This effect drives the camera shake + the
+// proximity vignette, both local-only and gone the moment the effect ends.
+CHASE_SWAY_BASE :: 0.015; // camera shake amplitude when the chaser is far (wu)
+CHASE_SWAY_MAX  :: 0.10;  // extra shake added at point-blank (wu)
+
+VIGNETTE_RADIUS_OFF :: 2.6;  // radius with no vignette (edges clear)
+VIGNETTE_RADIUS_ON  :: 1.0;  // radius at full intensity (moderate vignette at point-blank)
+VIGNETTE_SOFTNESS   :: 0.55; // edge falloff
+VIGNETTE_NEAR_DIST  :: 2.5;  // wu — full intensity when the chaser is this close
+VIGNETTE_FAR_DIST   :: 18.0; // wu — starts fading in from this far out
+
 Being_Chased_Effect :: class : Effect_Base {
+    // The NPC chasing this player — set by start_chase / kept fresh by the
+    // chaser tick. Lets the camera read its chaser directly (no scanning).
+    chaser: Npc_Chaser;
+    // Handle to the looping chase music (owned for the chase's duration).
+    chase_id: u64;
+
+    // Mute the normal background track and start the chase track. Runs once
+    // (server-side) and routes to the player via specific_to_player.
+    effect_start :: method() {
+        if player == null return;
+        bg, has_bg := get_effect(player.entity, Background_Music_Effect);
+        if has_bg && bg != null && bg.normal_id != 0 {
+            SFX.fade_out_and_stop(bg.normal_id, 0.3);
+            bg.normal_id = 0;
+        }
+        chase_id = music_play(player, "SFX/CHASINGMUSIC.wav", true, MUSIC_CHASE_VOLUME);
+    }
+
+    // Camera shake + proximity vignette while fleeing. Applied AFTER the engine's
+    // camera-follow (late_update) so the shake isn't overwritten; local-only.
+    effect_late_update :: method(dt: float) {
+        if player == null return;
+        if !#alive(player.entity) return;
+        if !player.is_local() return;
+
+        d := chaser_distance(player, chaser);
+
+        // Camera shake (CHASE_ZOOM proximity range).
+        sprox := 1.0 - (d - CHASE_ZOOM_NEAR_DIST) / (CHASE_ZOOM_FAR_DIST - CHASE_ZOOM_NEAR_DIST);
+        if sprox < 0.0 sprox = 0.0;
+        if sprox > 1.0 sprox = 1.0;
+        amp := CHASE_SWAY_BASE + CHASE_SWAY_MAX * sprox;
+        t := get_time();
+        ox := (sin(t * 11.0) * 0.6 + sin(t * 17.3 + 1.7) * 0.4) * amp;
+        oy := (cos(t * 13.0) * 0.6 + sin(t * 19.7 + 0.6) * 0.4) * amp;
+        player.camera.position = player.camera.position + v2{ox, oy};
+
+        // Proximity vignette (its own, wider range).
+        vprox := 1.0 - (d - VIGNETTE_NEAR_DIST) / (VIGNETTE_FAR_DIST - VIGNETTE_NEAR_DIST);
+        if vprox < 0.0 vprox = 0.0;
+        if vprox > 1.0 vprox = 1.0;
+        Post_Processing.vignette(.{
+            radius   = lerp(VIGNETTE_RADIUS_OFF, VIGNETTE_RADIUS_ON, vprox),
+            softness = VIGNETTE_SOFTNESS,
+        });
+    }
+
+    // Stop the chase track and resume the normal one, and clear the vignette.
+    effect_end :: method(interrupt: bool) {
+        if player == null return;
+
+        // Music (server-side, routes to player — not is_local gated).
+        if chase_id != 0 {
+            SFX.fade_out_and_stop(chase_id, 0.4);
+            chase_id = 0;
+        }
+        bg, has_bg := get_effect(player.entity, Background_Music_Effect);
+        if has_bg && bg != null {
+            bg.normal_id = music_play(player, "SFX/music_normal.wav", true, MUSIC_NORMAL_VOLUME);
+        }
+
+        // Vignette clear (local only; in case the post-process persists once we
+        // stop re-applying it).
+        if player.is_local() {
+            Post_Processing.vignette(.{ radius = VIGNETTE_RADIUS_OFF, softness = VIGNETTE_SOFTNESS });
+        }
+    }
 }

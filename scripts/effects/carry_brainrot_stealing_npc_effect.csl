@@ -15,6 +15,18 @@ do_steal_secure :: proc(eff: Carry_Brainrot_Stealing_Npc_Effect) {
     if eff.carried == null || !#alive(eff.carried.entity) return;
 
     add_brainrot_to_inventory(eff.player, eff.carried, true);
+    
+    sfx := get_asset(SFX_Asset, "SFX/cheers.wav");
+    if (sfx != null)
+    {
+        desc := SFX.default_sfx_desc();
+        desc.specific_to_player = eff.player;
+        desc.positional = false;
+        desc.loop       = false;
+        desc.volume     = 0.7;
+        SFX.play(sfx, desc);
+    }
+
     eff.player.active_steal_room = null; // securing a steal re-roofs every room
     if eff.origin_room != null && #alive(eff.origin_room.entity) {
         if eff.origin_pedestal_index >= 0 && eff.origin_pedestal_index < eff.origin_room.pedestal_locked.count {

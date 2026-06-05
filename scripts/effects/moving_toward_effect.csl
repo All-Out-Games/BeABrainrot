@@ -27,17 +27,18 @@ Moving_Toward_Effect :: class : Effect_Base {
         if player == null return;
         if !#alive(player.entity) return;
 
-        // Player pressing any direction → use their upgrade speed at full scale.
-        // No input → fall back to base speed and the slower idle scale so the
-        // hands-off cruise isn't too fast.
+        // Player pressing any direction → use their real speed (get_actual_speed
+        // already includes the 2x Speed gamepass) at full scale. No input → fall
+        // back to base speed and the slower idle scale so the hands-off cruise
+        // isn't too fast.
         input := player.input_this_frame;
-        stat_speed: s64 = BASE_SPEED;
+        agent_speed := compute_agent_movement_speed(BASE_SPEED);
         scale := MOVING_TOWARD_SPEED_SCALE_IDLE;
         if input.x != 0 || input.y != 0 {
-            stat_speed = player.speed;
+            agent_speed = player.get_actual_speed();
             scale = MOVING_TOWARD_SPEED_SCALE_INPUT;
         }
-        units_per_sec := compute_agent_movement_speed(stat_speed) / MOVING_TOWARD_FRICTION_DIVISOR * scale;
+        units_per_sec := agent_speed / MOVING_TOWARD_FRICTION_DIVISOR * scale;
 
         pos := player.entity.local_position;
         pos.y += units_per_sec * dt;

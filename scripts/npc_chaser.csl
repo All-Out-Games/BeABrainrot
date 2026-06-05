@@ -262,20 +262,25 @@ tick_chaser_chasing :: proc(c: Npc_Chaser, dt: float) {
     _, has_kb := get_effect(c.assigned_player.entity, Hit_Knockback_Effect);
     if has_kb return;
 
-    effective_speed := chaser_speed_wu_per_sec(c.speed_stat);
+    chaser_max := chaser_speed_wu_per_sec(c.speed_stat);
+
+    // The player's REAL movement speed in wu/s, including the 2x Speed gamepass
+    // (Player.get_actual_speed uses the capped curve; below SPEED_STAT_AT_MAX it
+    // matches the chaser's uncapped curve, so the comparison is apples-to-apples).
+    player_real := c.assigned_player.get_actual_speed() / 60.0;
+
+    effective_speed := chaser_max;
     if c.is_re_chase {
-        // Re-chase (jailbreak / re-steal): match the player's own movement
-        // speed, but capped to the NPC's own stat — so a fast player keeps
+        // Re-chase (jailbreak / re-steal): match the player's real speed, but
+        // never exceed the NPC's own max — so a genuinely faster player keeps
         // their head start instead of letting the NPC keep up indefinitely.
-        // Uses the CAPPED curve so a matched player ends up at the exact same
-        // real speed (the uncapped curve would make the NPC slightly faster).
-        match_stat := c.assigned_player.speed;
-        if match_stat > c.speed_stat match_stat = c.speed_stat;
-        effective_speed = compute_agent_movement_speed(match_stat) / 60.0;
-    } else if c.assigned_player.speed < c.speed_stat {
-        // First chase, NPC faster than player → sprint to guarantee the
-        // catch regardless of starting gap.
-        effective_speed = effective_speed * NPC_CHASE_SPRINT_MULT;
+        effective_speed = player_real;
+        if effective_speed > chaser_max effective_speed = chaser_max;
+    } else if player_real < chaser_max {
+        // First chase, NPC genuinely faster than the player → sprint to
+        // guarantee the catch. If the player is actually faster (e.g. a 30-speed
+        // player with 2x = 60 vs a 39 NPC), the NPC does NOT get the sprint.
+        effective_speed = chaser_max * NPC_CHASE_SPRINT_MULT;
     }
     if c.chase_windup_remaining > 0 {
         effective_speed = NPC_CHASE_WINDUP_SPEED;

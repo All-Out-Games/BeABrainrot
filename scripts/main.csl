@@ -500,6 +500,15 @@ Player :: class : Player_Base {
         Save.set_int(this, PURCHASED_SPEED_SAVE_KEY, value);
     }
 
+    // The player's real movement speed (agent units), including the 2x Speed
+    // gamepass. Single source of truth — used for agent.movement_speed and by
+    // the NPC chaser when deciding whether it can keep up.
+    get_actual_speed :: method() -> float {
+        ms := compute_agent_movement_speed(speed);
+        if has_2x_speed(this) ms *= 2.0;
+        return ms;
+    }
+
     ao_start :: method() {
         purchased_speed = Save.get_int(this, PURCHASED_SPEED_SAVE_KEY, 0);
         speed = Save.get_int(this, SPEED_SAVE_KEY, BASE_SPEED);
@@ -530,9 +539,7 @@ Player :: class : Player_Base {
 
     ao_update :: method(dt: float) {
         if agent != null {
-            ms := compute_agent_movement_speed(speed);
-            if has_2x_speed(this) ms *= 2.0; // 2x Speed gamepass
-            agent.movement_speed = ms;
+            agent.movement_speed = get_actual_speed();
         }
         if animator != null {
             animator.layer = current_floor.(s32);

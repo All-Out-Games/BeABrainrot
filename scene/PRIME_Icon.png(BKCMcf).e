@@ -1,23 +1,23 @@
 14
-8839042695169
-1248935132
+8886287335425
+1242089247
 {
   "name": "PRIME_Icon.png",
   "local_enabled": true,
   "local_position": {
-    "Y": -1.2419999837875366
+    "Y": -1.2416143417358398
   },
   "local_rotation": 0,
   "local_scale": {
-    "X": -0.3000000119209290,
+    "X": 0.3000000119209290,
     "Y": 0.3000000119209290
   },
-  "previous_sibling": 1242104774,
-  "parent": 1255511631
+  "previous_sibling": 1249247009,
+  "parent": 1247373024
 },
 {
   "cid": 1,
-  "aoid": 1251588619,
+  "aoid": 1246870036,
   "component_type": "Internal_Component",
   "internal_component_type": "Sprite_Renderer",
   "data": {

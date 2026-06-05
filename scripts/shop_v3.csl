@@ -19,6 +19,16 @@ SHOP3_MAT_RAINBOW:    Material;
 SHOP3_MAT_PURPLE:     Material;
 SHOP3_MAT_BANNER:     Material; // rainbow background for the PRIME pass banner
 SHOP3_MAT_PRICE:      Material; // gold shader for the PRIME price button
+SHOP3_MAT_BUNDLE_A:   Material; // starter bundle background (green)
+SHOP3_MAT_BUNDLE_B:   Material; // rainbow bundle background (rainbow)
+SHOP3_MAT_PRICE_A:    Material; // starter bundle price button
+SHOP3_MAT_PRICE_B:    Material; // rainbow bundle price button
+SHOP3_MAT_GP_MONEY:   Material; // 2x money gamepass card background (green)
+SHOP3_MAT_GP_SPEED:   Material; // 2x speed gamepass card background (blue)
+SHOP3_MAT_RAY_D:      Material; // ray behind the 2x money icon
+SHOP3_MAT_RAY_E:      Material; // ray behind the 2x speed icon
+SHOP3_MAT_PRICE_C:    Material; // 2x money price button
+SHOP3_MAT_PRICE_D:    Material; // 2x speed price button
 SHOP3_MAT_RAY_A:      Material; // spinning ray burst behind each card icon
 SHOP3_MAT_RAY_B:      Material;
 SHOP3_MAT_RAY_C:      Material;
@@ -70,10 +80,24 @@ shop3_ensure_materials :: proc() -> bool {
     SHOP3_MAT_PURPLE  = shop3_make_box_material(shop2_box_purple());
     SHOP3_MAT_BANNER  = shop3_make_box_material(shop2_box_rainbow());
     SHOP3_MAT_PRICE   = shop3_make_box_material(shop2_box_green());
+    SHOP3_MAT_BUNDLE_A = shop3_make_box_material(shop2_box_green());
+    SHOP3_MAT_BUNDLE_B = shop3_make_box_material(shop2_box_rainbow());
+    SHOP3_MAT_PRICE_A  = shop3_make_box_material(shop2_box_green());
+    SHOP3_MAT_PRICE_B  = shop3_make_box_material(shop2_box_green());
+    SHOP3_MAT_GP_MONEY = shop3_make_box_material(shop2_box_green());
+    gp_speed_box := shop2_box_dark();
+    gp_speed_box.top        = v4{0.26, 0.55, 0.98, 1};
+    gp_speed_box.bottom     = v4{0.10, 0.30, 0.78, 1};
+    gp_speed_box.band_color = v4{0.04, 0.12, 0.40, 1};
+    SHOP3_MAT_GP_SPEED = shop3_make_box_material(gp_speed_box);
+    SHOP3_MAT_PRICE_C  = shop3_make_box_material(shop2_box_green());
+    SHOP3_MAT_PRICE_D  = shop3_make_box_material(shop2_box_green());
     if SHOP3_MAT_ORANGE == null return false; // shader still loading
     SHOP3_MAT_RAY_A = shop3_make_ray_material();
     SHOP3_MAT_RAY_B = shop3_make_ray_material();
     SHOP3_MAT_RAY_C = shop3_make_ray_material();
+    SHOP3_MAT_RAY_D = shop3_make_ray_material();
+    SHOP3_MAT_RAY_E = shop3_make_ray_material();
     SHOP3_MAT_RAY_BANNER = shop3_make_ray_material();
     // Smaller burst radius so the rays fade fully to transparent INSIDE the
     // panel (no hard rectangular cut against the banner). The cards use 1.6 to
@@ -137,6 +161,134 @@ draw_shop3_struck_price :: proc(orig: s64) -> Rect {
     return h.rect;
 }
 
+// Wide bundle banner: brainrot preview(s) over a ray burst on the left, an
+// optional cash reward in the middle, and the pack title + shader price button
+// on the right. Returns the price button's Interact_Result.
+draw_shop3_bundle :: proc(panel_id: string, product_id: string, bg_mat: Material, ray_mat: Material, price_mat: Material, title: string, brainrot_ids: []string, cash_text: string) -> Interact_Result {
+    banner := UIK.layout_row();
+    banner.width                       = UIK.flex(1);
+    banner.height                      = UIK.pixels(210);
+    banner.gap                         = 12;
+    banner.padding                     = v4{12, 14, 12, 14};
+    banner.cross_align                 = .CENTER;
+    banner.show_background              = true;
+    banner.tint                        = v4{1, 1, 1, 1};
+    banner.background_sprite_override   = core_globals.white_sprite;
+    banner.background_material_override = bg_mat;
+    h := UIK.panel_begin_interactive(panel_id, banner);
+    shop3_feed_rect(bg_mat, h.rect);
+
+    // Content: brainrot icon(s) and the cash reward spread evenly across the
+    // bar (each is its own flex cell) over a single ray burst.
+    content := UIK.layout_row();
+    content.width                       = UIK.flex(1);
+    content.height                      = UIK.flex(1);
+    content.cross_align                 = .CENTER;
+    content.show_background              = true;
+    content.tint                        = v4{1, 1, 1, 0.9};
+    content.background_sprite_override   = core_globals.white_sprite;
+    content.background_material_override = ray_mat;
+    ch := UIK.panel_begin_interactive(format_string("%_rays", {panel_id}), content);
+    shop3_feed_rect(ray_mat, ch.rect);
+
+    icon_size := 130.0;
+    if brainrot_ids.count > 1 icon_size = 116.0;
+    for cid: brainrot_ids {
+        d := find_brainrot_definition(cid);
+        cell := UIK.layout_column();
+        cell.width       = UIK.flex(1);
+        cell.height      = UIK.flex(1);
+        cell.main_align  = .CENTER;
+        cell.cross_align = .CENTER;
+        UIK.panel_begin(cell);
+        holder := UIK.layout_centered(UIK.pixels(icon_size), UIK.pixels(icon_size));
+        UIK.panel_begin(holder);
+        if d != null {
+            ic := d.get_icon();
+            if ic != null UIK.image_fitted(ic, UIK.image_desc(.CONTAIN));
+        }
+        UIK.panel_end();
+        UIK.panel_end(); // cell
+    }
+    if cash_text.count > 0 {
+        cell := UIK.layout_column();
+        cell.width       = UIK.flex(1);
+        cell.height      = UIK.flex(1);
+        cell.main_align  = .CENTER;
+        cell.cross_align = .CENTER;
+        cell.gap = 2;
+        UIK.panel_begin(cell);
+        money := get_asset(Texture_Asset, "money_stack_1_f9a568.png");
+        mh := UIK.layout_centered(UIK.pixels(96), UIK.pixels(96));
+        UIK.panel_begin(mh);
+        if money != null UIK.image_fitted(money, UIK.image_desc(.CONTAIN));
+        UIK.panel_end();
+        ct := UIK.text_title();
+        UIK.text(cash_text, ct);
+        UIK.panel_end(); // cell
+    }
+    UIK.panel_end(); // content
+
+    // Right: title + price button.
+    right := UIK.layout_column();
+    right.width       = UIK.pixels(320);
+    right.height      = UIK.flex(1);
+    right.main_align  = .CENTER;
+    right.cross_align = .CENTER;
+    right.gap = 8;
+    UIK.panel_begin(right);
+    tt := UIK.text_title();
+    UIK.text(title, tt);
+    buy_h := draw_shop3_price_button(format_string("%_buy", {panel_id}), product_id, price_mat);
+    UIK.panel_end(); // right
+
+    UIK.panel_end(); // banner
+    return buy_h;
+}
+
+// Square gamepass card: title + subtitle on top, icon over a ray burst, and a
+// shader price button at the bottom. Returns the price button's Interact_Result.
+draw_shop3_gamepass_card :: proc(panel_id: string, product_id: string, bg_mat: Material, ray_mat: Material, price_mat: Material, title: string, subtitle: string, icon: Texture_Asset) -> Interact_Result {
+    card := UIK.layout_column();
+    card.width                       = UIK.flex(1);
+    card.height                      = UIK.pixels(230);
+    card.gap                         = 4;
+    card.padding                     = v4{12, 12, 12, 12};
+    card.cross_align                 = .CENTER;
+    card.show_background              = true;
+    card.tint                        = v4{1, 1, 1, 1};
+    card.background_sprite_override   = core_globals.white_sprite;
+    card.background_material_override = bg_mat;
+    h := UIK.panel_begin_interactive(panel_id, card);
+    shop3_feed_rect(bg_mat, h.rect);
+
+    UIK.text(title, UIK.text_title());
+    if subtitle.count > 0 {
+        st := UIK.text_body();
+        st.set_size_mult(0.7);
+        st.set_outline(true, 2.5, v4{0, 0, 0, 1});
+        UIK.text(subtitle, st);
+    }
+
+    media := UIK.layout_centered(UIK.flex(1), UIK.flex(1));
+    media.show_background              = true;
+    media.tint                        = v4{1, 1, 1, 0.9};
+    media.background_sprite_override   = core_globals.white_sprite;
+    media.background_material_override = ray_mat;
+    mh := UIK.panel_begin_interactive(format_string("%_rays", {panel_id}), media);
+    shop3_feed_rect(ray_mat, mh.rect);
+    holder := UIK.layout_centered(UIK.pixels(110), UIK.pixels(110));
+    UIK.panel_begin(holder);
+    if icon != null UIK.image_fitted(icon, UIK.image_desc(.CONTAIN));
+    UIK.panel_end();
+    UIK.panel_end(); // media
+
+    buy_h := draw_shop3_price_button(format_string("%_buy", {panel_id}), product_id, price_mat);
+
+    UIK.panel_end(); // card
+    return buy_h;
+}
+
 draw_shop_v3 :: proc(player: Player) {
     if player == null return;
     if !player.show_shop_v3 return;
@@ -152,6 +304,14 @@ draw_shop_v3 :: proc(player: Player) {
     UIK.panel_begin_interactive("shop3_shell", shell);
 
     exit_handle := UIK.title_area(UIK.title_area_desc("Store"));
+
+    // Scrollable content — the banners overflow the modal, so everything below
+    // the title lives in a scroll view.
+    scroll_panel := UIK.layout_column();
+    scroll_panel.width  = UIK.flex(1);
+    scroll_panel.height = UIK.flex(1);
+    scroll_panel.gap    = 10;
+    UIK.list_begin("shop3_scroll", scroll_panel);
 
     // ---- PRIME pass banner ----
     banner_desc := UIK.layout_row();
@@ -213,43 +373,51 @@ draw_shop_v3 :: proc(player: Player) {
 
     UIK.panel_end(); // banner
 
-    // ---- Section header ----
-    UIK.spacer(UIK.pixels(1), UIK.pixels(8));
-    UIK.text("Trade Tokens", UIK.text_title());
+    // ---- Gamepasses header + cards ----
+    UIK.spacer(UIK.pixels(1), UIK.pixels(6));
+    UIK.text("Gamepasses", UIK.text_title());
     UIK.spacer(UIK.pixels(1), UIK.pixels(4));
 
-    // ---- Cards row (plain panel, so the cards inside are not nested in an
-    //      interactive panel) ----
-    cards_row := UIK.layout_row();
-    cards_row.gap = 12;
-    UIK.panel_begin(cards_row);
+    gp_row := UIK.layout_row();
+    gp_row.width  = UIK.flex(1);
+    gp_row.height = UIK.pixels(230);
+    gp_row.gap    = 12;
+    UIK.panel_begin(gp_row);
+    money_icon := get_asset(Texture_Asset, "money_stack_1_f9a568.png");
+    speed_icon := get_asset(Texture_Asset, "arrow_right_e47b99.png");
+    money_h := draw_shop3_gamepass_card("shop3_2xmoney", TWO_X_MONEY_PRODUCT_ID, SHOP3_MAT_GP_MONEY, SHOP3_MAT_RAY_D, SHOP3_MAT_PRICE_C, "2X Money", "Earn double money!", money_icon);
+    speed_h := draw_shop3_gamepass_card("shop3_2xspeed", TWO_X_SPEED_PRODUCT_ID, SHOP3_MAT_GP_SPEED, SHOP3_MAT_RAY_E, SHOP3_MAT_PRICE_D, "2X Speed", "Double your speed!", speed_icon);
+    UIK.panel_end(); // gp_row
 
-    coins_100  := get_asset(Texture_Asset, "Textures/UI/gold_coins_7fa0a9.png");
-    coins_500  := get_asset(Texture_Asset, "Textures/UI/gold_coin_stacks_c55048.png");
-    chest_2000 := get_asset(Texture_Asset, "Textures/UI/open-treasure-chest_1c03dc.png");
+    // ---- Bundles header ----
+    UIK.spacer(UIK.pixels(1), UIK.pixels(6));
+    UIK.text("Bundles", UIK.text_title());
+    UIK.spacer(UIK.pixels(1), UIK.pixels(4));
 
-    h100  := draw_shop_v3_card("100 Trade Tokens",   100,  coins_100,  "shop3_buy_100",  SHOP3_MAT_YELLOW,  SHOP3_MAT_RAY_A);
-    h500  := draw_shop_v3_card("500 Trade Tokens",   500,  coins_500,  "shop3_buy_500",  SHOP3_MAT_RAINBOW, SHOP3_MAT_RAY_B);
-    h2000 := draw_shop_v3_card("2,000 Trade Tokens", 2000, chest_2000, "shop3_buy_2000", SHOP3_MAT_PURPLE,  SHOP3_MAT_RAY_C);
+    // ---- Bundle banners ----
+    bundles_col := UIK.layout_column();
+    bundles_col.width  = UIK.flex(1);
+    bundles_col.gap    = 12;
+    UIK.panel_begin(bundles_col);
 
-    UIK.panel_end(); // cards_row
+    starter_brainrots: [..]string;
+    append(ref starter_brainrots, STARTER_PACK_BRAINROT);
+    rainbow_brainrots: [..]string;
+    append(ref rainbow_brainrots, "chimpanzini");
+    append(ref rainbow_brainrots, "racooni");
+    append(ref rainbow_brainrots, "garama");
 
-    UIK.panel_end(); // shell
+    starter_h := draw_shop3_bundle("shop3_starter", STARTER_PACK_PRODUCT_ID, SHOP3_MAT_BUNDLE_A, SHOP3_MAT_RAY_A, SHOP3_MAT_PRICE_A, "Starter Pack!", starter_brainrots, "$100,000,000");
+    rainbow_h := draw_shop3_bundle("shop3_rainbow", RAINBOW_PACK_PRODUCT_ID, SHOP3_MAT_BUNDLE_B, SHOP3_MAT_RAY_B, SHOP3_MAT_PRICE_B, "Rainbow Pack!", rainbow_brainrots, "");
+
+    UIK.panel_end(); // bundles_col
+
+    UIK.list_end();   // shop3_scroll
+    UIK.panel_end();  // shell
     UIK.end();
 
-    // Rotated sale badges — drawn after UIK.end(): UIK text can't rotate, but
-    // legacy UI.text + a rotation matrix can. Layer 25 sits above UIK content.
-    // h500/h2000.rect are last frame's card rects (zero on frame 1 — skipped).
     UI.push_screen_draw_context();
     UI.push_layer(25);
-    c500 := h500.rect;
-    if c500.max.x > c500.min.x {
-        draw_shop_v3_badge(c500, "+25 Free");
-    }
-    c2000 := h2000.rect;
-    if c2000.max.x > c2000.min.x {
-        draw_shop_v3_badge(c2000, "+100 Free");
-    }
     // Diagonal strike line over the struck-through original price (bottom-left
     // to top-right, extended past the text), drawn here since UIK can't rotate.
     if prime_on_sale && prime_struck_rect.max.x > prime_struck_rect.min.x {
@@ -275,11 +443,10 @@ draw_shop_v3 :: proc(player: Player) {
             Purchasing.prompt_purchase(player, PRIME_PASS_PRODUCT_ID);
         }
     }
-    if UIK.clicked(h100)  player.shop3_popup_text = "100 Trade Tokens";
-    if UIK.clicked(h500)  player.shop3_popup_text = "500 Trade Tokens";
-    if UIK.clicked(h2000) player.shop3_popup_text = "2,000 Trade Tokens";
-
-    draw_shop_v3_popup(player);
+    if UIK.clicked(money_h)   Purchasing.prompt_purchase(player, TWO_X_MONEY_PRODUCT_ID);
+    if UIK.clicked(speed_h)   Purchasing.prompt_purchase(player, TWO_X_SPEED_PRODUCT_ID);
+    if UIK.clicked(starter_h) Purchasing.prompt_purchase(player, STARTER_PACK_PRODUCT_ID);
+    if UIK.clicked(rainbow_h) Purchasing.prompt_purchase(player, RAINBOW_PACK_PRODUCT_ID);
 }
 
 // Card-click test popup — confirms a card click registered.

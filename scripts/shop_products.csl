@@ -170,12 +170,61 @@ product_pricing :: proc(id: string) -> s64, s64, bool {
     return prod.price, orig, on_sale;
 }
 
+// ===== Gamepasses (shop_v3) =====
+// Non-consumable. Ownership IS the effect; read via the helpers below.
+
+TWO_X_MONEY_PRODUCT_ID :: "6a22d46c2f7867b14d4af968"; // 149
+TWO_X_SPEED_PRODUCT_ID :: "6a22d48354407744c2f8e6ed"; // 299
+
+has_2x_money :: proc(player: Player) -> bool {
+    if player == null return false;
+    return Purchasing.owns_product(player, TWO_X_MONEY_PRODUCT_ID);
+}
+
+has_2x_speed :: proc(player: Player) -> bool {
+    if player == null return false;
+    return Purchasing.owns_product(player, TWO_X_SPEED_PRODUCT_ID);
+}
+
+// ===== Bundles (shop_v3) =====
+// Consumable packs. Brainrots are granted via grant_brainrot, which routes any
+// that don't fit to the player's mailbox (unclaimed items) instead of losing
+// them. Levels are high so the packs feel like real value.
+
+STARTER_PACK_PRODUCT_ID :: "6a22d0fc40c27018a8bbfebd"; // 67
+RAINBOW_PACK_PRODUCT_ID :: "6a22d10654407744c2f8e47b"; // 249
+
+STARTER_PACK_CASH       :: 100000000.0; // $100M
+STARTER_PACK_BRAINROT   :: "lirili_larila";
+BUNDLE_BRAINROT_LEVEL   :: 10;
+
+grant_starter_pack :: proc(player: Player) {
+    deposit_cash(player, STARTER_PACK_CASH);
+    grant_brainrot(player, STARTER_PACK_BRAINROT, BUNDLE_BRAINROT_LEVEL, Mutation.NONE);
+}
+
+grant_rainbow_pack :: proc(player: Player) {
+    grant_brainrot(player, "chimpanzini", BUNDLE_BRAINROT_LEVEL, Mutation.RAINBOW);
+    grant_brainrot(player, "racooni",     BUNDLE_BRAINROT_LEVEL, Mutation.RAINBOW);
+    grant_brainrot(player, "garama",      BUNDLE_BRAINROT_LEVEL, Mutation.RAINBOW);
+}
+
 // ===== Central purchase dispatcher =====
 // Engine calls this when ANY purchase completes. Return true to confirm the
 // grant (and consume, if consumable). Add new product branches here as the
 // shop grows so every paid item is handled in one place.
 
 ao_purchase_handler :: proc(player: Player, id: string) -> bool {
+    // Bundles — consumable. Grant their contents (overflow goes to the mailbox).
+    if id == STARTER_PACK_PRODUCT_ID {
+        grant_starter_pack(player);
+        return true;
+    }
+    if id == RAINBOW_PACK_PRODUCT_ID {
+        grant_rainbow_pack(player);
+        return true;
+    }
+
     // SkipRebirthN — consumable. Grant the matching rebirth (bypass the speed
     // gate, keep cash/speed) when the id matches the player's next rebirth.
     for i: 0..SKIP_REBIRTH_PRODUCT_IDS.count - 1 {

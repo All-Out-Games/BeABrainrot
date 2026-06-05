@@ -123,7 +123,7 @@ Pedestal :: class : Interactable {
 
         diff := room.owner.entity.world_position - money_entity.world_position;
         if length_squared(diff) < COLLECT_RANGE_SQ {
-            deposit_cash(room.owner, accumulated_gold);
+            collect_pedestal_gold(room.owner, accumulated_gold);
             accumulated_gold = 0;
             claim_cooldown = CLAIM_COOLDOWN_SECONDS;
             if placed_brainrot != null && #alive(placed_brainrot.entity) {

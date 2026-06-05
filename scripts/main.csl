@@ -21,16 +21,21 @@ CASH_COUNTER_RATE   :: 9.0;
 
 Cash_Popup :: struct {
     amount: float;
+    base_amount: float; // pre-double amount; doubled popups count up from this
     age: float;
     is_loss: bool;
+    doubled: bool; // 2X Money collect — counts up to amount and lerps green->gold
 }
 
-push_cash_popup :: proc(player: Player, amount: float, is_loss: bool) {
+push_cash_popup :: proc(player: Player, amount: float, is_loss: bool, doubled: bool = false, base_amount: float = -1.0) {
     if amount <= 0 return;
     p: Cash_Popup;
     p.amount = amount;
+    p.base_amount = base_amount;
+    if p.base_amount < 0 p.base_amount = amount;
     p.age = 0;
     p.is_loss = is_loss;
+    p.doubled = doubled;
     append(ref player.cash_popups, p);
 }
 
@@ -39,6 +44,20 @@ deposit_cash :: proc(player: Player, amount: float) {
     player.cash += amount;
     Save.set_f64(player, CASH_SAVE_KEY, player.cash.(f64));
     push_cash_popup(player, amount, false);
+}
+
+// Collect pedestal income. With the 2X Money gamepass the amount is doubled at
+// collection (not at the gps tick), and the popup gets the flashy doubled style.
+collect_pedestal_gold :: proc(player: Player, amount: float) -> float {
+    if player == null return 0;
+    if amount <= 0 return 0;
+    total := amount;
+    doubled := has_2x_money(player);
+    if doubled total = amount * 2.0;
+    player.cash += total;
+    Save.set_f64(player, CASH_SAVE_KEY, player.cash.(f64));
+    push_cash_popup(player, total, false, doubled, amount); // base = pre-double
+    return total;
 }
 
 // Round-up to the nearest integer (CSL has no built-in ceil for float).
@@ -360,6 +379,22 @@ draw_player_hud :: proc(player: Player) {
     col.gap = 4;
     UIK.panel_begin(col);
 
+    // Active gamepass badges sit on top of the Speed/cash lines.
+    if has_2x_money(player) {
+        d := UIK.text_body();
+        d.set_halign(.LEFT);
+        d.set_color({0.35, 1.0, 0.45, 1});
+        d.set_outline(true, 3.0, {0, 0, 0, 1});
+        UIK.text("2X Money", d);
+    }
+    if has_2x_speed(player) {
+        d := UIK.text_body();
+        d.set_halign(.LEFT);
+        d.set_color({0.4, 0.8, 1.0, 1});
+        d.set_outline(true, 3.0, {0, 0, 0, 1});
+        UIK.text("2X Speed", d);
+    }
+
     speed_desc := UIK.text_title();
     UIK.text_set_halign(&speed_desc, .LEFT);
     UIK.text(format_string("Speed: %", {player.speed}), speed_desc);
@@ -387,10 +422,23 @@ draw_player_hud :: proc(player: Player) {
         UIK.overlay_begin(.BOTTOM_LEFT, {20, 70 + offset_y});
         pop_desc := UIK.text_title();
         if p.is_loss {
-            UIK.text_set_color(&pop_desc, {1.0, 0.3, 0.3, alpha});
+            pop_desc.set_color({1.0, 0.3, 0.3, alpha});
             UIK.text(format_string("-%", {format_cash(p.amount)}), pop_desc);
+        } else if p.doubled {
+            // 2X Money collect — same rise/fade as normal, but the number races
+            // from the base up to the doubled amount while the color lerps
+            // green -> gold over the first fraction of the popup's life.
+            cu := t / 0.3;
+            if cu > 1.0 cu = 1.0;
+            ce := 1.0 - (1.0 - cu) * (1.0 - cu); // ease-out
+            displayed := lerp(p.base_amount, p.amount, ce);
+            r  := lerp(0.3,  1.0,  ce);
+            gc := lerp(1.0,  0.85, ce);
+            b  := lerp(0.3,  0.1,  ce);
+            pop_desc.set_color({r, gc, b, alpha});
+            UIK.text(format_string("+%", {format_cash(displayed)}), pop_desc);
         } else {
-            UIK.text_set_color(&pop_desc, {0.3, 1.0, 0.3, alpha});
+            pop_desc.set_color({0.3, 1.0, 0.3, alpha});
             UIK.text(format_string("+%", {format_cash(p.amount)}), pop_desc);
         }
         UIK.overlay_end();
@@ -418,6 +466,8 @@ Player :: class : Player_Base {
     auto_collect_timer: float;
     upgrade_combo: s64;          // consecutive brainrot upgrades, for SFX intensity
     upgrade_combo_time: float;
+    unclaimed_brainrots: [..]Unclaimed_Brainrot; // mailbox for items that didn't fit
+    show_unclaimed_modal: bool;
     selected_brainrot_item: Brainrot_Item;
     show_sell_modal: bool;
     show_sell_all_confirm: bool;
@@ -466,6 +516,7 @@ Player :: class : Player_Base {
         rebirth_level = Save.get_int(this, REBIRTH_SAVE_KEY, 0);
         pedestals_unlocked = Save.get_int(this, PEDESTALS_SAVE_KEY, DEFAULT_PEDESTALS_UNLOCKED);
         auto_collect_enabled = Save.get_int(this, AUTO_COLLECT_SAVE_KEY, 0) != 0;
+        load_unclaimed_brainrots(this);
 
         default_camera_size = camera.size;
 
@@ -479,7 +530,9 @@ Player :: class : Player_Base {
 
     ao_update :: method(dt: float) {
         if agent != null {
-            agent.movement_speed = compute_agent_movement_speed(speed);
+            ms := compute_agent_movement_speed(speed);
+            if has_2x_speed(this) ms *= 2.0; // 2x Speed gamepass
+            agent.movement_speed = ms;
         }
         if animator != null {
             animator.layer = current_floor.(s32);
@@ -539,7 +592,7 @@ Player :: class : Player_Base {
         if is_local_or_server() {
             draw_player_hud(this);
             draw_side_buttons(this);
-            draw_auto_collect_button(this);
+            draw_left_buttons(this);
             draw_speed_upgrade_ui(this);
             draw_upgrade_hud(this);
 
@@ -597,6 +650,7 @@ Player :: class : Player_Base {
             draw_shop_v3(this);
             draw_skin_shop(this);
             draw_debug_living_entity(this);
+            draw_unclaimed_modal(this);
             draw_notifications(this);
         }
         if is_local() {

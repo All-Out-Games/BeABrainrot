@@ -1,0 +1,243 @@
+// Unclaimed brainrots — a "mailbox" for granted items (bundles, etc.) that
+// didn't fit in the inventory. They're persisted, never lost, and the player
+// claims them back from the reclaim modal once they free up space.
+// Simplified brainrot port of fishin's UnclaimedItems system.
+
+UNCLAIMED_SAVE_KEY :: "unclaimed_brainrots";
+
+Unclaimed_Brainrot :: class {
+    config_id: string @ao_serialize;
+    level:     s64    @ao_serialize;
+    mutation:  s64    @ao_serialize;
+}
+
+Unclaimed_Brainrots :: class {
+    items: [..]Unclaimed_Brainrot @ao_serialize;
+}
+
+load_unclaimed_brainrots :: proc(player: Player) {
+    player.unclaimed_brainrots.clear();
+    payload: Unclaimed_Brainrots;
+    if !Save.try_get_json(player, UNCLAIMED_SAVE_KEY, ref payload) return;
+    if payload == null return;
+    for it: payload.items {
+        if it == null continue;
+        append(ref player.unclaimed_brainrots, it);
+    }
+}
+
+save_unclaimed_brainrots :: proc(player: Player) {
+    payload := new(Unclaimed_Brainrots);
+    for it: player.unclaimed_brainrots {
+        append(ref payload.items, it);
+    }
+    Save.set_json(player, UNCLAIMED_SAVE_KEY, ref payload);
+}
+
+add_unclaimed_brainrot :: proc(player: Player, config_id: string, level: s64, mutation: Mutation) {
+    u := new(Unclaimed_Brainrot);
+    u.config_id = config_id;
+    u.level     = level;
+    u.mutation  = mutation.(s64);
+    append(ref player.unclaimed_brainrots, u);
+    save_unclaimed_brainrots(player);
+}
+
+// Build a Brainrot_Item and try to drop it into the inventory. Returns true if
+// it fit. (No mailbox fallback — callers decide what to do on failure.)
+try_give_brainrot_item :: proc(player: Player, config_id: string, level: s64, mutation: Mutation) -> bool {
+    if player == null return false;
+    defn := find_brainrot_definition(config_id);
+    if defn == null return false;
+
+    item := Items.create_item_instance(defn, Brainrot_Item, 1);
+    item.level    = level;
+    item.mutation = mutation;
+
+    will_destroy: bool;
+    if !Items.can_move_item_to_inventory(item, player.default_inventory, ref will_destroy) {
+        Items.destroy_item_instance(item);
+        return false;
+    }
+    Items.move_item_to_inventory(item, player.default_inventory);
+    return true;
+}
+
+// Give the player a brainrot. If the inventory is full it goes to the mailbox
+// instead of being lost. Returns true if it went straight to the inventory.
+grant_brainrot :: proc(player: Player, config_id: string, level: s64, mutation: Mutation) -> bool {
+    if try_give_brainrot_item(player, config_id, level, mutation) return true;
+    add_unclaimed_brainrot(player, config_id, level, mutation);
+    show_notification(player, "Inventory full! Items sent to your mailbox.");
+    return false;
+}
+
+// Free slots left in the player's default inventory.
+count_free_inventory_slots :: proc(player: Player) -> s64 {
+    if player == null return 0;
+    inv := player.default_inventory;
+    if inv == null return 0;
+    free: s64 = 0;
+    for i: 0..inv.capacity - 1 {
+        if !#alive(inv.get_item(i)) free += 1;
+    }
+    return free;
+}
+
+// Claim one unclaimed brainrot back into the inventory. Removes it from the
+// mailbox on success; on failure (no space) it stays.
+claim_unclaimed_brainrot :: proc(player: Player, index: s64) -> bool {
+    if player == null return false;
+    if index < 0 || index >= player.unclaimed_brainrots.count return false;
+    u := player.unclaimed_brainrots[index];
+    if u == null return false;
+    if !try_give_brainrot_item(player, u.config_id, u.level, u.mutation.(Mutation)) {
+        show_notification(player, "Free up inventory space first!");
+        return false;
+    }
+    ordered_remove_by_index(ref player.unclaimed_brainrots, index);
+    save_unclaimed_brainrots(player);
+    return true;
+}
+
+claim_all_unclaimed_brainrots :: proc(player: Player) {
+    if player == null return;
+    // Claim from the front while there's space; stop at the first that won't fit.
+    i: s64 = 0;
+    while i < player.unclaimed_brainrots.count {
+        u := player.unclaimed_brainrots[i];
+        if u == null { i += 1; continue; }
+        if !try_give_brainrot_item(player, u.config_id, u.level, u.mutation.(Mutation)) break;
+        ordered_remove_by_index(ref player.unclaimed_brainrots, i);
+    }
+    save_unclaimed_brainrots(player);
+}
+
+// ===== Reclaim modal =====
+
+UNCLAIMED_ROW_HEIGHT :: 96.0;
+
+draw_unclaimed_modal :: proc(player: Player) {
+    if player == null return;
+    if !player.show_unclaimed_modal return;
+
+    UIK.begin(UIK.modal(UIK.rect_window(), 16));
+
+    shell := UIK.panel_modal(.BLUE);
+    shell.gap = 0;
+    UIK.panel_begin(shell);
+
+    exit_h := UIK.title_area(UIK.title_area_desc("MAILBOX"));
+
+    body := UIK.layout_column();
+    body.width  = UIK.flex(1);
+    body.height = UIK.flex(1);
+    body.padding = v4{12, 16, 12, 16};
+    body.gap = 8;
+    UIK.panel_begin(body);
+
+    claim_handles: [..]Interact_Result;
+
+    list_panel := UIK.layout_column();
+    list_panel.width  = UIK.flex(1);
+    list_panel.height = UIK.flex(1);
+    list_panel.gap = 8;
+    UIK.list_begin("unclaimed_scroll", list_panel);
+
+    if player.unclaimed_brainrots.count == 0 {
+        empty := UIK.text_body();
+        UIK.text("Nothing here. Items you can't carry land here.", empty);
+    }
+
+    for i: 0..player.unclaimed_brainrots.count - 1 {
+        u := player.unclaimed_brainrots[i];
+        if u == null continue;
+        defn := find_brainrot_definition(u.config_id);
+
+        row := UIK.layout_row();
+        row.width  = UIK.flex(1);
+        row.height = UIK.pixels(UNCLAIMED_ROW_HEIGHT);
+        row.gap = 10;
+        row.cross_align = .CENTER;
+        row.padding = v4{6, 10, 6, 10};
+        row.show_background = true;
+        row.tint = v4{0, 0, 0, 0.35};
+        row.background_sprite_override = core_globals.white_sprite;
+        UIK.panel_begin(row);
+
+        icon_holder := UIK.layout_centered(UIK.pixels(72), UIK.pixels(72));
+        UIK.panel_begin(icon_holder);
+        if defn != null {
+            icon := defn.get_icon();
+            if icon != null UIK.image_fitted(icon, UIK.image_desc(.CONTAIN));
+        }
+        UIK.panel_end();
+
+        info := UIK.layout_column();
+        info.width  = UIK.flex(1);
+        info.height = UIK.fit();
+        info.gap = 2;
+        UIK.panel_begin(info);
+        name := u.config_id;
+        if defn != null name = defn.name;
+        nd := UIK.text_button();
+        nd.set_word_wrap(false);
+        UIK.text(name, nd);
+        sub := u.mutation.(Mutation);
+        sub_label := format_string("Lv %", {u.level});
+        if sub != Mutation.NONE sub_label = format_string("Lv %  %", {u.level, get_mutation_name(sub)});
+        sd := UIK.text_body();
+        sd.set_size_mult(0.8);
+        sd.set_color(get_mutation_color(sub));
+        UIK.text(sub_label, sd);
+        UIK.panel_end(); // info
+
+        claim_d := UIK.widget_desc_button_default(.BUTTON_BASIC_GREEN);
+        claim_d.panel.width  = UIK.pixels(150);
+        claim_d.panel.height = UIK.pixels(72);
+        ch := UIK.button(format_string("claim_%", {i}), "Claim", claim_d);
+        append(ref claim_handles, ch);
+
+        UIK.panel_end(); // row
+    }
+
+    UIK.list_end();
+
+    footer := UIK.layout_row();
+    footer.width = UIK.flex(1);
+    footer.height = UIK.pixels(80);
+    footer.cross_align = .CENTER;
+    footer.gap = 16;
+    UIK.panel_begin(footer);
+
+    claim_all_d := UIK.widget_desc_button_auto_default(.BUTTON_BASIC_GREEN);
+    claim_all_d.panel.width = UIK.pixels(220);
+    claim_all_d.panel.height = UIK.flex(1);
+    claim_all_h := UIK.button("claim_all", "Claim All", claim_all_d);
+
+    UIK.spacer(UIK.flex(1), UIK.pixels(1));
+
+    summary := format_string("In mailbox: %", {player.unclaimed_brainrots.count});
+    summary_d := UIK.text_body();
+    UIK.text(summary, summary_d);
+
+    UIK.panel_end(); // footer
+    UIK.panel_end(); // body
+    UIK.panel_end(); // shell
+    UIK.end();
+
+    if UIK.clicked(exit_h) {
+        player.show_unclaimed_modal = false;
+        return;
+    }
+    if UIK.clicked(claim_all_h) {
+        claim_all_unclaimed_brainrots(player);
+        return;
+    }
+    for k: 0..claim_handles.count - 1 {
+        if UIK.clicked(claim_handles[k]) {
+            claim_unclaimed_brainrot(player, k);
+            return;
+        }
+    }
+}

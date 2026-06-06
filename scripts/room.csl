@@ -659,9 +659,28 @@ get_closest_placed_brainrot :: proc(player: Player) -> LivingEntity {
     return closest;
 }
 
+// Green box_panel shader material for the brainrot upgrade button (matches the
+// Buy nav button's look).
+UPGRADE_MAT:       Material;
+UPGRADE_MAT_READY: bool;
+
+upgrade_ensure_material :: proc() -> bool {
+    if UPGRADE_MAT_READY return true;
+    green_box := shop2_box_green();
+    green_box.band_color     = v4{0.10, 0.26, 0.03, 1};
+    green_box.dot_alpha      = 0.80;
+    green_box.dot_min_radius = 0.05;
+    green_box.dot_max_radius = 0.24;
+    UPGRADE_MAT = rebirth_make_box_material(green_box);
+    if UPGRADE_MAT == null return false; // shader still loading
+    UPGRADE_MAT_READY = true;
+    return true;
+}
+
 draw_upgrade_hud :: proc(player: Player) {
     target := get_closest_placed_brainrot(player);
     if target == null return;
+    if !upgrade_ensure_material() return;
 
     UIK.begin(UIK.window(UIK.rect_hotbar().offset(0, 160)));
 
@@ -673,11 +692,25 @@ draw_upgrade_hud :: proc(player: Player) {
     row.cross_align = .CENTER;
     UIK.panel_begin(row);
 
-    btn_desc := UIK.widget_desc_button_auto_default(.BUTTON_BASIC_GREEN);
-    btn_desc.panel.width = UIK.pixels(420);
-    btn_desc.panel.height = UIK.pixels(120);
+    btn := UIK.layout_row();
+    btn.width                       = UIK.pixels(420);
+    btn.height                      = UIK.pixels(120);
+    btn.main_align                  = .CENTER;
+    btn.cross_align                 = .CENTER;
+    btn.show_background              = true;
+    btn.tint                        = v4{1, 1, 1, 1};
+    btn.background_sprite_override   = core_globals.white_sprite;
+    btn.background_material_override = UPGRADE_MAT;
+    handle := UIK.panel_begin_interactive("upgrade_closest_brainrot", btn);
+    UPGRADE_MAT.set_float4("rect_px", v4{handle.rect.min.x, handle.rect.min.y, handle.rect.max.x, handle.rect.max.y});
+    UPGRADE_MAT.set_float("press", handle.active_t_eased);
+
     label := format_string("%   Lv % > %", {format_cash(target.get_upgrade_price()), target.level, target.level + 1});
-    handle := UIK.button("upgrade_closest_brainrot", label, btn_desc);
+    bd := UIK.text_button();
+    bd.set_size_mult(1.2);
+    UIK.text(label, bd);
+
+    UIK.panel_end();
 
     UIK.panel_end();
     UIK.end();

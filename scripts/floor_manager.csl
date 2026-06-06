@@ -59,9 +59,12 @@ Floor_Manager :: class : Component {
                 for i: 0..g_floor_grid[b].count - 1 {
                     r := g_floor_grid[b][i];
                     if r == null continue;
+                    // A destroyed Floor_Renderer can linger in the grid as a
+                    // dangling (non-null) ref; #alive(r) guards before any field
+                    // access (reading r.grid_cx on it would use-after-free).
+                    if !#alive(r) continue;
                     // Exact-cell filter (buckets can mix cells via hash collisions).
                     if r.grid_cx != cx || r.grid_cy != cy continue;
-                    if !#alive(r.entity) continue;
                     if length_squared(r.entity.world_position - cam_pos) > cull_sq continue;
                     r.apply_for_viewer_floor(viewer_floor);
                 }

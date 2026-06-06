@@ -465,6 +465,7 @@ Player :: class : Player_Base {
     notifications: [..]Custom_Note;
     auto_collect_enabled: bool;  // PRIME perk: auto-collect base income each second
     auto_collect_timer: float;
+    leaderboard_write_timer: float; // publishes gps/speed to the world leaderboards
     upgrade_combo: s64;          // consecutive brainrot upgrades, for SFX intensity
     upgrade_combo_time: float;
     unclaimed_brainrots: [..]Unclaimed_Brainrot; // mailbox for items that didn't fit
@@ -584,6 +585,15 @@ Player :: class : Player_Base {
             }
         }
 
+        // Publish this player's current gps/speed to the world leaderboards.
+        // Absolute (idempotent) ordered-save writes, so running on both client
+        // and server is harmless.
+        leaderboard_write_timer += dt;
+        if leaderboard_write_timer >= LEADERBOARD_WRITE_INTERVAL {
+            leaderboard_write_timer = 0;
+            leaderboard_publish_scores(this);
+        }
+
         // While being chased, zoom IN the closer the NPC gets — ramps the
         // pressure as it closes in. Skip while Moving_Toward is auto-walking —
         // it owns the camera and zooms out on its own.
@@ -632,6 +642,17 @@ Player :: class : Player_Base {
 
     ao_late_update :: method(dt: float) {
         if is_local_or_server() {
+            // World-space leaderboard boards drawn from the player update
+            // context so they have the live camera/interaction state. Culled to
+            // on-screen boards only -- the 50-row scroll view is expensive, so
+            // skip it when the board isn't visible (apron covers its extent).
+            for lb: component_iterator(Leaderboard) {
+                if lb == null continue;
+                if !#alive(lb.entity) continue;
+                if !Camera.is_visible(lb.entity.world_position, 3.5) continue;
+                lb.draw();
+            }
+
             draw_player_hud(this);
             draw_side_buttons(this);
             draw_left_buttons(this);

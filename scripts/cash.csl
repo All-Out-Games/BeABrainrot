@@ -18,6 +18,25 @@ format_compact :: proc(v: float) -> string {
     return format_string("%", {format_float(v, decimals=1)});
 }
 
+// Compact number with a magnitude suffix (K/M/B/...) and NO currency prefix.
+// Used by the leaderboard so large GPS values stay readable while small values
+// (e.g. the Speed stat) still print plainly. Mirrors format_cash's thresholds.
+format_score_suffix :: proc(amount: f64) -> string {
+    a := amount.(float);
+    if a < CASH_1K  return format_compact(a);
+    if a < CASH_1M  return format_string("% K",  {format_compact(a / CASH_1K)});
+    if a < CASH_1B  return format_string("% M",  {format_compact(a / CASH_1M)});
+    if a < CASH_1T  return format_string("% B",  {format_compact(a / CASH_1B)});
+    if a < CASH_1Q  return format_string("% T",  {format_compact(a / CASH_1T)});
+    if a < CASH_1QN return format_string("% Q",  {format_compact(a / CASH_1Q)});
+    if a < CASH_1SX return format_string("% Qn", {format_compact(a / CASH_1QN)});
+    if a < CASH_1SP return format_string("% S",  {format_compact(a / CASH_1SX)});
+    if a < CASH_1OC return format_string("% Sp", {format_compact(a / CASH_1SP)});
+    if a < CASH_1NO return format_string("% Oc", {format_compact(a / CASH_1OC)});
+    if a < CASH_1DC return format_string("% No", {format_compact(a / CASH_1NO)});
+    return format_string("% Dc", {format_compact(a / CASH_1DC)});
+}
+
 format_cash :: proc(amount: float) -> string {
     // A space separates the number from the suffix so e.g. "120.1Oc" doesn't
     // read as "120.10c" (the O running into the digit).

@@ -12,7 +12,7 @@ Carry_Brainrot_Stealing_Npc_Effect :: class : Carry_Brainrot_Effect_2 {
 do_steal_secure :: proc(eff: Carry_Brainrot_Stealing_Npc_Effect) {
     if eff == null return;
     if eff.player == null || !#alive(eff.player.entity) return;
-    if eff.carried == null || !#alive(eff.carried.entity) return;
+    if eff.carried == null || !#alive(eff.carried) return;
 
     add_brainrot_to_inventory(eff.player, eff.carried, true);
     

@@ -408,15 +408,26 @@ draw_shop_v3 :: proc(player: Player) {
     UIK.text("Gamepasses", UIK.text_title());
     UIK.spacer(UIK.pixels(1), UIK.pixels(4));
 
+    // 2X Speed was removed (it unbalanced the game); only the centered 2X Money
+    // card remains. The 2X Speed card/click are commented out below.
     gp_row := UIK.layout_row();
-    gp_row.width  = UIK.flex(1);
-    gp_row.height = UIK.pixels(320);
-    gp_row.gap    = 12;
+    gp_row.width      = UIK.flex(1);
+    gp_row.height     = UIK.pixels(320);
+    gp_row.gap        = 12;
+    gp_row.main_align = .CENTER;
     UIK.panel_begin(gp_row);
     money_icon := get_asset(Texture_Asset, "money_stack_1_f9a568.png");
-    speed_icon := get_asset(Texture_Asset, "Textures/speed_boost_icon.png");
+    // speed_icon := get_asset(Texture_Asset, "Textures/speed_boost_icon.png");
+
+    // Fixed-width holder so the single card stays centered (the card is flex(1)).
+    money_holder := UIK.layout_column();
+    money_holder.width  = UIK.pixels(560);
+    money_holder.height = UIK.flex(1);
+    UIK.panel_begin(money_holder);
     money_h := draw_shop3_gamepass_card("shop3_2xmoney", TWO_X_MONEY_PRODUCT_ID, SHOP3_MAT_GP_MONEY, SHOP3_MAT_RAY_D, SHOP3_MAT_PRICE_C, "2X Money", "Earn double money!", money_icon, has_2x_money(player));
-    speed_h := draw_shop3_gamepass_card("shop3_2xspeed", TWO_X_SPEED_PRODUCT_ID, SHOP3_MAT_GP_SPEED, SHOP3_MAT_RAY_E, SHOP3_MAT_PRICE_D, "2X Speed", "Double your speed!", speed_icon, has_2x_speed(player));
+    UIK.panel_end(); // money_holder
+
+    // speed_h := draw_shop3_gamepass_card("shop3_2xspeed", TWO_X_SPEED_PRODUCT_ID, SHOP3_MAT_GP_SPEED, SHOP3_MAT_RAY_E, SHOP3_MAT_PRICE_D, "2X Speed", "Double your speed!", speed_icon, has_2x_speed(player));
     UIK.panel_end(); // gp_row
 
     // ---- Bundles header ----
@@ -466,7 +477,7 @@ draw_shop_v3 :: proc(player: Player) {
         }
     }
     if UIK.clicked(money_h)   Purchasing.prompt_purchase(player, TWO_X_MONEY_PRODUCT_ID);
-    if UIK.clicked(speed_h)   Purchasing.prompt_purchase(player, TWO_X_SPEED_PRODUCT_ID);
+    // if UIK.clicked(speed_h)   Purchasing.prompt_purchase(player, TWO_X_SPEED_PRODUCT_ID);
     if UIK.clicked(starter_h) Purchasing.prompt_purchase(player, STARTER_PACK_PRODUCT_ID);
     if UIK.clicked(rainbow_h) Purchasing.prompt_purchase(player, RAINBOW_PACK_PRODUCT_ID);
 }

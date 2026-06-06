@@ -10,7 +10,7 @@ Carry_Brainrot_Effect_2 :: class : Effect_Base {
     previous_brainrot_floor: s64;
 
     effect_start :: method() {
-        if carried != null && #alive(carried.entity) {
+        if carried != null && #alive(carried) {
             carried.carried_by = player;
             saved_position = carried.entity.world_position;
             saved_radius   = carried.radius;
@@ -32,7 +32,7 @@ Carry_Brainrot_Effect_2 :: class : Effect_Base {
             remove_effect(false);
             return;
         }
-        if carried == null || !#alive(carried.entity) {
+        if carried == null || !#alive(carried) {
             remove_effect(false);
             return;
         }
@@ -55,7 +55,7 @@ Carry_Brainrot_Effect_2 :: class : Effect_Base {
     }
 
     effect_end :: method(interrupt: bool) {
-        if carried != null {
+        if carried != null && #alive(carried) {
             carried.carried_by = null;
             carried.radius = saved_radius;
             if interrupt {

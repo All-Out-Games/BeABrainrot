@@ -95,6 +95,8 @@ Pedestal :: class : Interactable {
 
         // NPC base pedestals are display-only — no income generation.
         is_npc_room := room != null && room.#type == Room_Npc;
+        if is_npc_room return;
+
         if placed_brainrot != null && !is_npc_room {
             gps_tick_timer += dt;
             while gps_tick_timer >= 1.0 {
@@ -285,6 +287,7 @@ Room :: class : Component {
 NPC_SPAWN_INTERVAL       :: 60.0;
 NPC_BRAINROT_MAX_LEVEL   :: 10; // NPC-room brainrots spawn at a random level 1..this
 BRAINROT_NPC_PREFAB_PATH :: "Brainrot_Npc.prefab";
+NPC_ROOM_TICK_INTERVAL   :: 0.25;
 
 // Registry of every Room_Npc, maintained by ao_start / ao_end so callers can
 // iterate them without scanning the whole scene each frame.
@@ -317,6 +320,9 @@ Room_Npc :: class : Room {
     chasers:         [..]Npc_Chaser;
     rng:             u64;
     initialized:     bool;
+    npc_tick_accum:  float;
+    roof_visual_visible:     bool;
+    roof_visual_initialized: bool;
 
     // NB: can't override ao_start (parent Room already implements it →
     // overload_set). Registration into g_npc_rooms happens in init_npc_room.
@@ -334,7 +340,11 @@ Room_Npc :: class : Room {
             init_npc_room(this);
             initialized = true;
         }
-        tick_npc_room(this, dt);
+        npc_tick_accum += dt;
+        if npc_tick_accum < NPC_ROOM_TICK_INTERVAL return;
+        elapsed := npc_tick_accum;
+        npc_tick_accum = 0;
+        tick_npc_room(this, elapsed);
     }
 
     // Push a player OUT of this room's bounds (the inherited Room `trigger`,
@@ -372,7 +382,11 @@ Room_Npc :: class : Room {
     }
 
     ao_late_update :: method(dt: float) {
-        draw_npc_pedestal_timers(this);
+        room_visible := npc_room_visible_to_local(this);
+        local, has_local := Game.get_local_player();
+        if room_visible && has_local {
+            draw_npc_pedestal_timers(this, local);
+        }
 
         // Roof visibility is LOCAL-ONLY: the roof is hidden for the local
         // player only on their active_steal_room (the one room they may be in).
@@ -380,12 +394,44 @@ Room_Npc :: class : Room {
         // set_local_enabled (which would sync globally).
         roof_visible := !is_local_active_steal_room(this);
         if roof != null && #alive(roof) {
-            set_chaser_subtree_visible(roof, roof_visible);
+            apply_room_roof_visibility(this, roof_visible, false);
         }
 
         // Name only shows while the roof is visible (covering the room).
-        if roof_visible draw_npc_room_name(this);
+        if room_visible && roof_visible draw_npc_room_name(this);
     }
+
+    ao_on_state_sync :: method() {
+        if roof_visual_initialized {
+            apply_room_roof_visibility(this, roof_visual_visible, true);
+        }
+    }
+}
+
+apply_room_roof_visibility :: proc(r: Room_Npc, visible: bool, force: bool) {
+    if r == null return;
+    if r.roof == null || !#alive(r.roof) return;
+    if !force && r.roof_visual_initialized && r.roof_visual_visible == visible return;
+    set_chaser_subtree_visible(r.roof, visible);
+    r.roof_visual_visible = visible;
+    r.roof_visual_initialized = true;
+}
+
+npc_room_visible_to_local :: proc(r: Room_Npc) -> bool {
+    if r == null return false;
+    local, has_local := Game.get_local_player();
+    if !has_local return false;
+    if local.camera.size <= 0 return true;
+
+    if r.trigger != null && #alive(r.trigger.corner_a) && #alive(r.trigger.corner_b) {
+        a := r.trigger.corner_a.world_position;
+        b := r.trigger.corner_b.world_position;
+        center := v2{(a.x + b.x) * 0.5, (a.y + b.y) * 0.5};
+        apron := max(abs(a.x - b.x), abs(a.y - b.y)) * 0.5 + 2.0;
+        return Camera.is_visible(center, apron);
+    }
+    if #alive(r.entity) return Camera.is_visible(r.entity.world_position, 8.0);
+    return false;
 }
 
 // True if this room is the LOCAL player's active steal room (roof off for them).
@@ -450,6 +496,7 @@ init_npc_room :: proc(r: Room_Npc) {
     seed_input: u64 = Time.nanoseconds_since_epoch();
     if #alive(r.entity) seed_input += r.entity.id.(u64);
     r.rng = rng_seed(seed_input);
+    r.npc_tick_accum = rng_range_float(ref r.rng, 0.0, NPC_ROOM_TICK_INTERVAL);
 
     r.pedestal_timers.clear();
     r.pedestal_locked.clear();
@@ -584,10 +631,8 @@ spawn_npc_brainrot_on_pedestal :: proc(pedestal: Pedestal, config: Brainrot_Conf
     return le;
 }
 
-draw_npc_pedestal_timers :: proc(r: Room_Npc) {
-    local, has_local := Game.get_local_player();
-    if !has_local return;
-
+draw_npc_pedestal_timers :: proc(r: Room_Npc, local: Player) {
+    if local == null return;
     for i: 0..r.pedestals.count - 1 {
         if i >= r.pedestal_timers.count continue;
         p := r.pedestals[i];
@@ -930,7 +975,7 @@ claim_room_cmd :: proc(player: Player) {
     }
     room.claim_room(player);
     show_notification(player, "Base claimed!");
-} @chat_command @any
+} @chat_command
 
 place_brainrot_cmd :: proc(player: Player, id: string = "tralalero") {
     room := player.my_room;
@@ -957,3 +1002,54 @@ place_brainrot_cmd :: proc(player: Player, id: string = "tralalero") {
     }
     show_notification(player, "Unknown brainrot id: %", {id});
 } @chat_command
+
+// Test/admin-only load generator used by perf tests. Fills the caller's base
+// with varied high-level brainrots and unlocks every pedestal, without showing
+// notifications or doing persistent save writes. Normal gameplay never calls it.
+perf_spawn_full_load :: proc(player: Player) {
+    if player == null return;
+
+    room := player.my_room;
+    if room == null {
+        room = find_free_room();
+        if room != null room.claim_room(player);
+    }
+    if room == null return;
+
+    player.cash = 1000000000.0;
+    player.displayed_cash = player.cash;
+    player.pedestals_unlocked = room.pedestals.count;
+    apply_pedestal_unlocks(room, player);
+
+    configs := get_brainrot_configs();
+    if configs.count <= 0 return;
+
+    for i: 0..room.pedestals.count - 1 {
+        p := room.pedestals[i];
+        if p == null continue;
+
+        if p.placed_brainrot != null && #alive(p.placed_brainrot.entity) {
+            p.placed_brainrot.entity.destroy();
+        }
+        p.placed_brainrot = null;
+
+        cfg := configs[i % configs.count];
+        le := spawn_brainrot_on_pedestal(p, cfg);
+        if le == null continue;
+        le.owner = player;
+        le.state = Brainrot_State.CLAIMED_IN_BASE;
+        le.level = 10 + (i % 20);
+        mut_idx := i % 4;
+        if mut_idx == 1 le.mutation = Mutation.GOLD;
+        if mut_idx == 2 le.mutation = Mutation.DIAMOND;
+        if mut_idx == 3 le.mutation = Mutation.RAINBOW;
+        le.update_visuals();
+
+        p.accumulated_gold = 100000.0 + i.(float) * 2500.0;
+        p.gps_tick_timer = 0;
+        p.claim_cooldown = 0;
+    }
+
+    player.entity.set_world_position(room.entity.world_position);
+    player.current_floor = 0;
+} @chat_command @any

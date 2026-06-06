@@ -10,6 +10,11 @@
 // component_iterator(Floor_Renderer) on demand.
 
 Floor_Manager :: class : Component {
+    cached_floor: s64;
+    cached_cam_cx: s64;
+    cached_cam_cy: s64;
+    cached_cam_size_bucket: s64;
+    visibility_cache_valid: bool;
 
     ao_on_state_sync :: method() {
         local, has_local := Game.get_local_player();
@@ -18,10 +23,9 @@ Floor_Manager :: class : Component {
     }
 
     ao_late_update :: method(dt: float) {
-        // Belt-and-suspenders: re-apply each frame in case any state push
-        // resets sprite.color between syncs.
         local, has_local := Game.get_local_player();
         if !has_local return;
+        if !floor_visibility_dirty(this, local) return;
         apply_visibility(local);
     }
 
@@ -74,6 +78,39 @@ Floor_Manager :: class : Component {
     }
 }
 
+floor_visibility_dirty :: proc(fm: Floor_Manager, viewer: Player) -> bool {
+    if fm == null return true;
+    if viewer == null return false;
+
+    cam_size := viewer.camera.size;
+    // Bucket camera size so tiny zoom lerps do not force a full visibility pass.
+    size_bucket := (cam_size * 10.0).(s64);
+    cam_cx := floor_grid_cell(viewer.camera.position.x);
+    cam_cy := floor_grid_cell(viewer.camera.position.y);
+
+    if !fm.visibility_cache_valid {
+        fm.cached_floor = viewer.current_floor;
+        fm.cached_cam_cx = cam_cx;
+        fm.cached_cam_cy = cam_cy;
+        fm.cached_cam_size_bucket = size_bucket;
+        fm.visibility_cache_valid = true;
+        return true;
+    }
+
+    if fm.cached_floor != viewer.current_floor ||
+       fm.cached_cam_cx != cam_cx ||
+       fm.cached_cam_cy != cam_cy ||
+       fm.cached_cam_size_bucket != size_bucket {
+        fm.cached_floor = viewer.current_floor;
+        fm.cached_cam_cx = cam_cx;
+        fm.cached_cam_cy = cam_cy;
+        fm.cached_cam_size_bucket = size_bucket;
+        return true;
+    }
+
+    return false;
+}
+
 // Generous multiple of the camera's orthographic size — wide enough that the
 // visible diagonal (and a margin) is always inside it, so we never skip a
 // renderer that's actually on screen.
@@ -87,8 +124,9 @@ FLOOR_INVIS_REASON :: "different_floor";
 apply_other_player_visibility :: proc(viewer: Player) {
     if viewer == null return;
     viewer_floor := viewer.current_floor;
-    for p: component_iterator(Player) {
+    for p: g_players {
         if p == null continue;
+        if !#alive(p) continue;
         if p == viewer continue;
         if p.current_floor <= viewer_floor {
             p.remove_invisibility_reason(FLOOR_INVIS_REASON);

@@ -301,6 +301,9 @@ LivingEntity :: class : Interactable {
 
     jump_t:        float;  // remaining jump time; 0 = idle
     jump_rest_pos: v2;     // entity local position to return to after jump
+    gps_label:      string;
+    level_label:    string;
+    mutation_label: string;
 
     ao_start :: method() {
         this.set_listener(this);
@@ -471,6 +474,14 @@ LivingEntity :: class : Interactable {
                 sprite.set_material(mat, false);
             }
         }
+
+        refresh_label_cache();
+    }
+
+    refresh_label_cache :: method() {
+        gps_label = format_string("%/s", {format_cash(get_gps())});
+        level_label = format_string("Lv %", {level});
+        mutation_label = get_mutation_name(mutation);
     }
 
     ao_late_update :: method(dt: float) {
@@ -524,23 +535,25 @@ LivingEntity :: class : Interactable {
     }
 
     draw_head_labels :: method(base_pos: v2, line_h: float) {
+        if gps_label.count <= 0 refresh_label_cache();
+
         // Stack up: GPS (bottom) -> rarity -> level -> name -> mutation (top).
         cursor_y: float = 0;
 
-        draw_brainrot_label(base_pos + v2{0, cursor_y}, format_string("%/s", {format_cash(get_gps())}), v4{1, 0.87, 0.13, 1});
+        draw_brainrot_label(base_pos + v2{0, cursor_y}, gps_label, v4{1, 0.87, 0.13, 1});
         cursor_y += line_h;
 
         draw_brainrot_label(base_pos + v2{0, cursor_y}, get_rarity_name(rarity), get_rarity_color(rarity));
         cursor_y += line_h;
 
-        draw_brainrot_label(base_pos + v2{0, cursor_y}, format_string("Lv %", {level}), v4{0.85, 0.95, 1.0, 1});
+        draw_brainrot_label(base_pos + v2{0, cursor_y}, level_label, v4{0.85, 0.95, 1.0, 1});
         cursor_y += line_h;
 
         draw_brainrot_label(base_pos + v2{0, cursor_y}, display_name, v4{1, 1, 1, 1}, 0.26, 0.25, 2.0);
         cursor_y += line_h;
 
         if mutation != Mutation.NONE {
-            draw_brainrot_label(base_pos + v2{0, cursor_y}, get_mutation_name(mutation), get_mutation_color(mutation));
+            draw_brainrot_label(base_pos + v2{0, cursor_y}, mutation_label, get_mutation_color(mutation));
         }
     }
 }

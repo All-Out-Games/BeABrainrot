@@ -35,6 +35,11 @@ SHOP3_MAT_RAY_B:      Material;
 SHOP3_MAT_RAY_C:      Material;
 SHOP3_MAT_RAY_BANNER: Material; // rays behind the PRIME icon
 SHOP3_MATS_READY:     bool;
+SHOP3_STATIC_LISTS_READY: bool;
+SHOP3_STARTER_DEFS: [..]Brainrot_Item_Definition;
+SHOP3_RAINBOW_DEFS: [..]Brainrot_Item_Definition;
+SHOP3_STARTER_RAYS: [..]Material;
+SHOP3_RAINBOW_RAYS: [..]Material;
 
 // PRIME icon "breathing" pulse (1080p ref px).
 PRIME_ICON_BASE   :: 150.0;
@@ -109,6 +114,32 @@ shop3_ensure_materials :: proc() -> bool {
     return true;
 }
 
+shop3_ensure_static_lists :: proc() {
+    if SHOP3_STATIC_LISTS_READY return;
+
+    SHOP3_STARTER_DEFS.clear();
+    SHOP3_RAINBOW_DEFS.clear();
+    SHOP3_STARTER_RAYS.clear();
+    SHOP3_RAINBOW_RAYS.clear();
+
+    starter := find_brainrot_definition(STARTER_PACK_BRAINROT);
+    if starter != null append(ref SHOP3_STARTER_DEFS, starter);
+
+    d0 := find_brainrot_definition("chimpanzini");
+    d1 := find_brainrot_definition("spijuniro");
+    d2 := find_brainrot_definition("garama");
+    if d0 != null append(ref SHOP3_RAINBOW_DEFS, d0);
+    if d1 != null append(ref SHOP3_RAINBOW_DEFS, d1);
+    if d2 != null append(ref SHOP3_RAINBOW_DEFS, d2);
+
+    append(ref SHOP3_STARTER_RAYS, SHOP3_MAT_RAY_A);
+    append(ref SHOP3_RAINBOW_RAYS, SHOP3_MAT_RAY_B);
+    append(ref SHOP3_RAINBOW_RAYS, SHOP3_MAT_RAY_C);
+    append(ref SHOP3_RAINBOW_RAYS, SHOP3_MAT_RAY_F);
+
+    SHOP3_STATIC_LISTS_READY = true;
+}
+
 // Feed a panel's resolved screen rect to its background material as rect_px.
 shop3_feed_rect :: proc(mat: Material, r: Rect) {
     if mat == null return;
@@ -180,7 +211,7 @@ draw_shop3_struck_price :: proc(orig: s64) {
 // Wide bundle banner: each brainrot preview sits over its OWN ray burst (one
 // ray material per brainrot, from ray_mats), an optional cash reward fills its
 // own cell, and the pack title + shader price button sit on the right.
-draw_shop3_bundle :: proc(panel_id: string, product_id: string, bg_mat: Material, ray_mats: []Material, price_mat: Material, title: string, brainrot_ids: []string, cash_text: string, subtitle: string = "") -> Interact_Result {
+draw_shop3_bundle :: proc(panel_id: string, product_id: string, bg_mat: Material, ray_mats: []Material, price_mat: Material, title: string, brainrot_defs: []Brainrot_Item_Definition, cash_text: string, subtitle: string = "") -> Interact_Result {
     banner := UIK.layout_row();
     banner.width                       = UIK.flex(1);
     banner.height                      = UIK.pixels(210);
@@ -204,10 +235,9 @@ draw_shop3_bundle :: proc(panel_id: string, product_id: string, bg_mat: Material
     UIK.panel_begin(content);
 
     icon_size := 130.0;
-    if brainrot_ids.count > 1 icon_size = 116.0;
+    if brainrot_defs.count > 1 icon_size = 116.0;
     bi: s64 = 0;
-    for cid: brainrot_ids {
-        d := find_brainrot_definition(cid);
+    for d: brainrot_defs {
         ray_mat := ray_mats[0];
         if bi < ray_mats.count ray_mat = ray_mats[bi];
 
@@ -323,6 +353,7 @@ draw_shop_v3 :: proc(player: Player) {
     if player == null return;
     if !player.show_shop_v3 return;
     if !shop3_ensure_materials() return; // shaders still loading
+    shop3_ensure_static_lists();
 
     UIK.begin(UIK.modal(UIK.rect_window(), 20));
 
@@ -441,22 +472,8 @@ draw_shop_v3 :: proc(player: Player) {
     bundles_col.gap    = 12;
     UIK.panel_begin(bundles_col);
 
-    starter_brainrots: [..]string;
-    append(ref starter_brainrots, STARTER_PACK_BRAINROT);
-    rainbow_brainrots: [..]string;
-    append(ref rainbow_brainrots, "chimpanzini");
-    append(ref rainbow_brainrots, "spijuniro");
-    append(ref rainbow_brainrots, "garama");
-
-    starter_rays: [..]Material;
-    append(ref starter_rays, SHOP3_MAT_RAY_A);
-    rainbow_rays: [..]Material;
-    append(ref rainbow_rays, SHOP3_MAT_RAY_B);
-    append(ref rainbow_rays, SHOP3_MAT_RAY_C);
-    append(ref rainbow_rays, SHOP3_MAT_RAY_F);
-
-    starter_h := draw_shop3_bundle("shop3_starter", STARTER_PACK_PRODUCT_ID, SHOP3_MAT_BUNDLE_A, starter_rays, SHOP3_MAT_PRICE_A, "Starter Pack!", starter_brainrots, "$50,000,000");
-    rainbow_h := draw_shop3_bundle("shop3_rainbow", RAINBOW_PACK_PRODUCT_ID, SHOP3_MAT_BUNDLE_B, rainbow_rays, SHOP3_MAT_PRICE_B, "Rainbow Pack!", rainbow_brainrots, "", "All Rainbow!");
+    starter_h := draw_shop3_bundle("shop3_starter", STARTER_PACK_PRODUCT_ID, SHOP3_MAT_BUNDLE_A, SHOP3_STARTER_RAYS, SHOP3_MAT_PRICE_A, "Starter Pack!", SHOP3_STARTER_DEFS, "$50,000,000");
+    rainbow_h := draw_shop3_bundle("shop3_rainbow", RAINBOW_PACK_PRODUCT_ID, SHOP3_MAT_BUNDLE_B, SHOP3_RAINBOW_RAYS, SHOP3_MAT_PRICE_B, "Rainbow Pack!", SHOP3_RAINBOW_DEFS, "", "All Rainbow!");
 
     UIK.panel_end(); // bundles_col
 

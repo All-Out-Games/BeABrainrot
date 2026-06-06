@@ -454,6 +454,8 @@ ao_late_update :: proc(dt: float) {
 }
 
 
+g_players: [..]Player;
+
 
 Player :: class : Player_Base {
     speed: s64;
@@ -534,6 +536,8 @@ Player :: class : Player_Base {
     }
 
     ao_start :: method() {
+        append(ref g_players, this);
+
         purchased_speed = Save.get_int(this, PURCHASED_SPEED_SAVE_KEY, 0);
         speed = Save.get_int(this, SPEED_SAVE_KEY, BASE_SPEED);
         if speed < BASE_SPEED speed = BASE_SPEED;
@@ -696,8 +700,9 @@ Player :: class : Player_Base {
             // local client renders each player's carried icon in the world so
             // remote players' icons are visible too. selected_brainrot_item is
             // server-synced, so the iteration sees up-to-date values.
-            for p: component_iterator(Player) {
+            for p: g_players {
                 if p == null continue;
+                if !#alive(p) continue;
                 if !#alive(p.entity) continue;
                 draw_selected_brainrot_above_player(p);
             }
@@ -729,6 +734,12 @@ Player :: class : Player_Base {
     }
 
     ao_end :: method() {
+        for i: 0..g_players.count - 1 {
+            if g_players[i] == this {
+                unordered_remove_by_index(ref g_players, i);
+                break;
+            }
+        }
         if my_room != null my_room.release_room();
         release_chasers_for_player(this);
     }

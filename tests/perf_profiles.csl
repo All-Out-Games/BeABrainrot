@@ -1,0 +1,40 @@
+test_perf_full_base_idle :: proc() {
+    Test.spawn_dummy_players(1);
+    Test.wait_frames(45);
+    Test.run_admin_command("perf_spawn_full_load");
+    Test.wait_frames(45);
+
+    Test.profile_start("full_base_idle");
+    Test.wait_frames(180);
+    Test.profile_stop();
+
+    Test.assert_entity_count_gt("brainrots exist", "LivingEntity", 10);
+}
+
+test_perf_shop_modal :: proc() {
+    Test.wait_frames(45);
+    Test.run_admin_command("perf_spawn_full_load");
+    Test.wait_frames(30);
+    Test.click_button("shop_toggle");
+    Test.wait_frames(15);
+
+    Test.profile_start("shop_modal");
+    Test.wait_frames(180);
+    Test.profile_stop();
+
+    Test.assert_entity_count_gt("brainrots exist", "LivingEntity", 10);
+}
+
+test_perf_upper_floor_idle :: proc() {
+    Test.wait_frames(45);
+    Test.run_admin_command("perf_spawn_full_load");
+    Test.wait_frames(30);
+    Test.run_admin_command("set_floor_cmd 1");
+    Test.wait_frames(30);
+
+    Test.profile_start("upper_floor_idle");
+    Test.wait_frames(180);
+    Test.profile_stop();
+
+    Test.assert_entity_count_gt("brainrots exist", "LivingEntity", 10);
+}

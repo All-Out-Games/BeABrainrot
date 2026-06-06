@@ -34,6 +34,8 @@ Npc_Chaser :: class : Component {
     current_anim:           string;         // last animation pushed to the spine, to avoid restarting it every frame
     current_anim_speed:     float;          // last animation speed pushed to the spine
     last_world_pos:         v2;             // world position last frame — used to detect actual movement for the anim picker
+    visual_visible:         bool;           // cached local-only renderer visibility
+    visual_initialized:     bool;           // false until we've pushed the first visibility state
 
     ao_start :: method() {
         home_position = entity.world_position;
@@ -78,9 +80,25 @@ Npc_Chaser :: class : Component {
         // Each client only sees its own chaser per room — hide the rest by
         // zeroing renderer tint alpha (chase logic still runs). Visual-only,
         // so it's fine to derive from the client-local player.
-        set_chaser_subtree_visible(entity, chaser_is_displayed_for_local(this));
+        visible := chaser_is_displayed_for_local(this);
+        apply_chaser_visual_visibility(this, visible, false);
 
-        update_chaser_spine_anim(this, dt);
+        if visible {
+            update_chaser_spine_anim(this, dt);
+        } else {
+            // Keep movement-delta animation bookkeeping fresh while hidden so
+            // showing the chaser later does not see one huge stale delta.
+            last_world_pos = entity.world_position;
+        }
+    }
+
+    ao_on_state_sync :: method() {
+        // Server reconciliation can restore renderer color/tint values. Re-push
+        // the cached client-local visibility only on sync instead of recursively
+        // walking the subtree every late_update.
+        if visual_initialized {
+            apply_chaser_visual_visibility(this, visual_visible, true);
+        }
     }
 
     on_catch :: method() {
@@ -123,6 +141,14 @@ Npc_Chaser :: class : Component {
         assigned_player.add_freeze_reason(NPC_ESCORT_FREEZE_REASON);
         state = Npc_Chaser_State.ESCORTING;
     }
+}
+
+apply_chaser_visual_visibility :: proc(c: Npc_Chaser, visible: bool, force: bool) {
+    if c == null return;
+    if !force && c.visual_initialized && c.visual_visible == visible return;
+    set_chaser_subtree_visible(c.entity, visible);
+    c.visual_visible = visible;
+    c.visual_initialized = true;
 }
 
 // Transform a direction/delta vector (no translation) by a Matrix4's linear
@@ -406,10 +432,22 @@ chaser_is_displayed_for_local :: proc(c: Npc_Chaser) -> bool {
     local, has_local := Game.get_local_player();
     if !has_local return false;
     if c.home_room == null return false;
-    mine := get_player_chaser_in_room(c.home_room, local);
-    if mine != null return mine == c;
-    if c.home_room.chasers.count > 0 return c.home_room.chasers[0] == c;
-    return false;
+    if c.assigned_player == local return true;
+    if c.home_room.chasers.count <= 0 return false;
+
+    // Preserve the old preview behavior: if the local player has no claimed
+    // chaser in this room, show slot 0 even when another player owns it. Avoid
+    // scanning for every hidden chaser; only the candidate preview slot scans.
+    if c.home_room.chasers[0] != c return false;
+    if c.assigned_player != null && c.assigned_player != local {
+        // Still may be visible as the fallback preview if local has none.
+    }
+
+    for other: c.home_room.chasers {
+        if other == null continue;
+        if other.assigned_player == local return false;
+    }
+    return true;
 }
 
 get_player_chaser_in_room :: proc(r: Room_Npc, player: Player) -> Npc_Chaser {

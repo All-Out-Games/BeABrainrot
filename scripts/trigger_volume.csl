@@ -31,6 +31,13 @@ Trigger_Volume :: class : Component {
     // to avoid heap churn.
     inside:  [..]Player;
     scratch: [..]Player;
+    bounds_cached: bool;
+    x_min: float;
+    x_max: float;
+    y_min: float;
+    y_max: float;
+    last_a: v2;
+    last_b: v2;
 
     set_listener :: method(
         l: Component,
@@ -45,17 +52,24 @@ Trigger_Volume :: class : Component {
     ao_update :: method(dt: float) {
         if !#alive(corner_a) return;
         if !#alive(corner_b) return;
+        if listener == null && on_enter_proc == null && on_exit_proc == null return;
 
         a := corner_a.world_position;
         b := corner_b.world_position;
-        x_min := min(a.x, b.x);
-        x_max := max(a.x, b.x);
-        y_min := min(a.y, b.y);
-        y_max := max(a.y, b.y);
+        if !bounds_cached || a.x != last_a.x || a.y != last_a.y || b.x != last_b.x || b.y != last_b.y {
+            x_min = min(a.x, b.x);
+            x_max = max(a.x, b.x);
+            y_min = min(a.y, b.y);
+            y_max = max(a.y, b.y);
+            last_a = a;
+            last_b = b;
+            bounds_cached = true;
+        }
 
         clear(ref scratch);
-        for p: component_iterator(Player) {
+        for p: g_players {
             if p == null continue;
+            if !#alive(p) continue;
             if !#alive(p.entity) continue;
             pos := p.entity.world_position;
             if pos.x < x_min continue;
@@ -75,6 +89,7 @@ Trigger_Volume :: class : Component {
         if on_exit_proc != null {
             for p: inside {
                 if p == null continue;
+                if !#alive(p) continue;
                 if !#alive(p.entity) {
                     on_exit_proc(listener, p);
                     continue;

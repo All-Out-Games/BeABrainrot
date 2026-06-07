@@ -1052,4 +1052,4 @@ perf_spawn_full_load :: proc(player: Player) {
 
     player.entity.set_world_position(room.entity.world_position);
     player.current_floor = 0;
-} @chat_command @any
+} @chat_command

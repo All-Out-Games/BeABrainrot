@@ -15,6 +15,7 @@ INITIALIZED_SAVE_KEY     :: "initialized"; // set once on first join so we only 
 STARTING_CASH            :: 1000.0;          // granted on first join and on /reset
 AUTO_COLLECT_SAVE_KEY    :: "auto_collect";  // PRIME auto-collect toggle (persisted)
 AUTO_COLLECT_INTERVAL    :: 1.0;             // seconds between auto-collects
+SLOW_MODE_SAVE_KEY       :: "slow_mode";     // "Slow" movement toggle (persisted)
 
 CASH_POPUP_DURATION :: 1.4;
 CASH_POPUP_RISE     :: 70.0;
@@ -468,6 +469,7 @@ Player :: class : Player_Base {
     auto_collect_enabled: bool;  // PRIME perk: auto-collect base income each second
     auto_collect_timer: float;
     leaderboard_write_timer: float; // publishes gps/speed to the world leaderboards
+    slow_mode_enabled: bool;     // caps movement to base speed (for navigating the base)
     upgrade_combo: s64;          // consecutive brainrot upgrades, for SFX intensity
     upgrade_combo_time: float;
     unclaimed_brainrots: [..]Unclaimed_Brainrot; // mailbox for items that didn't fit
@@ -553,6 +555,7 @@ Player :: class : Player_Base {
         rebirth_level = Save.get_int(this, REBIRTH_SAVE_KEY, 0);
         pedestals_unlocked = Save.get_int(this, PEDESTALS_SAVE_KEY, DEFAULT_PEDESTALS_UNLOCKED);
         auto_collect_enabled = Save.get_int(this, AUTO_COLLECT_SAVE_KEY, 0) != 0;
+        slow_mode_enabled = Save.get_int(this, SLOW_MODE_SAVE_KEY, 0) != 0;
         load_unclaimed_brainrots(this);
         load_brainrot_index(this);
         load_tutorial(this);
@@ -572,7 +575,13 @@ Player :: class : Player_Base {
 
     ao_update :: method(dt: float) {
         if agent != null {
-            agent.movement_speed = get_actual_speed();
+            // Slow toggle caps movement to base speed (stat 18) so players can
+            // navigate their base without overshooting; otherwise real speed.
+            if slow_mode_enabled {
+                agent.movement_speed = compute_agent_movement_speed(BASE_SPEED);
+            } else {
+                agent.movement_speed = get_actual_speed();
+            }
         }
         if animator != null {
             animator.layer = current_floor.(s32);

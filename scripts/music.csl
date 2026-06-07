@@ -31,6 +31,9 @@ Background_Music_Effect :: class : Effect_Base {
 
     effect_start :: method() {
         if player == null return;
+        // Idempotent: don't stack a second looping normal track if effect_start
+        // re-fires (prediction/rollback replay) -- that orphans the old handle.
+        if normal_id != 0 return;
         normal_id = music_play(player, "SFX/music_normal.wav", true, MUSIC_NORMAL_VOLUME);
     }
 

@@ -27,6 +27,10 @@ Being_Chased_Effect :: class : Effect_Base {
     // (server-side) and routes to the player via specific_to_player.
     effect_start :: method() {
         if player == null return;
+        // Idempotent: if a chase loop is already playing on this instance, bail.
+        // Re-running effect_start (prediction/rollback replay) would otherwise
+        // orphan the previous looping handle and stack a second chase track.
+        if chase_id != 0 return;
         bg, has_bg := get_effect(player.entity, Background_Music_Effect);
         if has_bg && bg != null && bg.normal_id != 0 {
             SFX.fade_out_and_stop(bg.normal_id, 0.3);
@@ -69,13 +73,25 @@ Being_Chased_Effect :: class : Effect_Base {
         if player == null return;
 
         // Music (server-side, routes to player — not is_local gated).
+        // Only resume the normal track if a chase track was actually playing.
+        // A duplicate/rolled-back effect_end (chase_id already 0) would
+        // otherwise start a second normal loop on top of the existing one.
+        chase_was_active := chase_id != 0;
         if chase_id != 0 {
             SFX.fade_out_and_stop(chase_id, 0.4);
             chase_id = 0;
         }
-        bg, has_bg := get_effect(player.entity, Background_Music_Effect);
-        if has_bg && bg != null {
-            bg.normal_id = music_play(player, "SFX/music_normal.wav", true, MUSIC_NORMAL_VOLUME);
+        if chase_was_active {
+            bg, has_bg := get_effect(player.entity, Background_Music_Effect);
+            if has_bg && bg != null {
+                // Stop any stray normal loop before starting a fresh one so two
+                // can't overlap.
+                if bg.normal_id != 0 {
+                    SFX.stop(bg.normal_id);
+                    bg.normal_id = 0;
+                }
+                bg.normal_id = music_play(player, "SFX/music_normal.wav", true, MUSIC_NORMAL_VOLUME);
+            }
         }
 
         // Vignette clear (local only; in case the post-process persists once we

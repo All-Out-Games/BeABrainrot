@@ -43,6 +43,36 @@ leaderboard_publish_scores :: proc(player: Player) {
     Save.ordered_set(LEADERBOARD_SPEED_DOC, uid, player.speed.(f64));
 }
 
+// Row layout constants (world units). The first three ranks are taller
+// "podium" rows; everything below is uniform. A fixed gap follows each row.
+LB_ROW_COUNT  :: 50;
+LB_ROW_GAP    :: 0.05;
+LB_ROW_H_TOP  :: 0.55;   // rank 1
+LB_ROW_H_PODI :: 0.375;  // ranks 2-3
+LB_ROW_H_BASE :: 0.23;   // ranks 4+
+
+lb_row_height :: proc(i: s64) -> float {
+    if i == 0 return LB_ROW_H_TOP;
+    if i <= 2 return LB_ROW_H_PODI;
+    return LB_ROW_H_BASE;
+}
+
+// Distance from the content top down to the TOP of row i (sum of all prior row
+// heights + gaps). Closed-form past the 3 podium rows so it's O(1).
+lb_row_top_offset :: proc(i: s64) -> float {
+    if i <= 0 return 0;
+    o: float = 0;
+    explicit := i;
+    if explicit > 3 explicit = 3;
+    for j: 0..explicit - 1 {
+        o += lb_row_height(j) + LB_ROW_GAP;
+    }
+    if i > 3 {
+        o += (i - 3).(float) * (LB_ROW_H_BASE + LB_ROW_GAP);
+    }
+    return o;
+}
+
 Leaderboard_Entry :: struct {
     user_id: string;
     username: string;
@@ -184,29 +214,50 @@ Leaderboard :: class : Component {
             sv := UI.push_scroll_view(viewport_rect, "world_leaderboard", settings); {
                 defer UI.pop_scroll_view();
 
-                content_cut := sv.content_rect.top_rect();
+                cr := sv.content_rect;
+                content_top_y := cr.max.y;
+                x_min := cr.min.x;
+                x_max := cr.max.x;
 
-                // Only ~7 rows fit in the viewport at once. We still lay out and
-                // expand the scroll range for all 50 (cheap), but skip the
-                // quad+text draws for rows scrolled outside the visible window.
-                // One-row apron avoids pop-in at the edges while scrolling.
-                vp_min_y := viewport_rect.min.y - 0.3;
-                vp_max_y := viewport_rect.max.y + 0.3;
+                // Size the scroll content in one shot (full extent) so the
+                // scrollbar stays correct without touching every row.
+                total_h := lb_row_top_offset(LB_ROW_COUNT);
+                UI.expand_current_scroll_view(Rect.{ v2.{x_min, content_top_y - total_h}, v2.{x_max, content_top_y} });
 
-                for i: 0..49 {
-                    h := 0.23;
-                    if i == 0 { h = 0.55; }
-                    if i == 1 { h = 0.375; }
-                    if i == 2 { h = 0.375; }
+                // Compute the visible [min_i, max_i] index range directly from
+                // the scroll position rather than checking all 50 entries. Rows
+                // are ordered top-to-bottom with monotonic offsets, so the
+                // window inverts in O(1). One-row apron avoids edge pop-in;
+                // truncation rounds outward (draws at most ~1 extra row each
+                // side), so we never miss a visible row.
+                APRON :: 0.6;
+                unit     := LB_ROW_H_BASE + LB_ROW_GAP;
+                base_off := lb_row_top_offset(3);
 
-                    entry_rect := content_cut.cut_top(h);
-                    if i == 0 { entry_rect = entry_rect.grow(0, 0.075, 0, 0); }
+                a := content_top_y - viewport_rect.max.y - APRON; // min cum offset visible
+                min_i: s64 = 0;
+                if a > base_off min_i = 3 + ((a - base_off) / unit).(s64);
 
-                    UI.expand_current_scroll_view(entry_rect);
-                    if entry_rect.max.y >= vp_min_y && entry_rect.min.y <= vp_max_y {
+                b := content_top_y - viewport_rect.min.y + APRON; // max cum offset visible
+                max_i: s64 = LB_ROW_COUNT - 1;
+                if b < base_off {
+                    max_i = 3;
+                } else {
+                    max_i = 3 + ((b - base_off) / unit).(s64) + 1;
+                }
+
+                if min_i < 0 min_i = 0;
+                if max_i > LB_ROW_COUNT - 1 max_i = LB_ROW_COUNT - 1;
+
+                if min_i <= max_i {
+                    top := content_top_y - lb_row_top_offset(min_i);
+                    for i: min_i..max_i {
+                        h := lb_row_height(i);
+                        entry_rect := Rect.{ v2.{x_min, top - h}, v2.{x_max, top} };
+                        if i == 0 { entry_rect = entry_rect.grow(0, 0.075, 0, 0); }
                         this.draw_entry(entry_rect, i);
+                        top -= (h + LB_ROW_GAP);
                     }
-                    content_cut.cut_top(0.05);
                 }
             }
 

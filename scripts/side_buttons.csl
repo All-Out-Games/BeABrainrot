@@ -9,6 +9,8 @@ AUTO_COLLECT_MAT_GREEN: Material; // PRIME auto-collect button when active
 AUTO_COLLECT_MAT_RED:   Material; // ...when inactive
 SIDE_MAT_INDEX:   Material;       // Index (collection dex) open button
 SIDE_MAT_LEADERBOARD: Material;   // Leaderboard teleport button
+SLOW_MAT_ON:      Material;       // Slow toggle, enabled (green)
+SLOW_MAT_OFF:     Material;       // Slow toggle, disabled (red)
 SIDE_MATS_READY:  bool;
 
 side_make_box_material :: proc(box: Shop2_Box) -> Material {
@@ -72,6 +74,8 @@ side_ensure_materials :: proc() -> bool {
     red_box.outline_px    = 5.0;
     AUTO_COLLECT_MAT_GREEN = side_make_box_material(green_box);
     AUTO_COLLECT_MAT_RED   = side_make_box_material(red_box);
+    SLOW_MAT_ON            = side_make_box_material(green_box);
+    SLOW_MAT_OFF           = side_make_box_material(red_box);
     SIDE_MAT_INDEX         = side_make_box_material(shop2_box_purple());
     SIDE_MAT_LEADERBOARD   = side_make_box_material(shop2_box_yellow());
     if SIDE_MAT_REBIRTH == null return false; // shader still loading
@@ -168,6 +172,60 @@ draw_side_buttons :: proc(player: Player) {
     if UIK.clicked(rebirth_h) player.show_rebirth_modal = !player.show_rebirth_modal;
     if UIK.clicked(equip_h)   auto_equip_best(player);
     if UIK.clicked(shop_h)    player.show_shop_v3       = !player.show_shop_v3;
+
+    // Slow toggle — sits in the open space to the LEFT of the icon column,
+    // vertically centered (level with the middle Equip button). Caps movement
+    // to base speed for players who feel too fast in their own base.
+    // Same vertical extent as the sidebar so CENTER lines up with Equip.
+    slow_window := UI.get_safe_screen_rect().right_center_rect().offset(-300, 0).grow(250, 70, 300, 70);
+    UIK.begin(UIK.window(slow_window));
+
+    scol := UIK.layout_column();
+    scol.width      = UIK.flex(1);
+    scol.height     = UIK.flex(1);
+    scol.main_align  = .CENTER;
+    scol.cross_align = .CENTER;
+    UIK.panel_begin(scol);
+
+    slow_mat := SLOW_MAT_OFF;
+    if player.slow_mode_enabled slow_mat = SLOW_MAT_ON;
+
+    sq := UIK.layout_column();
+    sq.width                       = UIK.pixels(SIDE_ICON_BOX);
+    sq.height                      = UIK.pixels(SIDE_ICON_BOX);
+    sq.main_align                  = .CENTER;
+    sq.cross_align                 = .CENTER;
+    sq.gap                         = 2;
+    sq.show_background              = true;
+    sq.tint                        = v4{1, 1, 1, 1};
+    sq.background_sprite_override   = core_globals.white_sprite;
+    sq.background_material_override = slow_mat;
+    slow_h := UIK.panel_begin_interactive("slow_btn", sq);
+    side_feed_rect(slow_mat, slow_h.rect);
+    slow_mat.set_float("press", slow_h.active_t_eased);
+
+    slbl := UIK.text_button();
+    slbl.set_size_mult(0.8);
+    slbl.set_outline(true, 3.0, v4{0, 0, 0, 1});
+    UIK.text("SLOW", slbl);
+
+    sstatus := UIK.text_button();
+    sstatus.set_size_mult(0.6);
+    sstatus.set_outline(true, 3.0, v4{0, 0, 0, 1});
+    sstate_txt := "OFF";
+    if player.slow_mode_enabled sstate_txt = "ON";
+    UIK.text(sstate_txt, sstatus);
+
+    UIK.panel_end(); // sq
+    UIK.panel_end(); // scol
+    UIK.end();
+
+    if UIK.clicked(slow_h) {
+        player.slow_mode_enabled = !player.slow_mode_enabled;
+        saved: s64 = 0;
+        if player.slow_mode_enabled saved = 1;
+        Save.set_int(player, SLOW_MODE_SAVE_KEY, saved);
+    }
 }
 
 // Left-side buttons: PRIME auto-collect toggle (green on / red off) and a
@@ -248,13 +306,21 @@ draw_left_buttons :: proc(player: Player) {
     UIK.text("Index", ilbl);
     UIK.panel_end(); // ibtn
 
-    // Leaderboard — teleports the player to the world leaderboard area.
+    // Leaderboard — teleports the player to the world leaderboard area, but
+    // only from below the NPC line. Disabled while up in the NPC-base area so
+    // players can't bail out of a steal run by teleporting.
+    tp_blocked := false;
+    gm := get_game_manager();
+    if gm != null && gm.npc_line != null && #alive(gm.npc_line) {
+        tp_blocked = player.entity.world_position.y > gm.npc_line.world_position.y;
+    }
+
     lbtn := UIK.layout_centered(UIK.pixels(190), UIK.pixels(90));
     lbtn.show_background              = true;
     lbtn.tint                        = v4{1, 1, 1, 1};
     lbtn.background_sprite_override   = core_globals.white_sprite;
     lbtn.background_material_override = SIDE_MAT_LEADERBOARD;
-    leaderboard_h := UIK.panel_begin_interactive("leaderboard_btn", lbtn);
+    leaderboard_h := UIK.panel_begin_interactive("leaderboard_btn", lbtn, tp_blocked);
     side_feed_rect(SIDE_MAT_LEADERBOARD, leaderboard_h.rect);
     SIDE_MAT_LEADERBOARD.set_float("press", leaderboard_h.active_t_eased);
     llbl := UIK.text_button();
@@ -270,7 +336,7 @@ draw_left_buttons :: proc(player: Player) {
         player.show_index_modal = true;
     }
 
-    if UIK.clicked(leaderboard_h) {
+    if UIK.clicked(leaderboard_h) && !tp_blocked {
         player.entity.set_world_position({26.738, 4.965});
         player.current_floor = 0;
     }

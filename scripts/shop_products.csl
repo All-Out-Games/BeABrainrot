@@ -234,12 +234,35 @@ grant_examen_brainrot :: proc(player: Player) -> bool {
     item, ok := try_give_brainrot_item_ret(player, WOOOW_MY_EXAMEN_ID, WOOOW_MY_EXAMEN_LEVEL, Mutation.NONE);
     if ok {
         player.pending_modifier_item = item;
+        // Offer the optional modifier right after the grant.
+        player.show_modifier_popup = true;
+        player.show_modifier_skip_confirm = false;
     } else {
         player.pending_modifier_item = null;
+        player.show_modifier_popup = false;
         add_unclaimed_brainrot(player, WOOOW_MY_EXAMEN_ID, WOOOW_MY_EXAMEN_LEVEL, Mutation.NONE);
         show_notification(player, "Inventory full! Wooow My Examen sent to your mailbox.");
     }
     return true;
+}
+
+// Per-player log of premium-brainrot modifier purchases, for tracking. Each
+// entry is "brainrot_id:modifier:YYYY-MM-DD-HH" (UTC hour of purchase).
+PREMIUM_MODIFIER_LOG_KEY :: "brainrots_bought_modifiers";
+
+Bought_Modifier_Log :: class {
+    entries: [..]string @ao_serialize;
+}
+
+record_bought_modifier :: proc(player: Player, brainrot_id: string, mutation: Mutation) {
+    if player == null return;
+    log: Bought_Modifier_Log;
+    Save.try_get_json(player, PREMIUM_MODIFIER_LOG_KEY, ref log);
+    if log == null log = new(Bought_Modifier_Log);
+    dt := get_utc_datetime();
+    stamp := format_string("%-%-%-%", {dt.year, dt.month, dt.day, dt.hour});
+    append(ref log.entries, format_string("%:%:%", {brainrot_id, get_mutation_name(mutation), stamp}));
+    Save.set_json(player, PREMIUM_MODIFIER_LOG_KEY, ref log);
 }
 
 // Apply a purchased modifier to the brainrot from the most recent premium buy.
@@ -253,9 +276,26 @@ apply_pending_modifier :: proc(player: Player, mutation: Mutation) -> bool {
     }
     item.mutation = mutation;
     player.pending_modifier_item = null;
+    player.show_modifier_popup = false;
+    player.show_modifier_skip_confirm = false;
+
+    // Persist a tracking record: brainrot_id:modifier:YYYY-MM-DD-HH (UTC).
+    brainrot_id := WOOOW_MY_EXAMEN_ID;
+    defn := item.get_definition();
+    if defn != null && defn.#type == Brainrot_Item_Definition {
+        brainrot_id = defn.(Brainrot_Item_Definition).config_id;
+    }
+    record_bought_modifier(player, brainrot_id, mutation);
+
     show_notification(player, "Applied % modifier!", {get_mutation_name(mutation)});
     return true;
 }
+
+// Debug: grant the premium brainrot for free and open the modifier popup so the
+// UI can be eyeballed without a real purchase.
+open_modifier_popup_cmd :: proc(player: Player) {
+    grant_examen_brainrot(player);
+} @chat_command
 
 // ===== Central purchase dispatcher =====
 // Engine calls this when ANY purchase completes. Return true to confirm the

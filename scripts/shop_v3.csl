@@ -329,15 +329,6 @@ draw_shop3_gamepass_card :: proc(panel_id: string, product_id: string, bg_mat: M
         st.set_outline(true, 2.5, v4{0, 0, 0, 1});
         UIK.text(subtitle, st);
     }
-    // Bouncy GPS line (e.g. "24.3T/s") — pulses to draw the eye to the value.
-    if gps_text.count > 0 {
-        bounce := 1.0 + 0.18 * abs(sin(get_time() * 4.0));
-        gd := UIK.text_title();
-        gd.set_size_mult(0.7 * bounce);
-        gd.set_color({0.55, 1.0, 0.45, 1});
-        gd.set_outline(true, 3.0, v4{0, 0, 0, 1});
-        UIK.text(gps_text, gd);
-    }
 
     media := UIK.layout_centered(UIK.flex(1), UIK.flex(1));
     media.show_background              = true;
@@ -353,6 +344,24 @@ draw_shop3_gamepass_card :: proc(panel_id: string, product_id: string, bg_mat: M
     UIK.panel_end(); // media
 
     buy_h := draw_shop3_price_button(format_string("%_buy", {panel_id}), product_id, price_mat, owned);
+
+    // Bouncy GPS value — floated as a top-right badge so it doesn't squeeze the
+    // icon out of the column (the price button was crowding it otherwise).
+    if gps_text.count > 0 {
+        bounce := 1.0 + 0.18 * abs(sin(get_time() * 4.0));
+        UIK.overlay_begin(.CENTER_RIGHT, v2{-12, 0});
+        badge := UIK.layout_row();
+        badge.width  = UIK.fit();
+        badge.height = UIK.fit();
+        UIK.panel_begin(badge);
+        gd := UIK.text_title();
+        gd.set_size_mult(0.62 * bounce);
+        gd.set_color({0.55, 1.0, 0.45, 1});
+        gd.set_outline(true, 3.0, v4{0, 0, 0, 1});
+        UIK.text(gps_text, gd);
+        UIK.panel_end();
+        UIK.overlay_end();
+    }
 
     UIK.panel_end(); // card
     return buy_h;

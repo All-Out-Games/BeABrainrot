@@ -1,0 +1,252 @@
+// "ADD A MODIFIER TO IT!!" popup — shown right after buying a premium brainrot.
+// Offers Gold / Diamond / Rainbow (each a separate sparks product); picking one
+// prompts that purchase, which ao_purchase_handler applies to the just-bought
+// brainrot (player.pending_modifier_item). Closing without buying asks an
+// "are you sure" confirm first (people dismiss things without reading).
+//
+// Styled like the speed-upgrade modal (box_panel.aosl shader backgrounds).
+
+MOD_MAT_SHELL:   Material;
+MOD_MAT_GOLD:    Material;
+MOD_MAT_DIAMOND: Material;
+MOD_MAT_RAINBOW: Material;
+MOD_MAT_BACK:    Material; // green "go back" confirm button
+MOD_MAT_SKIP:    Material; // red "keep normal" confirm button
+MOD_MATS_READY:  bool;
+
+modifier_ensure_materials :: proc() -> bool {
+    if MOD_MATS_READY return true;
+
+    // Deep purple shell, distinct from the blue speed modal and indigo rebirth.
+    shell_box := shop2_box_dark();
+    shell_box.top           = v4{0.30, 0.16, 0.46, 1};
+    shell_box.bottom        = v4{0.10, 0.05, 0.20, 1};
+    shell_box.corner_radius = 24.0;
+    shell_box.outline_px    = 4.0;
+    shell_box.dot_alpha     = 0.10;
+
+    // Cyan "diamond" box.
+    diamond_box := shop2_box_dark();
+    diamond_box.top        = v4{0.55, 0.92, 1.00, 1};
+    diamond_box.bottom     = v4{0.18, 0.52, 0.82, 1};
+    diamond_box.band_color = v4{0.08, 0.28, 0.46, 1};
+
+    MOD_MAT_SHELL   = shop3_make_box_material(shell_box);
+    MOD_MAT_GOLD    = shop3_make_box_material(shop2_box_gold());
+    MOD_MAT_DIAMOND = shop3_make_box_material(diamond_box);
+    MOD_MAT_RAINBOW = shop3_make_box_material(shop2_box_rainbow());
+    MOD_MAT_BACK    = shop3_make_box_material(shop2_box_green());
+    MOD_MAT_SKIP    = shop3_make_box_material(shop2_box_red());
+    if MOD_MAT_SHELL == null return false; // shader still loading
+
+    MOD_MATS_READY = true;
+    return true;
+}
+
+// One modifier choice row: name + multiplier on the left, resulting GPS in the
+// middle, spark price on the right. The whole row is the buy button.
+draw_modifier_row :: proc(id: string, mat: Material, name: string, name_color: v4, mult_text: string, gps_text: string, price: s64) -> Interact_Result {
+    row := UIK.layout_row();
+    row.width                       = UIK.flex(1);
+    row.height                      = UIK.pixels(96);
+    row.gap                         = 12;
+    row.padding                     = v4{12, 16, 12, 16};
+    row.cross_align                 = .CENTER;
+    row.show_background              = true;
+    row.tint                        = v4{1, 1, 1, 1};
+    row.background_sprite_override   = core_globals.white_sprite;
+    row.background_material_override = mat;
+    h := UIK.panel_begin_interactive(id, row);
+    shop3_feed_rect(mat, h.rect);
+    mat.set_float("press", h.active_t_eased);
+
+    // Left: modifier name + multiplier.
+    left := UIK.layout_column();
+    left.width      = UIK.pixels(230);
+    left.height     = UIK.flex(1);
+    left.main_align = .CENTER;
+    left.gap        = 2;
+    UIK.panel_begin(left);
+    nt := UIK.text_title();
+    nt.set_color(name_color);
+    nt.set_outline(true, 3.0, v4{0, 0, 0, 1});
+    UIK.text(name, nt);
+    mt := UIK.text_body();
+    mt.set_size_mult(0.7);
+    mt.set_outline(true, 2.5, v4{0, 0, 0, 1});
+    UIK.text(mult_text, mt);
+    UIK.panel_end();
+
+    // Middle: resulting GPS.
+    mid := UIK.layout_column();
+    mid.width       = UIK.flex(1);
+    mid.height      = UIK.flex(1);
+    mid.main_align  = .CENTER;
+    mid.cross_align = .CENTER;
+    UIK.panel_begin(mid);
+    gt := UIK.text_title();
+    gt.set_size_mult(0.7);
+    gt.set_color({0.55, 1.0, 0.45, 1});
+    gt.set_outline(true, 3.0, v4{0, 0, 0, 1});
+    UIK.text(gps_text, gt);
+    UIK.panel_end();
+
+    // Right: spark price.
+    right := UIK.layout_row();
+    right.width       = UIK.pixels(150);
+    right.height      = UIK.flex(1);
+    right.gap         = 6;
+    right.main_align  = .CENTER;
+    right.cross_align = .CENTER;
+    UIK.panel_begin(right);
+    spark := get_asset(Texture_Asset, "$AO/new/icons/sparks/spark_icon.png");
+    sh := UIK.layout_centered(UIK.pixels(34), UIK.pixels(34));
+    UIK.panel_begin(sh);
+    if spark != null UIK.image_fitted(spark, UIK.image_desc(.CONTAIN));
+    UIK.panel_end();
+    UIK.text(format_string("%", {price}), UIK.text_title());
+    UIK.panel_end(); // right
+
+    UIK.panel_end(); // row
+    return h;
+}
+
+draw_modifier_popup :: proc(player: Player) {
+    if player == null return;
+    if !player.show_modifier_popup return;
+    if !modifier_ensure_materials() return; // shaders still loading
+
+    // No live target (placed/sold/mailbox) -> nothing to modify; close.
+    item := player.pending_modifier_item;
+    if item == null || !#alive(item) {
+        player.show_modifier_popup = false;
+        player.show_modifier_skip_confirm = false;
+        return;
+    }
+
+    // Base GPS at the item's level (mutation is NONE right after purchase).
+    base_gps := get_brainrot_item_gps(item);
+
+    // grow args: top, right, bottom, left.
+    // z=40 so it sits ABOVE the shop (z=20) it can be purchased from.
+    modal_rect := UI.get_safe_screen_rect().center_rect().grow(390, 440, 390, 440);
+    UIK.begin(UIK.modal(modal_rect, 40));
+
+    shell := UIK.panel_modal(.BLACK);
+    shell.gap                        = 8;
+    shell.show_background              = true;
+    shell.tint                       = v4{1, 1, 1, 1};
+    shell.background_sprite_override   = core_globals.white_sprite;
+    shell.background_material_override = MOD_MAT_SHELL;
+    shell_h := UIK.panel_begin_interactive("mod_shell", shell);
+    shop3_feed_rect(MOD_MAT_SHELL, shell_h.rect);
+
+    exit_h := UIK.title_area(UIK.title_area_desc("ADD A MODIFIER TO IT!!"));
+
+    body := UIK.layout_column();
+    body.width   = UIK.flex(1);
+    body.height  = UIK.flex(1);
+    body.padding = v4{16, 12, 16, 12};
+    body.gap     = 10;
+    UIK.panel_begin(body);
+
+    sub := UIK.text_body();
+    sub.set_size_mult(0.8);
+    sub.set_word_wrap(false);
+    UIK.text("Boost your brainrot's income!", sub);
+
+    // Brainrot preview between the subtitle and the choices (pushes the rows
+    // down). Uses the bought item's own icon, so it's generic.
+    preview_icon: Texture_Asset;
+    pdefn := item.get_definition();
+    if pdefn != null preview_icon = pdefn.get_icon();
+    icon_holder := UIK.layout_centered(UIK.flex(1), UIK.pixels(170));
+    UIK.panel_begin(icon_holder);
+    if preview_icon != null UIK.image_fitted(preview_icon, UIK.image_desc(.CONTAIN));
+    UIK.panel_end();
+
+    gold_p := Purchasing.get_product(MODIFIER_GOLD_PRODUCT_ID).price;
+    dia_p  := Purchasing.get_product(MODIFIER_DIAMOND_PRODUCT_ID).price;
+    rain_p := Purchasing.get_product(MODIFIER_RAINBOW_PRODUCT_ID).price;
+
+    gold_h := draw_modifier_row("mod_gold", MOD_MAT_GOLD, "Gold", get_mutation_color(Mutation.GOLD),
+        "x1.25 GPS", format_string("%/s", {format_cash(base_gps * get_mutation_gps_multiplier(Mutation.GOLD))}), gold_p);
+    dia_h := draw_modifier_row("mod_diamond", MOD_MAT_DIAMOND, "Diamond", get_mutation_color(Mutation.DIAMOND),
+        "x1.5 GPS", format_string("%/s", {format_cash(base_gps * get_mutation_gps_multiplier(Mutation.DIAMOND))}), dia_p);
+    rain_h := draw_modifier_row("mod_rainbow", MOD_MAT_RAINBOW, "Rainbow", get_mutation_color(Mutation.RAINBOW),
+        "x3 GPS", format_string("%/s", {format_cash(base_gps * get_mutation_gps_multiplier(Mutation.RAINBOW))}), rain_p);
+
+    UIK.panel_end(); // body
+    UIK.panel_end(); // shell
+    UIK.end();
+
+    // Closing (X) asks the confirm instead of dismissing outright.
+    if UIK.clicked(exit_h) player.show_modifier_skip_confirm = true;
+    if UIK.clicked(gold_h) Purchasing.prompt_purchase(player, MODIFIER_GOLD_PRODUCT_ID);
+    if UIK.clicked(dia_h)  Purchasing.prompt_purchase(player, MODIFIER_DIAMOND_PRODUCT_ID);
+    if UIK.clicked(rain_h) Purchasing.prompt_purchase(player, MODIFIER_RAINBOW_PRODUCT_ID);
+
+    draw_modifier_skip_confirm(player);
+}
+
+// "Are you sure to not apply a modifier onto it?" — shown when the player tries
+// to close the modifier popup without buying one.
+draw_modifier_skip_confirm :: proc(player: Player) {
+    if !player.show_modifier_skip_confirm return;
+
+    // z=50 so the confirm sits ABOVE the modifier popup (z=40).
+    UIK.begin(UIK.modal(UIK.rect_window_small(), 50));
+
+    shell := UIK.panel_modal(.BLACK);
+    shell.gap                        = 0;
+    shell.show_background              = true;
+    shell.tint                       = v4{1, 1, 1, 1};
+    shell.background_sprite_override   = core_globals.white_sprite;
+    shell.background_material_override = MOD_MAT_SHELL;
+    shell_h := UIK.panel_begin_interactive("mod_skip_shell", shell);
+    shop3_feed_rect(MOD_MAT_SHELL, shell_h.rect);
+
+    exit_h := UIK.title_area(UIK.title_area_desc("WAIT!"));
+
+    body := UIK.layout_column();
+    body.width       = UIK.flex(1);
+    body.height      = UIK.flex(1);
+    body.padding     = v4{18, 20, 18, 20};
+    body.gap         = 12;
+    body.cross_align = .CENTER;
+    UIK.panel_begin(body);
+
+    UIK.spacer(UIK.pixels(1), UIK.flex(1));
+    prompt := UIK.text_body();
+    prompt.set_color({1, 1, 1, 1});
+    prompt.set_outline(true, 2.5, v4{0, 0, 0, 1});
+    UIK.text("Are you sure to not apply a modifier onto it?", prompt);
+    UIK.spacer(UIK.pixels(1), UIK.flex(1));
+
+    btn_row := UIK.layout_row();
+    btn_row.width      = UIK.flex(1);
+    btn_row.height     = UIK.pixels(72);
+    btn_row.gap        = 16;
+    btn_row.main_align = .CENTER;
+    UIK.panel_begin(btn_row);
+    back_h := rebirth_shader_button("mod_skip_back", "Go Back", MOD_MAT_BACK);
+    keep_h := rebirth_shader_button("mod_skip_keep", "Keep Normal", MOD_MAT_SKIP);
+    UIK.panel_end(); // btn_row
+
+    UIK.panel_end(); // body
+    UIK.panel_end(); // shell
+    UIK.end();
+
+    // Go Back / X -> return to the modifier choices.
+    if UIK.clicked(exit_h) || UIK.clicked(back_h) {
+        player.show_modifier_skip_confirm = false;
+        return;
+    }
+    // Keep Normal -> close everything, leave the brainrot un-mutated.
+    if UIK.clicked(keep_h) {
+        player.show_modifier_skip_confirm = false;
+        player.show_modifier_popup = false;
+        player.pending_modifier_item = null;
+        return;
+    }
+}

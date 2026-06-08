@@ -478,6 +478,8 @@ Player :: class : Player_Base {
     // The brainrot just bought with sparks, awaiting an optional modifier
     // purchase from the "ADD A MODIFIER" popup. Cleared once applied/dismissed.
     pending_modifier_item: Brainrot_Item;
+    show_modifier_popup: bool;        // the "ADD A MODIFIER" choice popup
+    show_modifier_skip_confirm: bool; // "are you sure" when closing without buying
     show_sell_modal: bool;
     show_sell_all_confirm: bool;
     rebirth_level: s64;
@@ -733,6 +735,7 @@ Player :: class : Player_Base {
             draw_shop_modal(this);
             draw_shop_v2(this);
             draw_shop_v3(this);
+            draw_modifier_popup(this);
             draw_skin_shop(this);
             draw_debug_living_entity(this);
             draw_unclaimed_modal(this);

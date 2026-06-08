@@ -8,6 +8,35 @@ GOLD_MATERIAL:    Material;
 DIAMOND_MATERIAL: Material;
 RAINBOW_MATERIAL: Material;
 CANDY_MATERIAL:   Material;
+// Spine variants — derive their patterns from rig-local position (shapeRect)
+// instead of atlas UV, so they map to the character on a spine.
+RAINBOW_SPINE_MATERIAL: Material;
+GOLD_SPINE_MATERIAL:    Material;
+DIAMOND_SPINE_MATERIAL: Material;
+CANDY_SPINE_MATERIAL:   Material;
+
+// Build a color_shimmer_spine material with the given palette + shape bounds.
+make_shimmer_spine_material :: proc(shader: Shader_Asset, noise: Texture_Asset, shadow: v3, mid: v3, hi: v3, blackP: float, whiteP: float, gamma: float, tint: float, sBoost: float, oLow: float, oHigh: float, oDark: float, oLumaMin: float, oLumaMax: float, shapeRect: v4) -> Material {
+    if shader == null return null;
+    m := Material.create(shader);
+    if m == null return null;
+    if noise != null m.set_texture("noise_texture", noise);
+    m.set_float3("paletteShadow", shadow);
+    m.set_float3("paletteMid",    mid);
+    m.set_float3("paletteHi",     hi);
+    m.set_float ("paletteBlackPoint", blackP);
+    m.set_float ("paletteWhitePoint", whiteP);
+    m.set_float ("paletteGamma",      gamma);
+    m.set_float ("tintStrength",      tint);
+    m.set_float ("shadowBoost",       sBoost);
+    m.set_float ("outlineLow",        oLow);
+    m.set_float ("outlineHigh",       oHigh);
+    m.set_float ("outlineDarken",     oDark);
+    m.set_float ("outlineLumaMin",    oLumaMin);
+    m.set_float ("outlineLumaMax",    oLumaMax);
+    m.set_float4("shapeRect",         shapeRect);
+    return m;
+}
 
 register_mutation_materials :: proc() {
     noise_tex := get_asset(Texture_Asset, "noise.png");
@@ -89,7 +118,77 @@ register_mutation_materials :: proc() {
             RAINBOW_MATERIAL = m;
         }
     }
+
+    // Rig local bounds shared by all spine mutation materials. shapeRect =
+    // (minX, minY, sizeX, sizeY). The YesMyExamen rig is ~2.52 x 1.78
+    // (spine_rig_info), centered on X with feet at y=0. Tune per rig if reused.
+    examen_shape := v4{-1.26, 0.0, 2.52, 1.78};
+
+    rainbow_spine := get_asset(Shader_Asset, "shaders/rainbow_spine.aosl");
+    if rainbow_spine != null {
+        m := Material.create(rainbow_spine);
+        if m != null {
+            m.set_float("rainbowScale",   1.20);
+            m.set_float("hueSpeed",       0.20);
+            m.set_float("hueSaturation",  1.00);
+            m.set_float("hueValue",       1.00);
+            m.set_float("tintStrength",   0.65);
+            m.set_float("outlineLow",     0.04);
+            m.set_float("outlineHigh",    0.16);
+            m.set_float4("shapeRect", examen_shape);
+            RAINBOW_SPINE_MATERIAL = m;
+        }
+    }
+
+    // Gold / Diamond / Candy spine variants — same palettes as the sprite
+    // shimmer materials above, driven by shapeRect instead of UV.
+    shimmer_spine := get_asset(Shader_Asset, "shaders/color_shimmer_spine.aosl");
+    if shimmer_spine != null {
+        GOLD_SPINE_MATERIAL = make_shimmer_spine_material(shimmer_spine, noise_tex,
+            v3{0.32, 0.21, 0.05}, v3{0.937, 0.749, 0.016}, v3{1.00, 0.92, 0.25},
+            0.10, 0.90, 0.90, 1.00, 0.40, 0.06, 0.12, 0.65, 0.00, 0.18, examen_shape);
+        DIAMOND_SPINE_MATERIAL = make_shimmer_spine_material(shimmer_spine, noise_tex,
+            v3{0.03, 0.09, 0.45}, v3{0.30, 0.82, 1.00}, v3{0.75, 0.98, 1.00},
+            0.08, 0.95, 0.80, 1.00, 0.70, 0.06, 0.12, 0.65, 0.00, 0.20, examen_shape);
+        CANDY_SPINE_MATERIAL = make_shimmer_spine_material(shimmer_spine, noise_tex,
+            v3{0.55, 0.10, 0.30}, v3{1.00, 0.55, 0.80}, v3{1.00, 0.90, 0.95},
+            0.10, 0.92, 0.85, 1.00, 0.55, 0.06, 0.12, 0.60, 0.00, 0.20, examen_shape);
+    }
 }
+
+get_rainbow_spine_material :: proc() -> Material {
+    return RAINBOW_SPINE_MATERIAL;
+}
+
+// Spine-variant mutation material (rig-local patterns). null for NONE.
+get_mutation_spine_material :: proc(m: Mutation) -> Material {
+    if m == Mutation.GOLD    return GOLD_SPINE_MATERIAL;
+    if m == Mutation.DIAMOND return DIAMOND_SPINE_MATERIAL;
+    if m == Mutation.RAINBOW return RAINBOW_SPINE_MATERIAL;
+    if m == Mutation.CANDY   return CANDY_SPINE_MATERIAL;
+    return null;
+}
+
+// Debug: spawn a YesMyExamen spine next to the player with the spine-rainbow
+// material applied, to eyeball whether the rainbow now maps to the character.
+test_rainbow_spine_cmd :: proc(player: Player) {
+    if player == null return;
+    if !#alive(player.entity) return;
+    e := Scene.create_entity();
+    e.set_local_position(player.entity.world_position + v2{2, 0});
+    anim := e.add_component(Spine_Animator);
+    anim.awaken();
+    asset := get_asset(Spine_Asset, "Spines/Memes/YesMyExamen/yesmyexamen.spine");
+    if asset != null {
+        anim.set_skeleton(asset);
+        anim.set_skin("default");
+        anim.refresh_skins();
+        anim.set_animation("idle", true, 0);
+    }
+    anim.scale = v2{1, 1};
+    mat := get_rainbow_spine_material();
+    if mat != null anim.set_material(mat, false);
+} @chat_command
 
 get_mutation_material :: proc(m: Mutation) -> Material {
     if m == Mutation.GOLD    return GOLD_MATERIAL;

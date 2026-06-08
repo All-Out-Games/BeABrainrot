@@ -15,6 +15,10 @@ MOVING_TOWARD_SPEED_SCALE_INPUT :: 1.0;
 
 Moving_Toward_Effect :: class : Effect_Base {
     saved_default_camera_size: float;
+    // True while the player is actively steering AND still able to move up.
+    // Forced false at the ceiling so a player who holds the stick against the
+    // top (clamped, not actually moving) is still catchable by the chaser.
+    has_input: bool;
 
     effect_start :: method() {
         if player == null return;
@@ -32,9 +36,10 @@ Moving_Toward_Effect :: class : Effect_Base {
         // back to base speed and the slower idle scale so the hands-off cruise
         // isn't too fast.
         input := player.input_this_frame;
+        pressing := input.x != 0 || input.y != 0;
         agent_speed := compute_agent_movement_speed(BASE_SPEED);
         scale := MOVING_TOWARD_SPEED_SCALE_IDLE;
-        if input.x != 0 || input.y != 0 {
+        if pressing {
             agent_speed = player.get_actual_speed();
             scale = MOVING_TOWARD_SPEED_SCALE_INPUT;
         }
@@ -44,10 +49,18 @@ Moving_Toward_Effect :: class : Effect_Base {
         pos.y += units_per_sec * dt;
 
         // Hard ceiling: never auto-walk past the last NPC room's bounds Y.
+        at_ceiling := false;
         ceiling, has_ceiling := get_last_npc_room_ceiling_y();
-        if has_ceiling && pos.y > ceiling pos.y = ceiling;
+        if has_ceiling && pos.y > ceiling {
+            pos.y = ceiling;
+            at_ceiling = true;
+        }
 
         player.entity.set_local_position(pos);
+
+        // Steering counts as "moving" for the chaser only if it's actually
+        // progressing — at the ceiling the player can't move up, so force false.
+        has_input = pressing && !at_ceiling;
     }
 
     effect_end :: method(interrupt: bool) {

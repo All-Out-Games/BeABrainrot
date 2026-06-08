@@ -441,8 +441,13 @@ is_local_active_steal_room :: proc(r: Room_Npc) -> bool {
     return local.active_steal_room == r;
 }
 
-// Top Y of the last NPC room's bounds trigger (g_last_npc_room) — the hard
-// ceiling for the auto-walk. Returns false until that room has initialized.
+// Auto-walk ceiling = a bit INSIDE the last NPC room's bottom edge, NOT its top.
+// Parking the player at the top edge pushes them out of the room's chase trigger
+// (trigger-exit idles the chaser) and fights the clamp, stranding them. Stopping
+// just inside the bottom keeps them within the chase trigger so the chaser can
+// reach and catch them. Returns false until that room has initialized.
+LAST_ROOM_CEILING_INSET :: 0.0; // world units above the room's bottom edge
+
 get_last_npc_room_ceiling_y :: proc() -> float, bool {
     r := g_last_npc_room;
     if r == null return 0, false;
@@ -450,7 +455,7 @@ get_last_npc_room_ceiling_y :: proc() -> float, bool {
     if !#alive(r.trigger.corner_a) || !#alive(r.trigger.corner_b) return 0, false;
     ay := r.trigger.corner_a.world_position.y;
     by := r.trigger.corner_b.world_position.y;
-    return max(ay, by), true;
+    return min(ay, by) + LAST_ROOM_CEILING_INSET, true;
 }
 
 // Big world-space NPC name, drawn over the room while the roof is shown. The

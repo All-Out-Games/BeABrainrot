@@ -474,13 +474,16 @@ LivingEntity :: class : Interactable {
             entity.set_local_scale({s, s});
         }
 
-        // Mutation visuals: sprite brainrots swap a shader material; spine
-        // brainrots handle their modifier look separately (modifier-visuals pass).
-        if !is_spine && sprite != null {
-            mat := get_mutation_material(mutation);
-            if mat != null {
-                sprite.set_material(mat, false);
+        // Mutation visuals: spine brainrots use the spine-variant materials
+        // (rig-local patterns via shapeRect); sprites use the UV-space ones.
+        if is_spine {
+            if spine != null {
+                smat := get_mutation_spine_material(mutation);
+                if smat != null spine.set_material(smat, false);
             }
+        } else if sprite != null {
+            mat := get_mutation_material(mutation);
+            if mat != null sprite.set_material(mat, false);
         }
 
         refresh_label_cache();

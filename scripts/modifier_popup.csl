@@ -12,6 +12,7 @@ MOD_MAT_DIAMOND: Material;
 MOD_MAT_RAINBOW: Material;
 MOD_MAT_BACK:    Material; // green "go back" confirm button
 MOD_MAT_SKIP:    Material; // red "keep normal" confirm button
+MOD_MAT_NORMAL:  Material; // neutral grey "Normal (free)" bar
 MOD_MATS_READY:  bool;
 
 modifier_ensure_materials :: proc() -> bool {
@@ -37,6 +38,13 @@ modifier_ensure_materials :: proc() -> bool {
     MOD_MAT_RAINBOW = shop3_make_box_material(shop2_box_rainbow());
     MOD_MAT_BACK    = shop3_make_box_material(shop2_box_green());
     MOD_MAT_SKIP    = shop3_make_box_material(shop2_box_red());
+
+    // Neutral grey for the free "Normal" bar.
+    normal_box := shop2_box_dark();
+    normal_box.top    = v4{0.45, 0.45, 0.50, 1};
+    normal_box.bottom = v4{0.24, 0.24, 0.29, 1};
+    MOD_MAT_NORMAL  = shop3_make_box_material(normal_box);
+
     if MOD_MAT_SHELL == null return false; // shader still loading
 
     MOD_MATS_READY = true;
@@ -99,12 +107,16 @@ draw_modifier_row :: proc(id: string, mat: Material, name: string, name_color: v
     right.main_align  = .CENTER;
     right.cross_align = .CENTER;
     UIK.panel_begin(right);
-    spark := get_asset(Texture_Asset, "$AO/new/icons/sparks/spark_icon.png");
-    sh := UIK.layout_centered(UIK.pixels(34), UIK.pixels(34));
-    UIK.panel_begin(sh);
-    if spark != null UIK.image_fitted(spark, UIK.image_desc(.CONTAIN));
-    UIK.panel_end();
-    UIK.text(format_string("%", {price}), UIK.text_title());
+    if price <= 0 {
+        UIK.text("FREE", UIK.text_title());
+    } else {
+        spark := get_asset(Texture_Asset, "$AO/new/icons/sparks/spark_icon.png");
+        sh := UIK.layout_centered(UIK.pixels(34), UIK.pixels(34));
+        UIK.panel_begin(sh);
+        if spark != null UIK.image_fitted(spark, UIK.image_desc(.CONTAIN));
+        UIK.panel_end();
+        UIK.text(format_string("%", {price}), UIK.text_title());
+    }
     UIK.panel_end(); // right
 
     UIK.panel_end(); // row
@@ -169,6 +181,8 @@ draw_modifier_popup :: proc(player: Player) {
     dia_p  := Purchasing.get_product(MODIFIER_DIAMOND_PRODUCT_ID).price;
     rain_p := Purchasing.get_product(MODIFIER_RAINBOW_PRODUCT_ID).price;
 
+    normal_h := draw_modifier_row("mod_normal", MOD_MAT_NORMAL, "Normal", v4{0.88, 0.88, 0.90, 1},
+        "x1 GPS", format_string("%/s", {format_cash(base_gps)}), 0);
     gold_h := draw_modifier_row("mod_gold", MOD_MAT_GOLD, "Gold", get_mutation_color(Mutation.GOLD),
         "x1.25 GPS", format_string("%/s", {format_cash(base_gps * get_mutation_gps_multiplier(Mutation.GOLD))}), gold_p);
     dia_h := draw_modifier_row("mod_diamond", MOD_MAT_DIAMOND, "Diamond", get_mutation_color(Mutation.DIAMOND),
@@ -182,6 +196,14 @@ draw_modifier_popup :: proc(player: Player) {
 
     // Closing (X) asks the confirm instead of dismissing outright.
     if UIK.clicked(exit_h) player.show_modifier_skip_confirm = true;
+    // "Normal" is an explicit free choice — keep it un-mutated and close (no
+    // confirm needed, since they actively picked it).
+    if UIK.clicked(normal_h) {
+        player.show_modifier_popup = false;
+        player.show_modifier_skip_confirm = false;
+        player.pending_modifier_item = null;
+        return;
+    }
     if UIK.clicked(gold_h) Purchasing.prompt_purchase(player, MODIFIER_GOLD_PRODUCT_ID);
     if UIK.clicked(dia_h)  Purchasing.prompt_purchase(player, MODIFIER_DIAMOND_PRODUCT_ID);
     if UIK.clicked(rain_h) Purchasing.prompt_purchase(player, MODIFIER_RAINBOW_PRODUCT_ID);

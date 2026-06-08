@@ -274,19 +274,29 @@ apply_pending_modifier :: proc(player: Player, mutation: Mutation) -> bool {
         show_notification(player, "No brainrot to apply that modifier to.");
         return false;
     }
-    item.mutation = mutation;
-    player.pending_modifier_item = null;
-    player.show_modifier_popup = false;
-    player.show_modifier_skip_confirm = false;
 
-    // Persist a tracking record: brainrot_id:modifier:YYYY-MM-DD-HH (UTC).
+    // Capture the item's identity before replacing it.
     brainrot_id := WOOOW_MY_EXAMEN_ID;
+    level := item.level;
     defn := item.get_definition();
     if defn != null && defn.#type == Brainrot_Item_Definition {
         brainrot_id = defn.(Brainrot_Item_Definition).config_id;
     }
-    record_bought_modifier(player, brainrot_id, mutation);
 
+    // Re-create the item WITH the mutation rather than writing item.mutation in
+    // place. The inventory auto-save only captures structural changes, so an
+    // in-place field write was lost on rejoin if the player never placed it.
+    // create+move IS persisted (same path the base grant uses), so the modifier
+    // now survives a quit.
+    Items.destroy_item_instance(item);
+    player.pending_modifier_item = null;
+    _, ok := try_give_brainrot_item_ret(player, brainrot_id, level, mutation);
+    if !ok add_unclaimed_brainrot(player, brainrot_id, level, mutation);
+
+    player.show_modifier_popup = false;
+    player.show_modifier_skip_confirm = false;
+
+    record_bought_modifier(player, brainrot_id, mutation);
     show_notification(player, "Applied % modifier!", {get_mutation_name(mutation)});
     return true;
 }

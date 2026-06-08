@@ -157,10 +157,10 @@ get_brainrot_configs :: proc() -> [..]Brainrot_Config {
     add_brainrot(ref list, "brr_patapim_baby","Los Brr Brr Patapim",    Rarity.OG,        2600000, 25000000,"Textures/memes/los_brr_brr_patapim.png");
 
     // PREMIUM — sparks-only, spine-rendered (shape-aware mutation materials make
-    // modifiers map to the rig), never spawns in any room. base_gps is a notch
-    // above the strongest 2nd-last-room spawn (bombombini, 5M) so it feels worth
-    // the sparks; base_price stays at 1M (pure income buff, cheaper upgrades).
-    add_premium_spine_brainrot(ref list, "wooow_my_examen", "Wooow My Examen", Rarity.OG, 1000000, 7000000, "Spines/Memes/YesMyExamen/yesmyexamen.spine", "Textures/memes/YesMyExamen.png");
+    // modifiers map to the rig), never spawns in any room. base_gps 30M tops the
+    // OG baby variants (highest is brr_patapim_baby at 25M) so it's the strongest
+    // brainrot in the game; base_price stays at 1M (cheap cash upgrades).
+    add_premium_spine_brainrot(ref list, "wooow_my_examen", "Wooow My Examen", Rarity.OG, 1000000, 30000000, "Spines/Memes/YesMyExamen/yesmyexamen.spine", "Textures/memes/YesMyExamen.png");
 
     return list;
 }

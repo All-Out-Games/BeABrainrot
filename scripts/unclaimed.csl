@@ -63,6 +63,26 @@ try_give_brainrot_item :: proc(player: Player, config_id: string, level: s64, mu
     return true;
 }
 
+// Same as try_give_brainrot_item but returns the created item so the caller can
+// keep a handle on it (e.g. to apply a modifier next). null/false if it didn't fit.
+try_give_brainrot_item_ret :: proc(player: Player, config_id: string, level: s64, mutation: Mutation) -> Brainrot_Item, bool {
+    if player == null return null, false;
+    defn := find_brainrot_definition(config_id);
+    if defn == null return null, false;
+
+    item := Items.create_item_instance(defn, Brainrot_Item, 1);
+    item.level    = level;
+    item.mutation = mutation;
+
+    will_destroy: bool;
+    if !Items.can_move_item_to_inventory(item, player.default_inventory, ref will_destroy) {
+        Items.destroy_item_instance(item);
+        return null, false;
+    }
+    Items.move_item_to_inventory(item, player.default_inventory);
+    return item, true;
+}
+
 // Give the player a brainrot. If the inventory is full it goes to the mailbox
 // instead of being lost. Returns true if it went straight to the inventory.
 grant_brainrot :: proc(player: Player, config_id: string, level: s64, mutation: Mutation) -> bool {

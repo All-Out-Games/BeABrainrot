@@ -1,0 +1,277 @@
+yesmyexamen.png
+	size: 4096, 4088
+	filter: Linear, Linear
+idle/frame_07
+	bounds: 1925, 3676, 604, 404
+	offsets: 126, 38, 864, 496
+idle/frame_08
+	bounds: 1314, 3676, 605, 404
+	offsets: 125, 38, 864, 496
+idle/frame_09
+	bounds: 3623, 3554, 526, 409
+	offsets: 175, 47, 864, 496
+	rotate: 90
+idle/frame_10
+	bounds: 3094, 3668, 524, 412
+	offsets: 172, 47, 864, 496
+idle/frame_11
+	bounds: 533, 3262, 521, 412
+	offsets: 173, 47, 864, 496
+idle/frame_12
+	bounds: 6, 3263, 521, 412
+	offsets: 173, 47, 864, 496
+idle/frame_13
+	bounds: 1060, 3261, 521, 409
+	offsets: 172, 41, 864, 496
+idle/frame_14
+	bounds: 1047, 378, 517, 403
+	offsets: 175, 30, 864, 496
+idle/frame_17
+	bounds: 6, 381, 518, 403
+	offsets: 175, 23, 864, 496
+idle/frame_18
+	bounds: 3158, 3144, 521, 404
+	offsets: 173, 23, 864, 496
+idle/frame_19
+	bounds: 2631, 3258, 521, 404
+	offsets: 173, 23, 864, 496
+idle/frame_20
+	bounds: 2104, 3263, 521, 404
+	offsets: 173, 23, 864, 496
+idle/frame_21
+	bounds: 3151, 2735, 521, 403
+	offsets: 173, 24, 864, 496
+idle/frame_22
+	bounds: 1052, 2024, 520, 403
+	offsets: 174, 24, 864, 496
+idle/frame_23
+	bounds: 2509, 2031, 520, 403
+	offsets: 174, 24, 864, 496
+idle/frame_24
+	bounds: 526, 2031, 520, 403
+	offsets: 174, 24, 864, 496
+idle/frame_25
+	bounds: 2099, 2322, 520, 403
+	offsets: 174, 24, 864, 496
+	rotate: 90
+idle/frame_26
+	bounds: 3150, 2326, 520, 403
+	offsets: 174, 24, 864, 496
+idle/frame_27
+	bounds: 1056, 2851, 520, 404
+	offsets: 174, 23, 864, 496
+idle/frame_28
+	bounds: 530, 2852, 520, 404
+	offsets: 174, 23, 864, 496
+idle/frame_29
+	bounds: 1574, 2433, 520, 403
+	offsets: 174, 24, 864, 496
+idle/frame_30
+	bounds: 2624, 2440, 520, 403
+	offsets: 174, 24, 864, 496
+idle/frame_31
+	bounds: 1050, 787, 520, 402
+	offsets: 174, 24, 864, 496
+idle/frame_32
+	bounds: 2624, 2849, 521, 403
+	offsets: 173, 23, 864, 496
+idle/frame_33
+	bounds: 6, 2851, 518, 406
+	offsets: 175, 23, 864, 496
+idle/frame_34
+	bounds: 1578, 2017, 511, 410
+	offsets: 178, 24, 864, 496
+idle/frame_35
+	bounds: 6, 2021, 511, 410
+	offsets: 178, 24, 864, 496
+idle/frame_36
+	bounds: 1582, 2842, 512, 410
+	offsets: 178, 23, 864, 496
+idle/frame_37
+	bounds: 6, 2437, 514, 408
+	offsets: 177, 23, 864, 496
+idle/frame_38
+	bounds: 1053, 2438, 515, 407
+	offsets: 176, 23, 864, 496
+idle/frame_39
+	bounds: 530, 2440, 517, 406
+	offsets: 175, 23, 864, 496
+idle/frame_40
+	bounds: 1986, 798, 517, 405
+	offsets: 175, 23, 864, 496
+idle/frame_41
+	bounds: 6, 798, 517, 405
+	offsets: 175, 23, 864, 496
+idle/frame_42
+	bounds: 3026, 1093, 517, 405
+	offsets: 175, 23, 864, 496
+idle/frame_43
+	bounds: 3552, 1158, 517, 405
+	offsets: 175, 23, 864, 496
+idle/frame_44
+	bounds: 1463, 1195, 517, 405
+	offsets: 175, 23, 864, 496
+idle/frame_45
+	bounds: 940, 1202, 517, 405
+	offsets: 175, 23, 864, 496
+idle/frame_46
+	bounds: 2503, 1209, 517, 405
+	offsets: 175, 23, 864, 496
+idle/frame_47
+	bounds: 417, 1209, 517, 405
+	offsets: 175, 23, 864, 496
+idle/frame_48
+	bounds: 3023, 682, 516, 405
+	offsets: 176, 23, 864, 496
+idle/frame_49
+	bounds: 2091, 1276, 517, 405
+	offsets: 175, 23, 864, 496
+	rotate: 90
+idle/frame_50
+	bounds: 1986, 388, 517, 404
+	offsets: 175, 23, 864, 496
+idle/frame_51
+	bounds: 529, 790, 515, 406
+	offsets: 176, 23, 864, 496
+idle/frame_53
+	bounds: 530, 376, 511, 408
+	offsets: 178, 24, 864, 496
+idle/frame_57
+	bounds: 3023, 267, 508, 409
+	offsets: 180, 24, 864, 496
+idle/frame_58
+	bounds: 3545, 332, 508, 409
+	offsets: 180, 24, 864, 496
+idle/frame_59
+	bounds: 2509, 376, 508, 409
+	offsets: 180, 24, 864, 496
+idle/frame_60
+	bounds: 2509, 791, 508, 412
+	offsets: 180, 24, 864, 496
+idle/frame_61
+	bounds: 1587, 3258, 511, 412
+	offsets: 178, 24, 864, 496
+idle/frame_62
+	bounds: 2104, 2848, 514, 409
+	offsets: 177, 23, 864, 496
+idle/frame_63
+	bounds: 3677, 2503, 517, 406
+	offsets: 175, 23, 864, 496
+	rotate: 90
+idle/frame_64
+	bounds: 6, 1498, 517, 405
+	offsets: 175, 23, 864, 496
+	rotate: 90
+idle/frame_65
+	bounds: 3029, 1504, 517, 405
+	offsets: 175, 23, 864, 496
+idle/frame_66
+	bounds: 3558, 1569, 517, 405
+	offsets: 175, 23, 864, 496
+idle/frame_67
+	bounds: 1569, 1606, 517, 405
+	offsets: 175, 23, 864, 496
+idle/frame_68
+	bounds: 1046, 1613, 517, 405
+	offsets: 175, 23, 864, 496
+idle/frame_69
+	bounds: 2506, 1620, 517, 405
+	offsets: 175, 23, 864, 496
+idle/frame_70
+	bounds: 523, 1620, 517, 405
+	offsets: 175, 23, 864, 496
+idle/frame_71
+	bounds: 2094, 1799, 517, 405
+	offsets: 175, 23, 864, 496
+	rotate: 90
+idle/frame_72
+	bounds: 3035, 1915, 517, 405
+	offsets: 175, 23, 864, 496
+idle/frame_73
+	bounds: 3675, 1980, 517, 405
+	offsets: 175, 23, 864, 496
+	rotate: 90
+idle/frame_74
+	bounds: 3549, 747, 516, 405
+	offsets: 176, 23, 864, 496
+idle/frame_75
+	bounds: 1575, 439, 517, 404
+	offsets: 177, 23, 864, 496
+	rotate: 90
+idle/frame_76
+	bounds: 3684, 3026, 522, 403
+	offsets: 174, 23, 864, 496
+	rotate: 90
+idle/frame_77
+	bounds: 678, 3680, 630, 400
+	offsets: 78, 23, 864, 496
+idle/frame_78
+	bounds: 6, 3681, 666, 399
+	offsets: 95, 23, 864, 496
+idle/frame_79
+	bounds: 2535, 3673, 553, 407
+	offsets: 188, 16, 864, 496
+idle/frame_81
+	bounds: 1569, 15, 418, 407
+	offsets: 220, 24, 864, 496
+	rotate: 90
+idle/frame_86
+	bounds: 1982, 18, 364, 407
+	offsets: 241, 23, 864, 496
+	rotate: 90
+idle/frame_87
+	bounds: 418, 6, 364, 406
+	offsets: 241, 24, 864, 496
+	rotate: 90
+idle/frame_88
+	bounds: 1046, 8, 364, 406
+	offsets: 241, 24, 864, 496
+	rotate: 90
+idle/frame_89
+	bounds: 6, 11, 364, 406
+	offsets: 241, 24, 864, 496
+	rotate: 90
+idle/frame_91
+	bounds: 2395, 7, 363, 406
+	offsets: 242, 24, 864, 496
+	rotate: 90
+
+yesmyexamen_2.png
+	size: 3872, 836
+	filter: Linear, Linear
+idle/frame_15
+	bounds: 2316, 429, 513, 398
+	offsets: 177, 23, 864, 496
+idle/frame_16
+	bounds: 2835, 429, 513, 398
+	offsets: 177, 23, 864, 496
+idle/frame_52
+	bounds: 3354, 421, 511, 406
+	offsets: 178, 24, 864, 496
+idle/frame_54
+	bounds: 2316, 14, 508, 409
+	offsets: 180, 23, 864, 496
+idle/frame_55
+	bounds: 2830, 14, 508, 409
+	offsets: 180, 23, 864, 496
+idle/frame_56
+	bounds: 3344, 6, 508, 409
+	offsets: 180, 23, 864, 496
+idle/frame_80
+	bounds: 1835, 419, 475, 408
+	offsets: 202, 21, 864, 496
+idle/frame_82
+	bounds: 1101, 417, 359, 410
+	offsets: 244, 23, 864, 496
+idle/frame_83
+	bounds: 6, 418, 357, 409
+	offsets: 244, 23, 864, 496
+idle/frame_84
+	bounds: 369, 418, 359, 409
+	offsets: 242, 23, 864, 496
+idle/frame_85
+	bounds: 734, 420, 361, 407
+	offsets: 242, 24, 864, 496
+idle/frame_90
+	bounds: 1466, 421, 363, 406
+	offsets: 242, 24, 864, 496

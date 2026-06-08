@@ -1,0 +1,137 @@
+// A world stand that sells a premium (sparks) brainrot product. Place it in the
+// scene on/near the brainrot display, set `product_id` (the All Out product) and
+// `brainrot_id` (the Brainrot_Config to read name/GPS from). Interacting prompts
+// the purchase — but only if the player has inventory space; otherwise it just
+// notifies. Floating labels above it show the brainrot's name, level, and the
+// GPS it will start at.
+
+Premium_Brainrot_Stand :: class : Interactable {
+    product_id:   string @ao_serialize; // All Out product to prompt on interact
+    brainrot_id:  string @ao_serialize; // Brainrot_Config id for the label text
+    grant_level:  s64    @ao_serialize; // level it starts at (<=0 falls back to 70)
+    // Position the text yourself: drop a child entity where the labels should
+    // start and assign it here. When unset, falls back to label_height above
+    // this entity's origin.
+    label_anchor: Entity  @ao_serialize;
+    label_height: float   @ao_serialize; // fallback height above origin (<=0 -> 1.85)
+
+    // Cached config lookup (brainrot configs are rebuilt per call, so do it once).
+    cfg_loaded: bool;
+    cfg_found:  bool;
+    display_name: string;
+    base_gps:     float;
+
+    ao_start :: method() {
+        this.set_listener(this);
+        this.set_text("Buy");
+        // required_hold_time is left to the serialized editor value (don't override
+        // it here, or the inspector setting is ignored).
+    }
+
+    ensure_cfg :: method() {
+        if cfg_loaded return;
+        cfg_loaded = true;
+        configs := get_brainrot_configs();
+        for c: configs {
+            if c.id != brainrot_id continue;
+            display_name = c.display_name;
+            base_gps     = c.base_gps;
+            cfg_found    = true;
+            break;
+        }
+    }
+
+    effective_level :: method() -> s64 {
+        if grant_level >= 1 return grant_level;
+        return WOOOW_MY_EXAMEN_LEVEL; // default grant level
+    }
+
+    can_use :: method(player: Player) -> bool {
+        return product_id.count > 0;
+    }
+
+    on_interact :: method(player: Player) {
+        if player == null return;
+        if product_id.count == 0 return;
+        if is_default_inventory_full(player) {
+            show_notification(player, "Inventory full! Make space first.");
+            return;
+        }
+        Purchasing.prompt_purchase(player, product_id);
+    }
+
+    ao_late_update :: method(dt: float) {
+        ensure_cfg();
+        if !cfg_found return;
+
+        local, has_local := Game.get_local_player();
+        if !has_local return;
+
+        // Where the labels start: a placed anchor entity if you set one, else a
+        // height offset above this entity's origin.
+        pos: v2;
+        if #alive(label_anchor) {
+            pos = label_anchor.world_position;
+        } else {
+            h := label_height;
+            if h <= 0 h = 1.85;
+            pos = entity.world_position + v2{0, h};
+        }
+
+        // Camera-rect cull — skip the labels (and box) when off-screen.
+        if local.camera.size > 0 {
+            diff := pos - local.camera.position;
+            cull := local.camera.size * 1.5;
+            if length_squared(diff) > cull * cull return;
+        }
+
+        lvl := effective_level();
+        gps := base_gps * pow(GPS_PER_LEVEL_MULT, (lvl - 1).(float));
+
+        UI.push_world_draw_context();
+        defer UI.pop_draw_context();
+        UI.begin_world_space_ui(entity);
+        defer UI.end_world_space_ui();
+        UI.push_layer(5);
+        defer UI.pop_layer();
+
+        line_h := LABEL_LINE_HEIGHT;
+
+        gps_text  := format_string("%/s", {format_cash(gps)});
+        lvl_text  := format_string("Lv %", {lvl});
+        name_text := display_name;
+
+        // Measure each line (same size/grow as draw_brainrot_label uses) so the
+        // faded backing box hugs the actual text instead of a fixed width.
+        r_gps  := measure_stand_label(pos + v2{0, 0},          gps_text,  0.22, 0.2,  1.5);
+        r_lvl  := measure_stand_label(pos + v2{0, line_h},     lvl_text,  0.22, 0.2,  1.5);
+        r_name := measure_stand_label(pos + v2{0, 2.0 * line_h}, name_text, 0.26, 0.25, 2.0);
+
+        min_x := min(min(r_gps.min.x, r_lvl.min.x), r_name.min.x);
+        max_x := max(max(r_gps.max.x, r_lvl.max.x), r_name.max.x);
+        min_y := min(min(r_gps.min.y, r_lvl.min.y), r_name.min.y);
+        max_y := max(max(r_gps.max.y, r_lvl.max.y), r_name.max.y);
+
+        BOX_PAD :: 0.12;
+        box := Rect{v2{min_x, min_y}, v2{max_x, max_y}}.grow(BOX_PAD, BOX_PAD, BOX_PAD, BOX_PAD);
+        // Drawn first so the text sits on top.
+        UI.quad(box, core_globals.white_sprite, v4{0, 0, 0, 0.45});
+
+        // Stack up: GPS (bottom) -> level -> name (top).
+        draw_brainrot_label(pos + v2{0, 0},          gps_text,  v4{1, 0.87, 0.13, 1});
+        draw_brainrot_label(pos + v2{0, line_h},     lvl_text,  v4{0.85, 0.95, 1.0, 1});
+        draw_brainrot_label(pos + v2{0, 2.0 * line_h}, name_text, v4{1, 1, 1, 1}, 0.26, 0.25, 2.0);
+    }
+}
+
+// Measure a label's world-space rect using the same settings/grow that
+// draw_brainrot_label draws with, so a backing box can be fit to the text.
+measure_stand_label :: proc(pos: v2, text: string, size: float, grow_h: float, grow_w: float) -> Rect {
+    ts := UI.default_text_settings();
+    ts.size             = size;
+    ts.word_wrap        = false;
+    ts.overflow_wrap    = false;
+    ts.do_outline       = true;
+    ts.outline_thickness = 4.0;
+    return UI.measure_text(Rect{pos, pos}.grow(grow_h, grow_w, grow_h, grow_w), ts, text);
+}

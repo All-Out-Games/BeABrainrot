@@ -211,12 +211,64 @@ grant_rainbow_pack :: proc(player: Player) {
     grant_brainrot(player, "garama",      RAINBOW_PACK_LEVEL, Mutation.RAINBOW);
 }
 
+// ===== Premium brainrot: Wooow My Examen (sparks-only) =====
+// Bought for sparks and granted at level 70 into the inventory. Right after the
+// grant, the "ADD A MODIFIER" popup offers an optional mutation — that's a
+// SEPARATE consumable purchase (gold/diamond/rainbow) applied to the item we
+// stash in player.pending_modifier_item.
+
+WOOOW_MY_EXAMEN_PRODUCT_ID  :: "6a26c19f62fbf2c09d555b25"; // 1499
+MODIFIER_GOLD_PRODUCT_ID    :: "6a26c1b30bd8548e470d2af4"; // 399
+MODIFIER_DIAMOND_PRODUCT_ID :: "6a26c1b6c78200e158f5be1e"; // 499
+MODIFIER_RAINBOW_PRODUCT_ID :: "6a26c1b80bd8548e470d2afe"; // 799
+
+WOOOW_MY_EXAMEN_ID    :: "wooow_my_examen";
+WOOOW_MY_EXAMEN_LEVEL :: 70;
+
+// Grant the premium brainrot at level 70 and remember it so a follow-up modifier
+// purchase can target it. Full inventory routes to the mailbox (no modifier
+// target then). Always returns true — the item is always granted somewhere.
+grant_examen_brainrot :: proc(player: Player) -> bool {
+    if player == null return false;
+    mark_brainrot_discovered(player, WOOOW_MY_EXAMEN_ID, Mutation.NONE);
+    item, ok := try_give_brainrot_item_ret(player, WOOOW_MY_EXAMEN_ID, WOOOW_MY_EXAMEN_LEVEL, Mutation.NONE);
+    if ok {
+        player.pending_modifier_item = item;
+    } else {
+        player.pending_modifier_item = null;
+        add_unclaimed_brainrot(player, WOOOW_MY_EXAMEN_ID, WOOOW_MY_EXAMEN_LEVEL, Mutation.NONE);
+        show_notification(player, "Inventory full! Wooow My Examen sent to your mailbox.");
+    }
+    return true;
+}
+
+// Apply a purchased modifier to the brainrot from the most recent premium buy.
+// Returns false (rejects/refunds the purchase) when there's no valid target.
+apply_pending_modifier :: proc(player: Player, mutation: Mutation) -> bool {
+    if player == null return false;
+    item := player.pending_modifier_item;
+    if item == null || !#alive(item) {
+        show_notification(player, "No brainrot to apply that modifier to.");
+        return false;
+    }
+    item.mutation = mutation;
+    player.pending_modifier_item = null;
+    show_notification(player, "Applied % modifier!", {get_mutation_name(mutation)});
+    return true;
+}
+
 // ===== Central purchase dispatcher =====
 // Engine calls this when ANY purchase completes. Return true to confirm the
 // grant (and consume, if consumable). Add new product branches here as the
 // shop grows so every paid item is handled in one place.
 
 ao_purchase_handler :: proc(player: Player, id: string) -> bool {
+    // Premium brainrot + its optional modifier add-ons (consumable).
+    if id == WOOOW_MY_EXAMEN_PRODUCT_ID  return grant_examen_brainrot(player);
+    if id == MODIFIER_GOLD_PRODUCT_ID    return apply_pending_modifier(player, Mutation.GOLD);
+    if id == MODIFIER_DIAMOND_PRODUCT_ID return apply_pending_modifier(player, Mutation.DIAMOND);
+    if id == MODIFIER_RAINBOW_PRODUCT_ID return apply_pending_modifier(player, Mutation.RAINBOW);
+
     // Bundles — consumable. Grant their contents (overflow goes to the mailbox).
     if id == STARTER_PACK_PRODUCT_ID {
         grant_starter_pack(player);

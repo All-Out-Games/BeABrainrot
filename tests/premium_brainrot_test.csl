@@ -1,0 +1,11 @@
+// Verifies the premium, spine-rendered brainrot "Wooow My Examen" spawns,
+// renders via its Spine_Animator, and sits correctly on a base pedestal.
+test_wooow_my_examen_spawns :: proc() {
+    Test.wait_seconds(1.0);
+    Test.run_admin_command("claim_room_cmd");
+    Test.wait_seconds(1.0);
+    Test.run_admin_command("place_brainrot_cmd wooow_my_examen");
+    Test.wait_seconds(1.5);
+    Test.screenshot("wooow_my_examen");
+    Test.assert_entity_exists("premium brainrot placed", "Brainrot");
+}

@@ -16,8 +16,10 @@ register_brainrot_definitions :: proc() {
     configs := get_brainrot_configs();
     for c: configs {
         icon: Texture_Asset;
-        if c.sprite_path.count > 0 {
-            icon = get_asset(Texture_Asset, c.sprite_path);
+        icon_src := c.icon_path;
+        if icon_src.count == 0 icon_src = c.sprite_path;
+        if icon_src.count > 0 {
+            icon = get_asset(Texture_Asset, icon_src);
         }
         defn := Items.register_item_definition(
             {c.id, c.display_name, icon, 1, .COMMON},

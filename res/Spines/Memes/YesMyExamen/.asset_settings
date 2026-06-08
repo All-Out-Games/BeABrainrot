@@ -1,0 +1,14 @@
+[
+  {
+    "id": "Spines/Memes/YesMyExamen/yesmyexamen_2.png",
+    "texture": {
+      "pixels_per_unit": 200
+    }
+  },
+  {
+    "id": "Spines/Memes/YesMyExamen/yesmyexamen.png",
+    "texture": {
+      "pixels_per_unit": 200
+    }
+  }
+]

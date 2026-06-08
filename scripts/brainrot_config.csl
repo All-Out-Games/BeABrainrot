@@ -9,6 +9,14 @@ Brainrot_Config :: struct {
     base_price: float;
     base_gps: float;
     sprite_path: string;
+    // Premium brainrots render with a Spine_Animator instead of a sprite. When
+    // spine_path is set it takes precedence over sprite_path.
+    spine_path: string;
+    // Flat inventory/hotbar icon. Spine brainrots have no sprite to derive one
+    // from, so they set this explicitly. Falls back to sprite_path when empty.
+    icon_path: string;
+    // Sparks-only brainrots are never added to any room's spawnable_brainrot_ids.
+    is_premium: bool;
 }
 
 add_brainrot :: proc(list: ref [..]Brainrot_Config, id: string, name: string, rarity: Rarity, price: float, gps: float, sprite: string) {
@@ -19,6 +27,21 @@ add_brainrot :: proc(list: ref [..]Brainrot_Config, id: string, name: string, ra
     c.base_price = price;
     c.base_gps = gps;
     c.sprite_path = sprite;
+    append(ref list, c);
+}
+
+// Premium brainrots are spine-rendered and sold only for sparks — they never
+// appear in any room's spawnable_brainrot_ids.
+add_premium_brainrot :: proc(list: ref [..]Brainrot_Config, id: string, name: string, rarity: Rarity, price: float, gps: float, spine: string, icon: string) {
+    c: Brainrot_Config;
+    c.id = id;
+    c.display_name = name;
+    c.rarity = rarity;
+    c.base_price = price;
+    c.base_gps = gps;
+    c.spine_path = spine;
+    c.icon_path = icon;
+    c.is_premium = true;
     append(ref list, c);
 }
 
@@ -129,6 +152,11 @@ get_brainrot_configs :: proc() -> [..]Brainrot_Config {
     add_brainrot(ref list, "trippi_baby",     "Los Trippi Troppi",      Rarity.OG,        2200000, 17500000,"Textures/memes/los_trippi_troppi.png");
     add_brainrot(ref list, "chimpanzini_baby","Los Chimpanzini Bananini",Rarity.OG,       2400000, 20000000,"Textures/memes/los_chimpanzini_bananini.png");
     add_brainrot(ref list, "brr_patapim_baby","Los Brr Brr Patapim",    Rarity.OG,        2600000, 25000000,"Textures/memes/los_brr_brr_patapim.png");
+
+    // PREMIUM — sparks-only, spine-rendered, never spawns in any room. base_gps
+    // matches the strongest 2nd-last-room spawn (bombombini, 5M); base_price
+    // mirrors it so cash upgrades scale the same.
+    add_premium_brainrot(ref list, "wooow_my_examen", "Wooow My Examen", Rarity.OG, 1000000, 5000000, "Spines/Memes/YesMyExamen/yesmyexamen.spine", "Textures/memes/YesMyExamen.png");
 
     return list;
 }

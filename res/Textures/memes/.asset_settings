@@ -1,5 +1,15 @@
 [
   {
+    "id": "Textures/memes/YesMyExamen.png",
+    "texture": {
+      "pixels_per_unit": 440,
+      "pivot": [
+        0.0895332098007202,
+        -0.8733879923820496
+      ]
+    }
+  },
+  {
     "id": "Textures/memes/zibra_zurbra_zibralini.png",
     "texture": {
       "pivot": [

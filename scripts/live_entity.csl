@@ -299,6 +299,12 @@ LivingEntity :: class : Interactable {
     state: Brainrot_State;
     owner: Player;
 
+    // Premium brainrots render via a runtime Spine_Animator instead of `sprite`
+    // (which is hidden). Set up in setup_spine_brainrot.
+    is_spine: bool;
+    spine: Spine_Animator;
+    spine_label_height: float; // world-space head height for label anchoring
+
     jump_t:        float;  // remaining jump time; 0 = idle
     jump_rest_pos: v2;     // entity local position to return to after jump
     gps_label:      string;
@@ -457,9 +463,9 @@ LivingEntity :: class : Interactable {
     }
 
     update_visuals :: method() {
-        if this.#type == LivingEntity_Npc {
-            // NPC brainrots stay at scale 1 regardless of level — only their
-            // mutation material updates.
+        if is_spine || this.#type == LivingEntity_Npc {
+            // Spine + NPC brainrots stay at entity scale 1 (spine size is driven
+            // by the animator's own scale).
             entity.set_local_scale({1, 1});
         } else {
             mult := 1.0 + (level - 1).(float) * SCALE_PER_LEVEL;
@@ -468,7 +474,9 @@ LivingEntity :: class : Interactable {
             entity.set_local_scale({s, s});
         }
 
-        if sprite != null {
+        // Mutation visuals: sprite brainrots swap a shader material; spine
+        // brainrots handle their modifier look separately (modifier-visuals pass).
+        if !is_spine && sprite != null {
             mat := get_mutation_material(mutation);
             if mat != null {
                 sprite.set_material(mat, false);
@@ -510,7 +518,16 @@ LivingEntity :: class : Interactable {
         anchor := entity;
         if sprite != null && #alive(sprite.entity) anchor = sprite.entity;
 
-        base_pos := get_sprite_top_center(sprite, anchor);
+        base_pos: v2;
+        if is_spine {
+            // Sprite is hidden (scale 0) so its world size is 0 — anchor labels
+            // off the spine's known head height instead.
+            // TODO(engine): switch to a spine get_world_size() once the engine
+            // exposes runtime spine bounds; until then use this fixed offset.
+            base_pos = anchor.world_position + v2{0, spine_label_height};
+        } else {
+            base_pos = get_sprite_top_center(sprite, anchor);
+        }
 
         // Camera-rect culling — skip the whole label stack when off-screen.
         if local.camera.size > 0 {

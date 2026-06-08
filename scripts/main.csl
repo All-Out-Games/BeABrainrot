@@ -475,6 +475,9 @@ Player :: class : Player_Base {
     unclaimed_brainrots: [..]Unclaimed_Brainrot; // mailbox for items that didn't fit
     show_unclaimed_modal: bool;
     selected_brainrot_item: Brainrot_Item;
+    // The brainrot just bought with sparks, awaiting an optional modifier
+    // purchase from the "ADD A MODIFIER" popup. Cleared once applied/dismissed.
+    pending_modifier_item: Brainrot_Item;
     show_sell_modal: bool;
     show_sell_all_confirm: bool;
     rebirth_level: s64;

@@ -308,7 +308,7 @@ draw_shop3_bundle :: proc(panel_id: string, product_id: string, bg_mat: Material
 
 // Square gamepass card: title + subtitle on top, icon over a ray burst, and a
 // shader price button at the bottom. Returns the price button's Interact_Result.
-draw_shop3_gamepass_card :: proc(panel_id: string, product_id: string, bg_mat: Material, ray_mat: Material, price_mat: Material, title: string, subtitle: string, icon: Texture_Asset, owned: bool = false) -> Interact_Result {
+draw_shop3_gamepass_card :: proc(panel_id: string, product_id: string, bg_mat: Material, ray_mat: Material, price_mat: Material, title: string, subtitle: string, icon: Texture_Asset, owned: bool = false, gps_text: string = "") -> Interact_Result {
     card := UIK.layout_column();
     card.width                       = UIK.flex(1);
     card.height                      = UIK.pixels(320);
@@ -328,6 +328,15 @@ draw_shop3_gamepass_card :: proc(panel_id: string, product_id: string, bg_mat: M
         st.set_size_mult(0.7);
         st.set_outline(true, 2.5, v4{0, 0, 0, 1});
         UIK.text(subtitle, st);
+    }
+    // Bouncy GPS line (e.g. "24.3T/s") — pulses to draw the eye to the value.
+    if gps_text.count > 0 {
+        bounce := 1.0 + 0.18 * abs(sin(get_time() * 4.0));
+        gd := UIK.text_title();
+        gd.set_size_mult(0.7 * bounce);
+        gd.set_color({0.55, 1.0, 0.45, 1});
+        gd.set_outline(true, 3.0, v4{0, 0, 0, 1});
+        UIK.text(gps_text, gd);
     }
 
     media := UIK.layout_centered(UIK.flex(1), UIK.flex(1));
@@ -450,7 +459,7 @@ draw_shop_v3 :: proc(player: Player) {
     money_icon := get_asset(Texture_Asset, "money_stack_1_f9a568.png");
     // speed_icon := get_asset(Texture_Asset, "Textures/speed_boost_icon.png");
 
-    // Fixed-width holder so the single card stays centered (the card is flex(1)).
+    // Two cards side by side: 2X Money + the premium Wooow My Examen brainrot.
     money_holder := UIK.layout_column();
     money_holder.width  = UIK.pixels(560);
     money_holder.height = UIK.flex(1);
@@ -458,7 +467,23 @@ draw_shop_v3 :: proc(player: Player) {
     money_h := draw_shop3_gamepass_card("shop3_2xmoney", TWO_X_MONEY_PRODUCT_ID, SHOP3_MAT_GP_MONEY, SHOP3_MAT_RAY_D, SHOP3_MAT_PRICE_C, "2X Money", "Earn double money!", money_icon, has_2x_money(player));
     UIK.panel_end(); // money_holder
 
-    // speed_h := draw_shop3_gamepass_card("shop3_2xspeed", TWO_X_SPEED_PRODUCT_ID, SHOP3_MAT_GP_SPEED, SHOP3_MAT_RAY_E, SHOP3_MAT_PRICE_D, "2X Speed", "Double your speed!", speed_icon, has_2x_speed(player));
+    // Premium brainrot — sits to the right of 2X Money (reuses the materials
+    // freed when the 2X Speed card was removed). Consumable, so never "owned".
+    examen_icon := get_asset(Texture_Asset, "Textures/memes/YesMyExamen.png");
+    // GPS the brainrot generates at its grant level (base_gps * 1.25^(lvl-1)).
+    examen_gps_text := "";
+    examen_defn := find_brainrot_definition(WOOOW_MY_EXAMEN_ID);
+    if examen_defn != null {
+        g := examen_defn.base_gps * pow(GPS_PER_LEVEL_MULT, (WOOOW_MY_EXAMEN_LEVEL - 1).(float));
+        examen_gps_text = format_string("%/s", {format_cash(g)});
+    }
+    examen_holder := UIK.layout_column();
+    examen_holder.width  = UIK.pixels(560);
+    examen_holder.height = UIK.flex(1);
+    UIK.panel_begin(examen_holder);
+    examen_h := draw_shop3_gamepass_card("shop3_examen", WOOOW_MY_EXAMEN_PRODUCT_ID, SHOP3_MAT_RAINBOW, SHOP3_MAT_RAY_E, SHOP3_MAT_PRICE_D, "Wooow My Examen", format_string("Premium brainrot, Lv %!", {WOOOW_MY_EXAMEN_LEVEL}), examen_icon, false, examen_gps_text);
+    UIK.panel_end(); // examen_holder
+
     UIK.panel_end(); // gp_row
 
     // ---- Bundles header ----
@@ -494,6 +519,14 @@ draw_shop_v3 :: proc(player: Player) {
         }
     }
     if UIK.clicked(money_h)   Purchasing.prompt_purchase(player, TWO_X_MONEY_PRODUCT_ID);
+    if UIK.clicked(examen_h) {
+        // Block the purchase if there's nowhere to put the brainrot.
+        if is_default_inventory_full(player) {
+            show_notification(player, "Inventory full! Make space first.");
+        } else {
+            Purchasing.prompt_purchase(player, WOOOW_MY_EXAMEN_PRODUCT_ID);
+        }
+    }
     // if UIK.clicked(speed_h)   Purchasing.prompt_purchase(player, TWO_X_SPEED_PRODUCT_ID);
     if UIK.clicked(starter_h) Purchasing.prompt_purchase(player, STARTER_PACK_PRODUCT_ID);
     if UIK.clicked(rainbow_h) Purchasing.prompt_purchase(player, RAINBOW_PACK_PRODUCT_ID);

@@ -822,11 +822,55 @@ apply_config_to_living_entity :: proc(le: LivingEntity, config: Brainrot_Config)
     le.base_price = config.base_price;
     le.base_gps = config.base_gps;
     if le.base_scale <= 0 le.base_scale = 1.0;
-    if le.sprite != null && config.sprite_path.count > 0 {
+    if config.spine_path.count > 0 {
+        setup_spine_brainrot(le, config.spine_path);
+    } else if le.sprite != null && config.sprite_path.count > 0 {
         tex := get_asset(Texture_Asset, config.sprite_path);
         if tex != null le.sprite.set_texture(tex);
     }
     le.update_visuals();
+}
+
+// Premium brainrots render with a Spine_Animator instead of the prefab's
+// Sprite_Renderer. We hide the sprite by zeroing its scale (the floor fade only
+// touches alpha, so scale-0 stays hidden) and add the animator on the sprite's
+// entity so it inherits the same world position.
+SPINE_BRAINROT_SCALE :: 1.0;
+
+setup_spine_brainrot :: proc(le: LivingEntity, spine_path: string) {
+    if le == null return;
+    le.is_spine = true;
+
+    host := le.entity;
+    if le.sprite != null && #alive(le.sprite.entity) {
+        host = le.sprite.entity;
+        le.sprite.scale = v2{0, 0}; // hide the default sprite
+    }
+
+    anim := host.get_component(Spine_Animator);
+    if anim == null anim = host.add_component(Spine_Animator);
+    le.spine = anim;
+    anim.awaken();
+
+    asset := get_asset(Spine_Asset, spine_path);
+    if asset != null {
+        anim.set_skeleton(asset);
+        anim.set_skin("default");
+        anim.refresh_skins();
+        anim.set_animation("idle", true, 0);
+    }
+    anim.scale = v2{SPINE_BRAINROT_SCALE, SPINE_BRAINROT_SCALE};
+
+    // Register the spine with the Floor_Renderer (it has a `spines` list beside
+    // `sprites`) so it fades and re-layers with the floor exactly like the
+    // sprite it replaces — otherwise it stays fully visible across floors.
+    if le.floor_renderer != null {
+        append(ref le.floor_renderer.spines, anim);
+        le.floor_renderer.apply_layer();
+    }
+
+    // World height of the spine (bounds ~1.78 at scale 1) for label anchoring.
+    le.spine_label_height = 1.85 * SPINE_BRAINROT_SCALE;
 }
 
 spawn_brainrot_on_pedestal :: proc(pedestal: Pedestal, config: Brainrot_Config) -> LivingEntity {
@@ -996,6 +1040,12 @@ place_brainrot_cmd :: proc(player: Player, id: string = "tralalero") {
                 show_notification(player, "Spawn failed (check prefab + LivingEntity component).");
                 return;
             }
+            // Placing into your OWN base: claim it so it behaves like a real
+            // base brainrot (taps into inventory on pickup, persists on save).
+            le.owner = player;
+            le.state = Brainrot_State.CLAIMED_IN_BASE;
+            le.update_visuals();
+            save_room_brainrots(player, room);
             show_notification(player, "Placed %", {c.display_name});
             return;
         }

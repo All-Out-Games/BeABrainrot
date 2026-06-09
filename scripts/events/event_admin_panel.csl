@@ -1,0 +1,367 @@
+// ============================================================================
+// Admin panel (ported from fishin's AdminEventPanel.cs). Legacy immediate-mode
+// UI, matching the C# UI.* structure (the C# version did not use UIK).
+//
+// Opened with an on-screen "ADMIN PANEL" button (top-left), shown only to
+// admins. It must be a button, not a keyboard shortcut: UI button clicks are in
+// the replicated input stream, so the server also draws the panel and registers
+// the cheat/event button clicks -- which is what makes them take effect
+// server-side. A keyboard toggle (F8/F9) only the client sees, so the synced
+// open flag gets reconciled straight back to false and the panel auto-closes.
+//
+// Visible to admins, youtubers, or when launched from the editor.
+// ============================================================================
+
+ADMIN_BTN_GREEN :: "$AO/new/modal/buttons_2/button_2.png";
+ADMIN_BTN_RED   :: "$AO/new/modal/buttons_2/button_3.png";
+ADMIN_BTN_BLUE  :: "$AO/new/modal/buttons_2/button_5.png";
+ADMIN_BTN_GREY  :: "$AO/new/modal/buttons_2/button_8.png";
+
+ADMIN_PANEL_LAYER :: 900;
+
+is_admin_user :: proc(player: Player) -> bool {
+    if player == null return false;
+    if player.is_admin() return true;
+    if player.is_youtuber() return true;
+    if Game.is_launched_from_editor() return true;
+    return false;
+}
+
+admin_ts :: proc(size: float, color: v4 = v4{1, 1, 1, 1}) -> Text_Settings {
+    ts := UI.default_text_settings();
+    ts.size = size;
+    ts.color = color;
+    ts.halign = .CENTER;
+    ts.valign = .CENTER;
+    ts.do_outline = true;
+    ts.outline_thickness = 3.0;
+    return ts;
+}
+
+admin_left_ts :: proc(size: float, color: v4 = v4{1, 1, 1, 1}) -> Text_Settings {
+    ts := admin_ts(size, color);
+    ts.halign = .LEFT;
+    return ts;
+}
+
+admin_button :: proc(rect: Rect, label: string, sprite_path: string, size: float = 20) -> Interact_Result {
+    bs := UI.default_button_settings();
+    bs.sprite = get_asset(Texture_Asset, sprite_path);
+    ts := admin_ts(size);
+    return UI.button(rect, bs, ts, label);
+}
+
+// Entry point — call from the local player's ao_late_update (admin gated).
+update_admin_panel :: proc(player: Player) {
+    if !is_admin_user(player) return;
+
+    draw_admin_toggle_button(player);
+    if player.admin_panel_open draw_admin_panel(player);
+}
+
+draw_admin_toggle_button :: proc(player: Player) {
+    UI.push_screen_draw_context();
+    defer UI.pop_draw_context();
+    UI.push_layer(ADMIN_PANEL_LAYER - 10);
+    defer UI.pop_layer();
+
+    // Top-left, admins only. Mouse click (replicated) so the server toggles the
+    // synced open flag too -- see the file header for why this can't be a key.
+    r := UI.get_safe_screen_rect().top_left_rect().grow(22, 200, 22, 0).offset(12, -12);
+    label := "ADMIN PANEL";
+    if player.admin_panel_open label = "CLOSE";
+    if admin_button(r, label, ADMIN_BTN_BLUE, 16).clicked {
+        player.admin_panel_open = !player.admin_panel_open;
+    }
+}
+
+draw_admin_panel :: proc(player: Player) {
+    mgr := get_event_manager();
+
+    UI.push_screen_draw_context();
+    defer UI.pop_draw_context();
+    UI.push_layer(ADMIN_PANEL_LAYER);
+    defer UI.pop_layer();
+
+    screen := UI.get_screen_rect();
+    panel := screen.center_rect().grow(420, 380, 420, 380); // 760 x 840
+    UI.quad(panel, core_globals.white_sprite, v4{0.10, 0.10, 0.15, 0.96});
+
+    content := panel.inset(18);
+
+    // Header
+    header := content.cut_top(48);
+    UI.text(header.cut_left(360), admin_left_ts(30), "ADMIN PANEL");
+    close_rect := header.cut_right(48);
+    if admin_button(close_rect, "X", ADMIN_BTN_RED, 22).clicked {
+        player.admin_panel_open = false;
+    }
+
+    content.cut_top(8);
+
+    // Tabs
+    tab_row := content.cut_top(40);
+    events_tab := tab_row.cut_left(160).inset(2);
+    cheats_tab := tab_row.cut_left(160).inset(2);
+    ev_sprite := ADMIN_BTN_GREY;
+    ch_sprite := ADMIN_BTN_GREY;
+    if player.admin_panel_tab == 0 ev_sprite = ADMIN_BTN_GREEN;
+    if player.admin_panel_tab == 1 ch_sprite = ADMIN_BTN_GREEN;
+    if admin_button(events_tab, "EVENTS", ev_sprite, 18).clicked player.admin_panel_tab = 0;
+    if admin_button(cheats_tab, "CHEATS", ch_sprite, 18).clicked player.admin_panel_tab = 1;
+
+    content.cut_top(10);
+
+    if player.admin_panel_tab == 0 {
+        draw_admin_events_tab(player, mgr, content);
+    } else {
+        draw_admin_cheats_tab(player, content);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Events tab
+// ---------------------------------------------------------------------------
+
+draw_admin_events_tab :: proc(player: Player, mgr: Event_Manager, content_in: Rect) {
+    content := content_in;
+    if mgr == null {
+        UI.text(content.cut_top(40), admin_left_ts(18, v4{1, 0.6, 0.6, 1}),
+            "Event_Manager not found in scene.");
+        return;
+    }
+
+    // Scope selector: LOCAL (this server only) vs GLOBAL (game-save key, every
+    // server). Used by every START button below.
+    mode_row := content.cut_top(40);
+    UI.text(mode_row.cut_left(130), admin_left_ts(18), "Scope:");
+    mode_label := "LOCAL (this server)";
+    mode_sprite := ADMIN_BTN_GREEN;
+    if mgr.admin_global_mode {
+        mode_label = "GLOBAL (all servers)";
+        mode_sprite = ADMIN_BTN_BLUE;
+    }
+    if admin_button(mode_row.cut_left(280).inset(2), mode_label, mode_sprite, 15).clicked {
+        mgr.admin_global_mode = !mgr.admin_global_mode;
+    }
+
+    content.cut_top(8);
+
+    sv := UI.push_scroll_view(content, "admin_events_scroll", Scroll_View_Settings{vertical = true});
+    defer UI.pop_scroll_view();
+    list := sv.content_rect;
+
+    for i: 0..g_event_defs.count - 1 {
+        UI.push_id("evt_%", {i});
+        defer UI.pop_id();
+        def := g_event_defs[i];
+        row := list.cut_top(170 + def.admin_extras_height);
+        draw_admin_event_row(player, mgr, def, row);
+        list.cut_top(8);
+    }
+}
+
+draw_admin_event_row :: proc(player: Player, mgr: Event_Manager, def: Event_Def, row: Rect) {
+    UI.quad(row, core_globals.white_sprite, v4{0.18, 0.18, 0.23, 0.92});
+    inner := row.inset(8);
+
+    // Reserve the per-event custom region at the very bottom first, so the
+    // standard controls lay out above it.
+    extras_rect: Rect;
+    if def.admin_extras_height > 0 extras_rect = inner.cut_bottom(def.admin_extras_height);
+
+    // Title + status
+    titleline := inner.cut_top(28);
+    UI.text(titleline.cut_left(320), admin_left_ts(22), def.name);
+    sl := evt_seconds_left(mgr, def.id);
+    status := "IDLE";
+    status_col := v4{0.7, 0.7, 0.7, 1};
+    if sl >= 0 {
+        status = evt_format_timer(sl);
+        status_col = v4{0.4, 1.0, 0.5, 1};
+    }
+    UI.text(titleline.cut_right(150), admin_ts(20, status_col), status);
+
+    // Description
+    descline := inner.cut_top(22);
+    UI.text(descline, admin_left_ts(13, v4{0.8, 0.85, 0.9, 1}), def.desc);
+
+    // Per-event duration (minutes).
+    minutes := evt_get_duration(mgr, def.id);
+    durline := inner.cut_top(32);
+    UI.text(durline.cut_left(120), admin_left_ts(15), format_string("% min", {minutes}));
+    if admin_button(durline.cut_left(46).inset(2), "-1", ADMIN_BTN_RED).clicked {
+        if minutes > 1 mgr.set_duration(def.id, minutes - 1);
+    }
+    if admin_button(durline.cut_left(46).inset(2), "+1", ADMIN_BTN_GREEN).clicked {
+        mgr.set_duration(def.id, minutes + 1);
+    }
+    if admin_button(durline.cut_left(46).inset(2), "+5", ADMIN_BTN_GREEN).clicked {
+        mgr.set_duration(def.id, minutes + 5);
+    }
+
+    // Config tuning (if this event drives a multiplier)
+    if def.config_key.count > 0 {
+        cfg := inner.cut_top(32);
+        val := mgr.get_config(def.config_key);
+        UI.text(cfg.cut_left(170), admin_left_ts(15),
+            format_string("multiplier: %x", {format_float(val, 2)}));
+        if admin_button(cfg.cut_left(54).inset(2), "-", ADMIN_BTN_RED).clicked {
+            mgr.adjust_config(def.config_key, -0.5);
+        }
+        if admin_button(cfg.cut_left(54).inset(2), "+", ADMIN_BTN_GREEN).clicked {
+            mgr.adjust_config(def.config_key, 0.5);
+        }
+    }
+
+    // Start / Stop. START colour reflects the current scope (green=local, blue=global).
+    btns := inner.cut_bottom(32);
+    start_sprite := ADMIN_BTN_GREEN;
+    start_word := "START LOCAL";
+    if mgr.admin_global_mode {
+        start_sprite = ADMIN_BTN_BLUE;
+        start_word = "START GLOBAL";
+    }
+    if admin_button(btns.cut_left(220).inset(2),
+        format_string("% (% min)", {start_word, minutes}), start_sprite, 15).clicked {
+        mgr.start_event(def.id, minutes, mgr.admin_global_mode);
+    }
+    if admin_button(btns.cut_left(120).inset(2), "STOP", ADMIN_BTN_RED, 16).clicked {
+        mgr.stop_event(def.id);
+    }
+
+    // Per-event custom UI (C#'s DrawAdminPanelExtras equivalent).
+    if def.draw_admin_extras != null && def.admin_extras_height > 0 {
+        def.draw_admin_extras(mgr, def.userdata, extras_rect);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Cheats tab — wired to the game's existing procs.
+// ---------------------------------------------------------------------------
+
+draw_admin_cheats_tab :: proc(player: Player, content_in: Rect) {
+    content := content_in;
+    mgr := get_event_manager();
+    if mgr == null {
+        UI.text(content.cut_top(40), admin_left_ts(18, v4{1, 0.6, 0.6, 1}),
+            "Event_Manager not found in scene.");
+        return;
+    }
+    sv := UI.push_scroll_view(content, "admin_cheats_scroll", Scroll_View_Settings{vertical = true});
+    defer UI.pop_scroll_view();
+    list := sv.content_rect;
+
+    // --- Give Cash ---
+    {
+        UI.push_id("cheat_cash", {});
+        defer UI.pop_id();
+        row := list.cut_top(78);
+        UI.quad(row, core_globals.white_sprite, v4{0.18, 0.18, 0.23, 0.92});
+        inner := row.inset(8);
+        UI.text(inner.cut_top(26).cut_left(360), admin_left_ts(18),
+            format_string("Give Cash: %", {format_float(mgr.admin_cash_amount, 0)}));
+        ctl := inner.cut_top(34);
+        if admin_button(ctl.cut_left(70).inset(2), "1K", ADMIN_BTN_GREY, 15).clicked mgr.admin_cash_amount = 1000;
+        if admin_button(ctl.cut_left(70).inset(2), "10K", ADMIN_BTN_GREY, 15).clicked mgr.admin_cash_amount = 10000;
+        if admin_button(ctl.cut_left(70).inset(2), "100K", ADMIN_BTN_GREY, 15).clicked mgr.admin_cash_amount = 100000;
+        if admin_button(ctl.cut_left(70).inset(2), "1M", ADMIN_BTN_GREY, 15).clicked mgr.admin_cash_amount = 1000000;
+        if admin_button(ctl.cut_right(140).inset(2), "GIVE", ADMIN_BTN_GREEN, 16).clicked {
+            deposit_cash(player, mgr.admin_cash_amount);
+        }
+    }
+    list.cut_top(8);
+
+    // --- Set Speed ---
+    {
+        UI.push_id("cheat_speed", {});
+        defer UI.pop_id();
+        row := list.cut_top(78);
+        UI.quad(row, core_globals.white_sprite, v4{0.18, 0.18, 0.23, 0.92});
+        inner := row.inset(8);
+        UI.text(inner.cut_top(26).cut_left(360), admin_left_ts(18),
+            format_string("Set Speed: %", {mgr.admin_speed_value}));
+        ctl := inner.cut_top(34);
+        if admin_button(ctl.cut_left(60).inset(2), "-100", ADMIN_BTN_RED, 14).clicked {
+            mgr.admin_speed_value -= 100;
+            if mgr.admin_speed_value < 0 mgr.admin_speed_value = 0;
+        }
+        if admin_button(ctl.cut_left(60).inset(2), "+100", ADMIN_BTN_GREEN, 14).clicked mgr.admin_speed_value += 100;
+        if admin_button(ctl.cut_left(70).inset(2), "+1000", ADMIN_BTN_GREEN, 14).clicked mgr.admin_speed_value += 1000;
+        if admin_button(ctl.cut_right(140).inset(2), "APPLY", ADMIN_BTN_GREEN, 16).clicked {
+            set_speed(player, mgr.admin_speed_value);
+        }
+    }
+    list.cut_top(8);
+
+    // --- Claim Base ---
+    {
+        UI.push_id("cheat_claim", {});
+        defer UI.pop_id();
+        row := list.cut_top(60);
+        UI.quad(row, core_globals.white_sprite, v4{0.18, 0.18, 0.23, 0.92});
+        inner := row.inset(8);
+        UI.text(inner.cut_left(360), admin_left_ts(18), "Claim a free base");
+        if admin_button(inner.cut_right(160).inset(2), "CLAIM", ADMIN_BTN_GREEN, 16).clicked {
+            claim_room_cmd(player);
+        }
+    }
+    list.cut_top(8);
+
+    // --- Place Brainrot ---
+    {
+        UI.push_id("cheat_place", {});
+        defer UI.pop_id();
+        configs := get_brainrot_configs();
+        row := list.cut_top(78);
+        UI.quad(row, core_globals.white_sprite, v4{0.18, 0.18, 0.23, 0.92});
+        inner := row.inset(8);
+
+        name := "(none)";
+        id := "";
+        if configs.count > 0 {
+            idx := mgr.admin_brainrot_idx % configs.count;
+            if idx < 0 idx += configs.count;
+            name = configs[idx].display_name;
+            id = configs[idx].id;
+        }
+        UI.text(inner.cut_top(26).cut_left(420), admin_left_ts(18),
+            format_string("Place Brainrot: %", {name}));
+        ctl := inner.cut_top(34);
+        if admin_button(ctl.cut_left(60).inset(2), "<", ADMIN_BTN_GREY, 16).clicked mgr.admin_brainrot_idx -= 1;
+        if admin_button(ctl.cut_left(60).inset(2), ">", ADMIN_BTN_GREY, 16).clicked mgr.admin_brainrot_idx += 1;
+        if admin_button(ctl.cut_right(160).inset(2), "PLACE", ADMIN_BTN_GREEN, 16).clicked {
+            if id.count > 0 place_brainrot_cmd(player, id);
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Active-event HUD — shown to ALL players, not just admins.
+// ---------------------------------------------------------------------------
+
+draw_event_hud :: proc(player: Player) {
+    mgr := get_event_manager();
+    if mgr == null return;
+    active := evt_active_ids(mgr.active_csv);
+    if active.count == 0 return;
+
+    UI.push_screen_draw_context();
+    defer UI.pop_draw_context();
+    UI.push_layer(80);
+    defer UI.pop_layer();
+
+    anchor := UI.get_safe_screen_rect().top_center_rect().offset(0, -16);
+    for i: 0..active.count - 1 {
+        def, ok := find_event_def(active[i]);
+        name := active[i];
+        if ok name = def.name;
+        timer := evt_format_timer(evt_seconds_left(mgr, active[i]));
+
+        row := anchor.grow(18, 200, 18, 200).offset(0, -(i * 44).(float));
+        UI.quad(row, core_globals.white_sprite, v4{0.0, 0.0, 0.0, 0.55});
+        inner := row.inset(4, 12, 4, 12);
+        UI.text(inner.cut_left(260), admin_left_ts(18), name);
+        UI.text(inner.cut_right(110), admin_ts(18, v4{0.5, 1.0, 0.6, 1}), timer);
+    }
+}

@@ -1,0 +1,433 @@
+// ============================================================================
+// Event system — ported from the fishin C# project (EventManager / EventBase).
+//
+// C# -> CSL translation notes:
+//   * SyncVar<T>         -> plain Event_Manager fields. In CSL all component
+//                           state is auto-synced server->client, so no SyncVar.
+//   * abstract EventBase + virtual OnEventStart/End/Update overrides
+//                        -> Event_Def, a struct of function-pointer fields.
+//                           CSL has no virtual dispatch for user-called methods
+//                           and no user-defined overloading, so a struct of
+//                           `proc` pointers is the substitute for "override the
+//                           behaviour per event". (See AGENTS / memory note:
+//                           use function-pointer fields for polymorphism.)
+//   * Network.IsServer polling loop
+//                        -> active_csv is a synced field. Both machines run the
+//                           same deterministic expiry/transition logic; the
+//                           server's value is authoritative via reconciliation,
+//                           so we never need an explicit server check.
+// ============================================================================
+
+// Singleton (per-machine; not synced — it's just a cached pointer).
+event_manager_instance: Event_Manager;
+
+// All registered event definitions. Registered identically on client and server
+// in ao_start, so the lists match on every machine.
+g_event_defs: [..]Event_Def;
+
+// Ids we have already fired on_start for locally. Lets each machine detect
+// start/end transitions on its own. NOT synced (file-scope global).
+g_event_applied: [..]string;
+
+g_event_poll_timer: float;
+EVENT_POLL_INTERVAL :: 0.25;
+
+// Per-server (LOCAL) scheduled events, kept in memory only — never written to
+// save, so they affect only this server instance. GLOBAL events instead live in
+// game-global save (see evt_end_key) so every server picks them up.
+Local_Sched :: struct {
+    id:       string;
+    end_unix: s64;
+}
+g_local_sched: [..]Local_Sched;
+
+// One event's behaviour + metadata. Replaces the abstract EventBase subclass.
+// Any callback may be null.
+//
+// `userdata` is the CSL substitute for closures / a component `this`: a
+// component-based event (one with @ao_serialize fields like an Entity to toggle)
+// registers a def with userdata = this, and its callbacks cast it back to reach
+// those fields. Plain function-pointer events just leave userdata null.
+Event_Def :: struct {
+    id:         string; // unique id, e.g. "double_money"
+    name:       string; // display name (HUD / admin panel)
+    desc:       string; // admin panel description
+    config_key: string; // which Event_Manager config this drives ("" = none)
+
+    userdata:  Object;  // usually the owning event Component instance, or null
+
+    on_start:  proc(mgr: Event_Manager, userdata: Object, is_drop_in: bool);
+    on_end:    proc(mgr: Event_Manager, userdata: Object);
+    on_update: proc(mgr: Event_Manager, userdata: Object, dt: float);
+
+    // Per-event custom admin panel UI (the CSL equivalent of C#'s virtual
+    // DrawAdminPanelExtras). The panel reserves `admin_extras_height` px at the
+    // bottom of this event's row and passes that rect to draw_admin_extras.
+    admin_extras_height: float; // 0 = no custom UI
+    draw_admin_extras:   proc(mgr: Event_Manager, userdata: Object, rect: Rect);
+}
+
+Event_Manager :: class : Component {
+    // --- synced state (server authoritative, pushed to every client) ---
+
+    // Active events encoded as "id=end_unix;id2=end_unix2". end_unix 0 = indefinite.
+    active_csv: string;
+
+    // Per-event admin duration picks (minutes), "id=minutes;...". Synced so the
+    // server reads the same value when it replays the START button click.
+    admin_durations_csv: string;
+
+    // Admin-panel selection state, shared across admins on this server (synced).
+    // Kept here rather than on Player so the click-replay on the server sees the
+    // same picked value, without bloating the Player class.
+    admin_global_mode: bool;  // false = local (this server), true = global (all servers)
+    admin_cash_amount: float; // Give Cash cheat amount
+    admin_speed_value: s64;   // Set Speed cheat value
+    admin_brainrot_idx: s64;  // Place Brainrot cheat selection index
+
+    // Config multipliers driven by events. These hold the value to APPLY WHILE
+    // the matching event is active; the accessors below return 1.0 when inactive.
+    money_multiplier: float;
+    mutation_luck:    float;
+    speed_multiplier: float;
+
+    ao_start :: method() {
+        event_manager_instance = this;
+
+        // Designed defaults (struct/class fields can't have inline defaults in
+        // CSL). On a client these are immediately overwritten by the first sync.
+        money_multiplier = 2.0;
+        mutation_luck    = 3.0;
+        speed_multiplier = 1.5;
+
+        admin_cash_amount = 10000;
+        admin_speed_value = BASE_SPEED;
+
+        // Events self-register from their own components' ao_start (see
+        // event_examples.csl and event_entity_toggle.csl).
+    }
+
+    ao_end :: method() {
+        if event_manager_instance == this event_manager_instance = null;
+    }
+
+    ao_update :: method(dt: float) {
+        g_event_poll_timer += dt;
+        if g_event_poll_timer >= EVENT_POLL_INTERVAL {
+            g_event_poll_timer = 0;
+            // Both client and server run this: game-global save is replicated
+            // (optimistic on the client, confirmed by the server), and the
+            // local schedule is driven by the replicated START click, so both
+            // compute the same active_csv. The server's value is authoritative.
+            poll_and_replicate(this);
+            apply_event_transitions(this);
+        }
+
+        // Per-frame update for currently active events.
+        for i: 0..g_event_defs.count - 1 {
+            def := g_event_defs[i];
+            if def.on_update == null continue;
+            if is_event_active(this, def.id) def.on_update(this, def.userdata, dt);
+        }
+    }
+
+    // ---- mutation API (called from the admin panel click handlers) ----
+
+    // is_global true -> write a game-global save key so every server runs it.
+    // is_global false -> in-memory, this server only.
+    start_event :: method(id: string, minutes: s64, is_global: bool) {
+        end_unix := evt_now_seconds() + minutes * 60;
+        if is_global {
+            Save.set_game_string(evt_end_key(id), format_string("%", {end_unix}));
+        } else {
+            evt_set_local(id, end_unix);
+        }
+        poll_and_replicate(this);
+        apply_event_transitions(this);
+    }
+
+    // Stops the event whether it was started locally or globally.
+    stop_event :: method(id: string) {
+        evt_remove_local(id);
+        Save.set_game_string(evt_end_key(id), "0");
+        poll_and_replicate(this);
+        apply_event_transitions(this);
+    }
+
+    set_duration :: method(id: string, minutes: s64) {
+        admin_durations_csv = evt_csv_set(admin_durations_csv, id, minutes);
+    }
+
+    adjust_config :: method(key: string, delta: float) {
+        if key == "moneymult" money_multiplier = max(0.0, money_multiplier + delta);
+        if key == "luckmult"  mutation_luck    = max(0.0, mutation_luck    + delta);
+        if key == "speedmult" speed_multiplier = max(0.0, speed_multiplier + delta);
+    }
+
+    get_config :: method(key: string) -> float {
+        if key == "moneymult" return money_multiplier;
+        if key == "luckmult"  return mutation_luck;
+        if key == "speedmult" return speed_multiplier;
+        return 0;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Singleton + registration
+// ---------------------------------------------------------------------------
+
+get_event_manager :: proc() -> Event_Manager {
+    if event_manager_instance != null return event_manager_instance;
+    for m: component_iterator(Event_Manager) {
+        event_manager_instance = m;
+        return m;
+    }
+    return null;
+}
+
+register_event_def :: proc(def: Event_Def) {
+    for i: 0..g_event_defs.count - 1 {
+        if g_event_defs[i].id == def.id return; // already registered
+    }
+    append(ref g_event_defs, def);
+}
+
+find_event_def :: proc(id: string) -> Event_Def, bool {
+    for i: 0..g_event_defs.count - 1 {
+        if g_event_defs[i].id == id return g_event_defs[i], true;
+    }
+    empty: Event_Def;
+    return empty, false;
+}
+
+// ---------------------------------------------------------------------------
+// Public accessors for gameplay code. Return the configured multiplier while
+// the event is live, otherwise a neutral 1.0.
+//
+// To make an event actually affect the game, multiply by these where relevant,
+// e.g. in collect_pedestal_gold:  total *= event_money_multiplier();
+// ---------------------------------------------------------------------------
+
+event_money_multiplier :: proc() -> float {
+    m := get_event_manager();
+    if m == null return 1.0;
+    if is_event_active(m, "double_money") return m.money_multiplier;
+    return 1.0;
+}
+
+event_mutation_luck :: proc() -> float {
+    m := get_event_manager();
+    if m == null return 1.0;
+    if is_event_active(m, "lucky_spawn") return m.mutation_luck;
+    return 1.0;
+}
+
+event_speed_multiplier :: proc() -> float {
+    m := get_event_manager();
+    if m == null return 1.0;
+    if is_event_active(m, "speed_frenzy") return m.speed_multiplier;
+    return 1.0;
+}
+
+// ---------------------------------------------------------------------------
+// Poll helpers
+// ---------------------------------------------------------------------------
+
+// Rebuild active_csv from the two sources of truth: game-global save (GLOBAL
+// events, shared across servers) and the in-memory schedule (LOCAL events).
+// Expired entries are dropped. Deterministic given replicated inputs, so it is
+// safe to run on both client and server.
+poll_and_replicate :: proc(mgr: Event_Manager) {
+    now := evt_now_seconds();
+    out := "";
+
+    // GLOBAL events from game-global save.
+    for i: 0..g_event_defs.count - 1 {
+        id := g_event_defs[i].id;
+        end := evt_global_end(id);
+        if end > 0 && now < end out = evt_csv_set(out, id, end);
+    }
+
+    // LOCAL events from the in-memory schedule; drop expired ones.
+    i := 0;
+    while i < g_local_sched.count {
+        s := g_local_sched[i];
+        if s.end_unix > 0 && now >= s.end_unix {
+            unordered_remove_by_index(ref g_local_sched, i);
+            continue;
+        }
+        out = evt_csv_set(out, s.id, s.end_unix);
+        i += 1;
+    }
+
+    mgr.active_csv = out;
+}
+
+// ---- LOCAL schedule helpers (in-memory, this server only) ----
+
+evt_set_local :: proc(id: string, end_unix: s64) {
+    for i: 0..g_local_sched.count - 1 {
+        if g_local_sched[i].id == id {
+            g_local_sched[i].end_unix = end_unix;
+            return;
+        }
+    }
+    s: Local_Sched;
+    s.id = id;
+    s.end_unix = end_unix;
+    append(ref g_local_sched, s);
+}
+
+evt_remove_local :: proc(id: string) {
+    i := 0;
+    while i < g_local_sched.count {
+        if g_local_sched[i].id == id {
+            unordered_remove_by_index(ref g_local_sched, i);
+            continue;
+        }
+        i += 1;
+    }
+}
+
+// ---- GLOBAL schedule helpers (game-global save, shared across servers) ----
+
+evt_end_key :: proc(id: string) -> string {
+    return format_string("Event_%_end", {id});
+}
+
+// End time (unix seconds) for a GLOBAL event, or 0 if not set / stopped.
+evt_global_end :: proc(id: string) -> s64 {
+    s := Save.get_game_string(evt_end_key(id), "");
+    if s.count == 0 return 0;
+    v, ok := parse_uint_string(s);
+    if !ok return 0;
+    return v;
+}
+
+// Current admin duration pick for an event (minutes); defaults to 5.
+evt_get_duration :: proc(mgr: Event_Manager, id: string) -> s64 {
+    if mgr == null return 5;
+    d, ok := evt_csv_get_end(mgr.admin_durations_csv, id);
+    if !ok || d <= 0 return 5;
+    return d;
+}
+
+// Fire on_start for newly-active events and on_end for newly-inactive ones,
+// comparing the synced active set against g_event_applied (per-machine).
+apply_event_transitions :: proc(mgr: Event_Manager) {
+    active := evt_active_ids(mgr.active_csv);
+
+    // Newly active -> on_start.
+    for i: 0..active.count - 1 {
+        id := active[i];
+        if contains(g_event_applied, id) continue;
+        append(ref g_event_applied, id);
+        def, ok := find_event_def(id);
+        if ok && def.on_start != null def.on_start(mgr, def.userdata, false);
+    }
+
+    // No longer active -> on_end.
+    j := 0;
+    while j < g_event_applied.count {
+        id := g_event_applied[j];
+        if contains(active, id) { j += 1; continue; }
+        def, ok := find_event_def(id);
+        if ok && def.on_end != null def.on_end(mgr, def.userdata);
+        unordered_remove_by_index(ref g_event_applied, j);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// "id=end;id2=end2" CSV + time helpers
+// ---------------------------------------------------------------------------
+
+evt_now_seconds :: proc() -> s64 {
+    return get_nanoseconds_since_epoch() / 1000000000;
+}
+
+is_event_active :: proc(mgr: Event_Manager, id: string) -> bool {
+    if mgr == null return false;
+    _, found := evt_csv_get_end(mgr.active_csv, id);
+    return found;
+}
+
+// Seconds remaining for an active event; 0 means indefinite, -1 means not active.
+evt_seconds_left :: proc(mgr: Event_Manager, id: string) -> s64 {
+    if mgr == null return -1;
+    end, found := evt_csv_get_end(mgr.active_csv, id);
+    if !found return -1;
+    if end == 0 return 0; // indefinite
+    rem := end - evt_now_seconds();
+    if rem < 0 rem = 0;
+    return rem;
+}
+
+evt_append_entry :: proc(out: string, id: string, end_str: string) -> string {
+    if out.count == 0 return format_string("%=%", {id, end_str});
+    return format_string("%;%=%", {out, id, end_str});
+}
+
+evt_csv_set :: proc(csv: string, id: string, end_unix: s64) -> string {
+    out := "";
+    replaced := false;
+    parts := string_split(csv, ";");
+    for i: 0..parts.count - 1 {
+        if parts[i].count == 0 continue;
+        kv := string_split(parts[i], "=");
+        if kv.count < 2 continue;
+        entry_end := kv[1];
+        if kv[0] == id {
+            entry_end = format_string("%", {end_unix});
+            replaced = true;
+        }
+        out = evt_append_entry(out, kv[0], entry_end);
+    }
+    if !replaced out = evt_append_entry(out, id, format_string("%", {end_unix}));
+    return out;
+}
+
+evt_csv_remove :: proc(csv: string, id: string) -> string {
+    out := "";
+    parts := string_split(csv, ";");
+    for i: 0..parts.count - 1 {
+        if parts[i].count == 0 continue;
+        kv := string_split(parts[i], "=");
+        if kv.count < 2 continue;
+        if kv[0] == id continue;
+        out = evt_append_entry(out, kv[0], kv[1]);
+    }
+    return out;
+}
+
+evt_csv_get_end :: proc(csv: string, id: string) -> s64, bool {
+    parts := string_split(csv, ";");
+    for i: 0..parts.count - 1 {
+        kv := string_split(parts[i], "=");
+        if kv.count < 2 continue;
+        if kv[0] == id {
+            v, _ := parse_uint_string(kv[1]);
+            return v, true;
+        }
+    }
+    return 0, false;
+}
+
+evt_active_ids :: proc(csv: string) -> [..]string {
+    ids: [..]string;
+    parts := string_split(csv, ";");
+    for i: 0..parts.count - 1 {
+        kv := string_split(parts[i], "=");
+        if kv.count < 1 continue;
+        if kv[0].count == 0 continue;
+        append(ref ids, kv[0]);
+    }
+    return ids;
+}
+
+// "MM:SS" or "LIVE" (indefinite) for the HUD/panel.
+evt_format_timer :: proc(seconds_left: s64) -> string {
+    if seconds_left <= 0 return "LIVE";
+    mins := seconds_left / 60;
+    secs := seconds_left % 60;
+    return format_string("%:%", {format_int(mins, 2), format_int(secs, 2)});
+}

@@ -1,0 +1,75 @@
+// ============================================================================
+// Example multiplier events, written as Component classes (same style as
+// Event_Entity_Toggle) for consistency. They carry no @ao_serialize fields --
+// each just drives one Event_Manager config multiplier and self-registers in
+// ao_start. Gameplay reads the value through the event_* accessors in
+// event_manager.csl, which return 1.0 while the event is inactive.
+//
+// Each must be placed on a scene entity to exist (added to GameManager here).
+// ============================================================================
+
+// --- 2X Money --------------------------------------------------------------
+
+Event_Double_Money :: class : Component {
+    ao_start :: method() {
+        def: Event_Def;
+        def.id         = "double_money";
+        def.name       = "2X Money";
+        def.desc       = "Multiplies cash earned while active. Drives money_multiplier.";
+        def.config_key = "moneymult";
+        def.on_start   = on_start;
+        def.on_end     = on_end;
+        register_event_def(def);
+    }
+
+    on_start :: proc(mgr: Event_Manager, userdata: Object, is_drop_in: bool) {
+        log_info("[Events] 2X Money started (%x)", {mgr.money_multiplier});
+    }
+    on_end :: proc(mgr: Event_Manager, userdata: Object) {
+        log_info("[Events] 2X Money ended");
+    }
+}
+
+// --- Lucky Spawn -----------------------------------------------------------
+
+Event_Lucky_Spawn :: class : Component {
+    ao_start :: method() {
+        def: Event_Def;
+        def.id         = "lucky_spawn";
+        def.name       = "Lucky Spawn";
+        def.desc       = "Boosts mutation luck on newly bought/spawned brainrots.";
+        def.config_key = "luckmult";
+        def.on_start   = on_start;
+        def.on_end     = on_end;
+        register_event_def(def);
+    }
+
+    on_start :: proc(mgr: Event_Manager, userdata: Object, is_drop_in: bool) {
+        log_info("[Events] Lucky Spawn started (luck %x)", {mgr.mutation_luck});
+    }
+    on_end :: proc(mgr: Event_Manager, userdata: Object) {
+        log_info("[Events] Lucky Spawn ended");
+    }
+}
+
+// --- Speed Frenzy ----------------------------------------------------------
+
+Event_Speed_Frenzy :: class : Component {
+    ao_start :: method() {
+        def: Event_Def;
+        def.id         = "speed_frenzy";
+        def.name       = "Speed Frenzy";
+        def.desc       = "Increases everyone's movement speed while active.";
+        def.config_key = "speedmult";
+        def.on_start   = on_start;
+        def.on_end     = on_end;
+        register_event_def(def);
+    }
+
+    on_start :: proc(mgr: Event_Manager, userdata: Object, is_drop_in: bool) {
+        log_info("[Events] Speed Frenzy started (%x)", {mgr.speed_multiplier});
+    }
+    on_end :: proc(mgr: Event_Manager, userdata: Object) {
+        log_info("[Events] Speed Frenzy ended");
+    }
+}

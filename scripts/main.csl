@@ -1,6 +1,7 @@
 import "core:ao"
 import "effects"
 import "tutorial"
+import "events"
 
 ao_before_scene_load :: proc() {
     Scene.set_auto_save_player_inventory(true);
@@ -525,6 +526,13 @@ Player :: class : Player_Base {
     equipped_skin_id: string;
     unlocked_skins: [..]string; // skin config_ids the player has paid robux to unlock (in addition to rebirth-unlocked ones)
 
+    // Admin event + cheat panel (see scripts/events/). Per-admin window state,
+    // synced so the server also draws the panel and registers the action button
+    // clicks. The panel's *selection* state (scope/cash/speed/brainrot) lives on
+    // Event_Manager instead, since it's shared and doesn't belong on Player.
+    admin_panel_open: bool;
+    admin_panel_tab: s64; // 0 = events, 1 = cheats
+
     // Sets the player's permanent (sparks-bought) speed bonus and persists it.
     // Single source of truth for any caller that needs to mutate this field.
     set_permanent_speed :: method(value: s64) {
@@ -742,6 +750,8 @@ Player :: class : Player_Base {
             draw_index_modal(this);
             draw_tutorial(this);
             draw_notifications(this);
+            draw_event_hud(this);
+            update_admin_panel(this);
         }
         if is_local() {
             draw_floor_shadow(this);

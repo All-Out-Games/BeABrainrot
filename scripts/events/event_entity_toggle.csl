@@ -1,0 +1,69 @@
+// ============================================================================
+// Component-based event. This is the equivalent of a C# EventBase subclass: it
+// lives in the scene and carries @ao_serialize fields you wire in the editor.
+//
+// It registers itself with the Event_Manager as an Event_Def whose userdata is
+// `this`, so the lifecycle callbacks can reach the serialized fields (CSL has no
+// virtual dispatch for user-called methods and no closures, so this userdata
+// bridge is how component data flows into the event callbacks).
+//
+// Behaviour: enables `target` while the event is active, disables it otherwise.
+//
+// To use: add Event_Entity_Toggle to any scene entity (via the modify_scene MCP
+// tool), set event_id / event_name, and point `target` at the entity to toggle.
+// Then start it from the admin panel like any other event.
+// ============================================================================
+
+Event_Entity_Toggle :: class : Component {
+    event_id:   string @ao_serialize; // unique id, e.g. "boss_portal"
+    event_name: string @ao_serialize; // display name for HUD / admin panel
+    target:     Entity @ao_serialize; // enabled on event start, disabled on end
+
+    ao_start :: method() {
+        // Start hidden; the event turns it on.
+        if target != null && #alive(target) target.set_local_enabled(false);
+
+        id := event_id;
+        if id.count == 0 id = "entity_toggle"; // fallback so it still registers
+
+        def: Event_Def;
+        def.id       = id;
+        def.name     = event_name;
+        if def.name.count == 0 def.name = id;
+        def.desc     = "Shows a scene entity while active (component-based event).";
+        def.userdata = this;
+        def.on_start = on_start;
+        def.on_end   = on_end;
+        def.admin_extras_height = 26;        // reserve a row for custom UI
+        def.draw_admin_extras   = draw_admin_extras;
+        register_event_def(def);
+    }
+
+    // Custom admin-panel UI for this event (C#'s DrawAdminPanelExtras). Draws the
+    // live target name + visibility in the reserved rect.
+    draw_admin_extras :: proc(mgr: Event_Manager, userdata: Object, rect: Rect) {
+        e := userdata.(Event_Entity_Toggle);
+        if e == null return;
+        label := "target: (none)";
+        if e.target != null && #alive(e.target) {
+            shown := "hidden";
+            if e.target.get_local_enabled() shown = "shown";
+            label = format_string("target: % (%)", {e.target.get_name(), shown});
+        }
+        UI.text(rect, admin_left_ts(13, v4{0.75, 0.85, 1.0, 1}), label);
+    }
+
+    // Namespaced procs (NOT methods — function pointers can't hold the implicit
+    // `this`, so userdata carries it instead and we cast it back here).
+    on_start :: proc(mgr: Event_Manager, userdata: Object, is_drop_in: bool) {
+        e := userdata.(Event_Entity_Toggle);
+        if e == null return;
+        if e.target != null && #alive(e.target) e.target.set_local_enabled(true);
+    }
+
+    on_end :: proc(mgr: Event_Manager, userdata: Object) {
+        e := userdata.(Event_Entity_Toggle);
+        if e == null return;
+        if e.target != null && #alive(e.target) e.target.set_local_enabled(false);
+    }
+}

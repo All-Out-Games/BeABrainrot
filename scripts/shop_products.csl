@@ -307,6 +307,13 @@ open_modifier_popup_cmd :: proc(player: Player) {
     grant_examen_brainrot(player);
 } @chat_command
 
+// ===== Offline earnings (Welcome Back popup) =====
+// Consumable. "Claim X10" on the Welcome Back popup prompts this; on a
+// successful purchase we pay out 10x the player's pending offline earnings and
+// settle the popup. See offline_earnings.csl.
+
+OFFLINE_EARNINGS_X10_PRODUCT_ID :: "6a28b07990944b497358324c"; // 79
+
 // ===== Central purchase dispatcher =====
 // Engine calls this when ANY purchase completes. Return true to confirm the
 // grant (and consume, if consumable). Add new product branches here as the
@@ -318,6 +325,13 @@ ao_purchase_handler :: proc(player: Player, id: string) -> bool {
     if id == MODIFIER_GOLD_PRODUCT_ID    return apply_pending_modifier(player, Mutation.GOLD);
     if id == MODIFIER_DIAMOND_PRODUCT_ID return apply_pending_modifier(player, Mutation.DIAMOND);
     if id == MODIFIER_RAINBOW_PRODUCT_ID return apply_pending_modifier(player, Mutation.RAINBOW);
+
+    // Offline earnings "Claim X10" — pay 10x the pending offline reward, settle
+    // the popup. Always confirm the consumable (a stale/empty popup just no-ops).
+    if id == OFFLINE_EARNINGS_X10_PRODUCT_ID {
+        settle_offline_earnings(player, 10.0);
+        return true;
+    }
 
     // Bundles — consumable. Grant their contents (overflow goes to the mailbox).
     if id == STARTER_PACK_PRODUCT_ID {

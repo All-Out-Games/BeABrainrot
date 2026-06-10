@@ -533,6 +533,12 @@ Player :: class : Player_Base {
     admin_panel_open: bool;
     admin_panel_tab: s64; // 0 = events, 1 = cheats
 
+    // "Welcome Back" offline-earnings popup (see offline_earnings.csl). pending
+    // gates both the popup display AND whether ao_end advances the last-seen
+    // clock; amount is the base (1x) reward, frozen at join.
+    offline_earnings_pending: bool;
+    offline_earnings_amount:  float;
+
     // Sets the player's permanent (sparks-bought) speed bonus and persists it.
     // Single source of truth for any caller that needs to mutate this field.
     set_permanent_speed :: method(value: s64) {
@@ -577,6 +583,10 @@ Player :: class : Player_Base {
 
         room := find_free_room();
         if room != null room.claim_room(this);
+
+        // Offline earnings — compute AFTER the room is claimed so the base's
+        // brainrots are loaded and player_total_gps is accurate.
+        compute_offline_earnings(this);
 
         snap_player_to_navmesh(this);
         register_player_jump_emote(this);
@@ -747,6 +757,7 @@ Player :: class : Player_Base {
             draw_skin_shop(this);
             draw_debug_living_entity(this);
             draw_unclaimed_modal(this);
+            draw_offline_earnings(this);
             draw_index_modal(this);
             draw_tutorial(this);
             draw_notifications(this);
@@ -759,6 +770,11 @@ Player :: class : Player_Base {
     }
 
     ao_end :: method() {
+        // Stamp the disconnect time so next join's offline window starts here —
+        // but only if there's no unresolved Welcome Back popup (else keep the
+        // old last-seen so the unclaimed window survives the disconnect).
+        stamp_offline_disconnect(this);
+
         for i: 0..g_players.count - 1 {
             if g_players[i] == this {
                 unordered_remove_by_index(ref g_players, i);

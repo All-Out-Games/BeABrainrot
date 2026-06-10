@@ -1,0 +1,290 @@
+// "Welcome Back!" offline-earnings popup.
+//
+// While a player is away we accrue cash based on their base's gold-per-second.
+// On connect we read the saved last-seen UTC time, compute the AFK window
+// (capped at OFFLINE_EARNINGS_CAP_HOURS), and show the popup. The reward is
+// only PAID OUT — and the last-seen timestamp only advanced — when the player
+// resolves the popup (Claim!, Claim X10, or close). So if they disconnect with
+// the popup still open, their last-seen time is preserved and the window simply
+// carries into the next session.
+//
+// NOTE: the 2X Money gamepass intentionally does NOT apply here (we deposit via
+// deposit_cash, never collect_pedestal_gold), so offline earnings are never
+// doubled by it.
+
+// How far back offline earnings accrue. Tune freely.
+OFFLINE_EARNINGS_CAP_HOURS :: 4.0;
+
+// Per-player save key: UTC seconds-since-epoch of the player's last settled
+// presence (last claim/close, or last clean disconnect).
+OFFLINE_LAST_SEEN_KEY :: "offline_last_seen";
+
+// Current UTC wall-clock time in seconds since the Unix epoch.
+utc_now_seconds :: proc() -> f64 {
+    ns := get_nanoseconds_since_epoch();
+    return ns.(f64) / 1000000000.0;
+}
+
+// Called once from Player.ao_start, AFTER the player's room is claimed (so the
+// base brainrots are loaded and player_total_gps is accurate). Reads the saved
+// last-seen time and, if there's a real AFK window with income, arms the popup.
+// Does NOT advance the saved timestamp — that only happens on settle.
+compute_offline_earnings :: proc(player: Player) {
+    if player == null return;
+
+    now := utc_now_seconds();
+    last := Save.get_f64(player, OFFLINE_LAST_SEEN_KEY, 0);
+
+    // First time we've ever seen this player — initialize the clock and bail.
+    if last <= 0 {
+        Save.set_f64(player, OFFLINE_LAST_SEEN_KEY, now);
+        return;
+    }
+
+    afk := (now - last).(float);
+    if afk <= 0 return;
+
+    cap := OFFLINE_EARNINGS_CAP_HOURS * 3600.0;
+    if afk > cap afk = cap;
+
+    gps := player_total_gps(player);
+    if gps <= 0 return;
+
+    earnings := ceil_float(gps * afk);
+    if earnings < 1 return;
+
+    player.offline_earnings_amount  = earnings;
+    player.offline_earnings_pending = true;
+}
+
+// Pay out the offline reward (base amount * multiplier), advance the last-seen
+// timestamp, and dismiss the popup. multiplier is 1.0 for Claim!/close, 10.0
+// for the Claim X10 purchase. Safe to call when nothing is pending (no-op).
+settle_offline_earnings :: proc(player: Player, multiplier: float) {
+    if player == null return;
+    if !player.offline_earnings_pending return;
+
+    amount := player.offline_earnings_amount * multiplier;
+    if amount > 0 {
+        deposit_cash(player, amount);
+        play_offline_claim_sfx(player);
+    }
+
+    player.offline_earnings_pending = false;
+    player.offline_earnings_amount  = 0;
+    // Advance the clock only now — this is the player's choice to "settle".
+    Save.set_f64(player, OFFLINE_LAST_SEEN_KEY, utc_now_seconds());
+}
+
+// Called from Player.ao_end. Stamp the disconnect time ONLY when there's no
+// unresolved popup; otherwise keep the old last-seen so the unclaimed window
+// survives the disconnect.
+stamp_offline_disconnect :: proc(player: Player) {
+    if player == null return;
+    if player.offline_earnings_pending return;
+    Save.set_f64(player, OFFLINE_LAST_SEEN_KEY, utc_now_seconds());
+}
+
+play_offline_claim_sfx :: proc(player: Player) {
+    sfx := get_asset(SFX_Asset, "SFX/Collect_Money.wav");
+    if sfx == null return;
+    desc := SFX.default_sfx_desc();
+    desc.specific_to_player = player;
+    desc.positional = false;
+    desc.volume = 0.7;
+    desc.speed_perturb = 0.05;
+    SFX.play(sfx, desc);
+}
+
+// Debug: arm the Welcome Back popup with a test amount so the UI can be
+// eyeballed without actually going offline.
+test_offline :: proc(player: Player) {
+    if player == null return;
+    player.offline_earnings_amount  = 95100000000000.0; // ~95.1T for layout testing
+    player.offline_earnings_pending = true;
+} @chat_command
+
+// ===== UI =====
+
+OFFLINE_MAT_SHELL: Material;
+OFFLINE_MAT_CLAIM: Material; // green "Claim!"
+OFFLINE_MAT_X10:   Material; // magenta "Claim X10"
+OFFLINE_MATS_READY: bool;
+
+offline_ensure_materials :: proc() -> bool {
+    if OFFLINE_MATS_READY return true;
+
+    // Semi-transparent black shell with a thick opaque black outline (the game
+    // world shows faintly through the fill; the border reads crisp against it).
+    shell_box := shop2_box_dark();
+    shell_box.top           = v4{0.0, 0.0, 0.0, 0.95};
+    shell_box.bottom        = v4{0.0, 0.0, 0.0, 0.95};
+    shell_box.band_h        = 0.0;
+    shell_box.band_color    = v4{0, 0, 0, 0};
+    shell_box.dot_alpha     = 0.0;
+    shell_box.corner_radius = 24.0;
+    shell_box.outline_px    = 8.0;
+    shell_box.outline_color = v4{0, 0, 0, 1};
+
+    OFFLINE_MAT_SHELL = shop3_make_box_material(shell_box);
+    OFFLINE_MAT_CLAIM = shop3_make_box_material(shop2_box_green());
+    OFFLINE_MAT_X10   = shop3_make_box_material(shop2_box_purple());
+
+    if OFFLINE_MAT_SHELL == null return false; // shader still loading
+
+    OFFLINE_MATS_READY = true;
+    return true;
+}
+
+// A big bottom-row button: label, the exact cash payout, and an optional
+// spark-price badge (used for the X10 button). The whole panel is the click
+// target.
+offline_button :: proc(id: string, mat: Material, label: string, amount_text: string, price: s64) -> Interact_Result {
+    btn := UIK.layout_column();
+    btn.width                        = UIK.flex(1);
+    btn.height                       = UIK.flex(1);
+    btn.gap                          = 1;
+    btn.main_align                   = .CENTER;
+    btn.cross_align                  = .CENTER;
+    btn.padding                      = v4{6, 10, 6, 10};
+    btn.show_background              = true;
+    btn.tint                         = v4{1, 1, 1, 1};
+    btn.background_sprite_override    = core_globals.white_sprite;
+    btn.background_material_override  = mat;
+    h := UIK.panel_begin_interactive(id, btn);
+    shop3_feed_rect(mat, h.rect);
+    mat.set_float("press", h.active_t_eased);
+
+    // Line 1: label, plus the spark price inline to its right (X10 only).
+    top := UIK.layout_row();
+    top.width       = UIK.fit();
+    top.height      = UIK.fit();
+    top.gap         = 8;
+    top.cross_align = .CENTER;
+    top.main_align  = .CENTER;
+    UIK.panel_begin(top);
+    lt := UIK.text_title();
+    lt.set_size_mult(0.95);
+    lt.set_word_wrap(false);
+    lt.set_outline(true, 3.5, v4{0, 0, 0, 1});
+    UIK.text(label, lt);
+    if price > 0 {
+        spark := get_asset(Texture_Asset, "$AO/new/icons/sparks/spark_icon.png");
+        if spark != null {
+            sh := UIK.layout_centered(UIK.pixels(28), UIK.pixels(28));
+            UIK.panel_begin(sh);
+            UIK.image_fitted(spark, UIK.image_desc(.CONTAIN));
+            UIK.panel_end();
+        }
+        pt := UIK.text_title();
+        pt.set_size_mult(0.8);
+        pt.set_outline(true, 3.0, v4{0, 0, 0, 1});
+        UIK.text(format_string("%", {price}), pt);
+    }
+    UIK.panel_end(); // top
+
+    // Line 2: the exact cash payout.
+    if amount_text.count > 0 {
+        at := UIK.text_title();
+        at.set_size_mult(0.72);
+        at.set_color({1, 1, 1, 1});
+        at.set_word_wrap(false);
+        at.set_outline(true, 3.0, v4{0, 0, 0, 1});
+        UIK.text(amount_text, at);
+    }
+
+    UIK.panel_end();
+    return h;
+}
+
+draw_offline_earnings :: proc(player: Player) {
+    if player == null return;
+    if !player.offline_earnings_pending return;
+    if !offline_ensure_materials() return; // shaders still loading
+
+    modal_rect := UI.get_safe_screen_rect().center_rect().grow(330, 490, 330, 490);
+    UIK.begin(UIK.modal(modal_rect, 35));
+
+    shell := UIK.panel_modal(.BLACK);
+    shell.gap                        = 0;
+    shell.show_background             = true;
+    shell.tint                       = v4{1, 1, 1, 1};
+    shell.background_sprite_override   = core_globals.white_sprite;
+    shell.background_material_override = OFFLINE_MAT_SHELL;
+    shell_h := UIK.panel_begin_interactive("offline_shell", shell);
+    shop3_feed_rect(OFFLINE_MAT_SHELL, shell_h.rect);
+
+    title_desc := UIK.title_area_desc("Welcome Back!");
+    title_desc.tint = v4{0.26, 0.66, 1.0, 1}; // bright blue banner (recolors the grey)
+    title_desc.icon = get_asset(Texture_Asset, "$AO/ui/kit/Icons/clock/clock_icon.png");
+    exit_h := UIK.title_area(title_desc);
+
+    body := UIK.layout_column();
+    body.width       = UIK.flex(1);
+    body.height      = UIK.flex(1);
+    body.padding     = v4{18, 22, 26, 22};
+    body.gap         = 8;
+    body.cross_align = .CENTER;
+    UIK.panel_begin(body);
+
+    // Heading.
+    head := UIK.text_title();
+    head.set_size_mult(1.15);
+    head.set_word_wrap(false);
+    head.set_outline(true, 4.0, v4{0, 0, 0, 1});
+    UIK.text("OFFLINE EARNINGS:", head);
+
+    // Hero reward icon.
+    hero := get_asset(Texture_Asset, "Textures/UI/gold_coin_stacks_c55048.png");
+    hero_holder := UIK.layout_centered(UIK.flex(1), UIK.pixels(190));
+    UIK.panel_begin(hero_holder);
+    if hero != null UIK.image_fitted(hero, UIK.image_desc(.CONTAIN));
+    UIK.panel_end();
+
+    // Amount line: big orange figure, centered across the body width.
+    amount_row := UIK.layout_row();
+    amount_row.width       = UIK.flex(1);
+    amount_row.height      = UIK.pixels(70);
+    amount_row.gap         = 10;
+    amount_row.cross_align = .CENTER;
+    amount_row.main_align  = .CENTER;
+    UIK.panel_begin(amount_row);
+
+    amt := UIK.text_title();
+    amt.set_size_mult(1.2);
+    amt.set_color({1.0, 0.78, 0.16, 1});
+    amt.set_word_wrap(false);
+    amt.set_outline(true, 4.0, v4{0.25, 0.12, 0.0, 1});
+    UIK.text(format_cash(player.offline_earnings_amount), amt);
+    UIK.panel_end(); // amount_row
+
+    UIK.spacer(UIK.pixels(1), UIK.flex(1));
+
+    // Buttons: Claim X10 (magenta, 79 sparks) + Claim! (green).
+    btn_row := UIK.layout_row();
+    btn_row.width      = UIK.flex(1);
+    btn_row.height     = UIK.pixels(118);
+    btn_row.gap        = 18;
+    btn_row.main_align = .CENTER;
+    UIK.panel_begin(btn_row);
+    base := player.offline_earnings_amount;
+    x10_price := Purchasing.get_product(OFFLINE_EARNINGS_X10_PRODUCT_ID).price;
+    x10_h   := offline_button("offline_x10",   OFFLINE_MAT_X10,   "Claim X10", format_cash(base * 10.0), x10_price);
+    claim_h := offline_button("offline_claim", OFFLINE_MAT_CLAIM, "Claim!",    format_cash(base),        0);
+    UIK.panel_end(); // btn_row
+
+    UIK.panel_end(); // body
+    UIK.panel_end(); // shell
+    UIK.end();
+
+    // Resolve. Claim!/X pay out the base reward and settle. Claim X10 only
+    // PROMPTS the purchase — the popup stays open until the purchase completes
+    // (handled in ao_purchase_handler), so a cancelled buy still lets them claim.
+    if UIK.clicked(exit_h) || UIK.clicked(claim_h) {
+        settle_offline_earnings(player, 1.0);
+        return;
+    }
+    if UIK.clicked(x10_h) {
+        Purchasing.prompt_purchase(player, OFFLINE_EARNINGS_X10_PRODUCT_ID);
+    }
+}

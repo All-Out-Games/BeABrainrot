@@ -88,8 +88,6 @@ Premium_Brainrot_Stand :: class : Interactable {
         lvl := effective_level();
         gps := base_gps * pow(GPS_PER_LEVEL_MULT, (lvl - 1).(float));
 
-        UI.push_world_draw_context();
-        defer UI.pop_draw_context();
         UI.begin_world_space_ui(entity);
         defer UI.end_world_space_ui();
         UI.push_layer(5);

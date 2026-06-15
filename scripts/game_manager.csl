@@ -16,9 +16,10 @@ Game_Manager :: class : Component {
     ao_start :: method() {
         game_manager_instance = this;
         if npc_line != null && #alive(npc_line) {
-            tv := npc_line.get_component(Trigger_Volume);
-            if tv != null {
-                tv.set_listener(this, gm_on_npc_line_enter, gm_on_npc_line_exit);
+            col := npc_line.get_component(Box_Collider);
+            if col != null {
+                col.on_trigger_start = gm_on_npc_line_enter;
+                col.on_trigger_end   = gm_on_npc_line_exit;
             }
         }
     }
@@ -39,9 +40,11 @@ get_game_manager :: proc() -> Game_Manager {
     return null;
 }
 
-gm_on_npc_line_enter :: proc(listener: Component, player: Player) {
+gm_on_npc_line_enter :: proc(self: Collider, other: Collider) {
+    if other == null return;
+    if !#alive(other.entity) return;
+    player := other.entity.get_component(Player);
     if player == null return;
-    if !#alive(player.entity) return;
 
     // Already auto-walking — skip (e.g. teleport landing inside the trigger).
     _, already_moving := get_effect(player.entity, Moving_Toward_Effect);
@@ -71,16 +74,18 @@ gm_on_npc_line_enter :: proc(listener: Component, player: Player) {
     // they steal would fit. Teleport back to base and skip the auto-walk.
     if is_default_inventory_full(player) {
         if player.my_room != null && #alive(player.my_room.entity) {
-            player.entity.set_world_position(player.my_room.entity.world_position);
+            player.teleport(player.my_room.entity.world_position);
         }
         show_notification(player, "Inventory full!");
         return;
     }
 
-    gm := listener.(Game_Manager);
+    gm := get_game_manager();
     if gm == null return;
     if gm.teleport_pos != null && #alive(gm.teleport_pos) {
-        player.entity.set_local_position(gm.teleport_pos.world_position);
+        tp := gm.teleport_pos.world_position;
+        tp.y = 8.493;
+        player.teleport(tp);
     }
     eff := new(Moving_Toward_Effect);
     player.entity.add_passive_effect(eff);
@@ -88,9 +93,11 @@ gm_on_npc_line_enter :: proc(listener: Component, player: Player) {
     tutorial_advance(player, TUT_PASS_LINE); // crossed the line
 }
 
-gm_on_npc_line_exit :: proc(listener: Component, player: Player) {
+gm_on_npc_line_exit :: proc(self: Collider, other: Collider) {
+    if other == null return;
+    if !#alive(other.entity) return;
+    player := other.entity.get_component(Player);
     if player == null return;
-    if !#alive(player.entity) return;
 
     // Detect "was being chased" BEFORE we reset the chasers — any chaser
     // assigned to this player in a non-IDLE state counts.
@@ -116,7 +123,7 @@ gm_on_npc_line_exit :: proc(listener: Component, player: Player) {
     // Nudge the player off the line so they don't re-trigger on_enter by
     // standing on it after the chase ended.
     if was_chased {
-        player.entity.set_world_position({-10.313, 5.201});
+        player.teleport({-10.313, 5.201});
     }
 }
 
@@ -133,7 +140,7 @@ snap_player_to_navmesh :: proc(player: Player) {
     snapped: v2;
     hint: s64 = 0;
     if gm.navmesh.try_find_closest_point_on_navmesh(pos, ref snapped, ref hint) {
-        player.entity.set_local_position(snapped);
+        player.teleport(snapped);
     }
     player.agent.set_navmesh_to_lock_to(gm.navmesh);
 }

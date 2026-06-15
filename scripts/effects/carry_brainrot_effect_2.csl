@@ -61,6 +61,7 @@ Carry_Brainrot_Effect_2 :: class : Effect_Base {
             if interrupt {
                 if #alive(carried.entity) {
                     carried.entity.set_local_position(saved_position);
+                    carried.entity.mark_teleported();
                 }
                 carried.state = Brainrot_State.NOT_CLAIMED;
                 carried.owner = null;

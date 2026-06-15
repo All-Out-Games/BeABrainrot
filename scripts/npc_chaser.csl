@@ -321,28 +321,15 @@ tick_chaser_chasing :: proc(c: Npc_Chaser, dt: float) {
     // moves several wu per frame — far more than the 0.5wu catch radius — so it
     // would otherwise tunnel straight past an idle player and never catch them.
     if length_squared(diff) < NPC_CATCH_RADIUS_SQ || length_squared(diff) <= step * step {
-        // "moving" — actively progressing. On the auto-walk ride that's the
-        // effect's has_input (forced false at the ceiling so holding the stick
-        // against the top still gets you caught); in free roam it's raw input.
-        moving := false;
+        // The ONLY escape is on the auto-walk ride (Moving_Toward_Effect): a player
+        // who is actively steering (mt.has_input — forced false at the ceiling) AND
+        // fast enough by stat outruns the NPC. Free roam — stealing from the base or
+        // escaping after a catch — has no grace: if we're close enough, we hit them.
         mt, auto_walking := get_effect(c.assigned_player.entity, Moving_Toward_Effect);
-        if auto_walking && mt != null {
-            moving = mt.has_input;
-        } else {
-            input := c.assigned_player.input_this_frame;
-            moving = input.x != 0 || input.y != 0;
+        if auto_walking && mt != null && mt.has_input && c.assigned_player.speed >= c.speed_stat {
+            return; // outrunning us on the ride — hold, don't catch
         }
-
-        // The "keep moving = safe" escape ONLY applies to a player whose speed
-        // STAT is at least the chaser's. Real speed is capped at SPEED_STAT_AT_MAX,
-        // so a stat-450 player and a stat-369 chaser move identically — the stat
-        // is what decides if they could legitimately outrun it. A genuinely
-        // slower player (lower stat, e.g. 300 vs 369) is caught regardless of
-        // movement, since the NPC really is faster.
-        fast_enough := c.assigned_player.speed >= c.speed_stat;
-        if !moving || !fast_enough {
-            c.on_catch();
-        }
+        c.on_catch();
         return; // in range: hold here, don't overrun/tunnel past the player
     }
     face_along_x(c.entity, diff.x);

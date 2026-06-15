@@ -542,13 +542,13 @@ draw_navigation_topbar :: proc(player: Player) {
     player.nav_buy_rect_frame  = get_frame_number();
 
     if UIK.clicked(buy_h) {
-        player.entity.set_world_position({-17.24, 3.850});
+        player.teleport({-17.24, 3.850});
         tutorial_advance(player, TUT_SPEED_BUTTON); // headed to the shop
     }
     if UIK.clicked(base_h) {
         room := player.my_room;
         if room != null && #alive(room.entity) {
-            player.entity.set_local_position(room.entity.world_position);
+            player.teleport(room.entity.world_position);
             player.current_floor = 0;
         }
     }

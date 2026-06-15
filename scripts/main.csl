@@ -580,6 +580,15 @@ Player :: class : Player_Base {
         return ms;
     }
 
+    // Move the player to a world position and skip render interpolation across
+    // the jump (sim runs at 32hz; without this the render lerps from the old
+    // spot and the player visibly slides to the destination).
+    teleport :: method(pos: v2) {
+        if !#alive(entity) return;
+        entity.set_world_position(pos);
+        entity.mark_teleported();
+    }
+
     ao_start :: method() {
         append(ref g_players, this);
 

@@ -337,7 +337,7 @@ draw_left_buttons :: proc(player: Player) {
     }
 
     if UIK.clicked(leaderboard_h) && !tp_blocked {
-        player.entity.set_world_position({26.738, 4.965});
+        player.teleport({26.738, 4.965});
         player.current_floor = 0;
     }
 

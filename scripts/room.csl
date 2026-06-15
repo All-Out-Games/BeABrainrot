@@ -71,6 +71,7 @@ Pedestal :: class : Interactable {
             br.state = Brainrot_State.CLAIMED_IN_BASE;
             if brainrot_pedestal != null {
                 br.entity.set_local_position(brainrot_pedestal.world_position);
+                br.entity.mark_teleported();
             }
             placed_brainrot = br;
             sync_brainrot_floor_to_pedestal(br, this);
@@ -165,8 +166,6 @@ Pedestal :: class : Interactable {
             if length_squared(diff) > cull_radius * cull_radius return;
         }
 
-        UI.push_world_draw_context();
-        defer UI.pop_draw_context();
         UI.begin_world_space_ui(entity);
         defer UI.end_world_space_ui();
         UI.push_layer(2);
@@ -232,7 +231,7 @@ Room :: class : Component {
         if player != null {
             player.my_room = this;
             if #alive(player.entity) {
-                player.entity.set_local_position(entity.world_position);
+                player.teleport(entity.world_position);
             }
         }
         apply_pedestal_unlocks(this, player);
@@ -474,8 +473,6 @@ draw_npc_room_name :: proc(r: Room_Npc) {
 
     pos := anchor.world_position;
 
-    UI.push_world_draw_context();
-    defer UI.pop_draw_context();
     UI.begin_world_space_ui(anchor);
     defer UI.end_world_space_ui();
     UI.push_layer(50); // above the roof sprites
@@ -662,8 +659,6 @@ draw_npc_pedestal_timers :: proc(r: Room_Npc, local: Player) {
             if length_squared(diff) > cull_radius * cull_radius continue;
         }
 
-        UI.push_world_draw_context();
-        defer UI.pop_draw_context();
         UI.begin_world_space_ui(anchor);
         defer UI.end_world_space_ui();
         UI.push_layer(2);
@@ -944,7 +939,10 @@ swap_placed_brainrots :: proc(pa: Pedestal, pb: Pedestal) {
     pb.placed_brainrot = a;
     if a != null && #alive(a.entity) {
         a.pedestal = pb;
-        if pb.brainrot_pedestal != null a.entity.set_world_position(pb.brainrot_pedestal.world_position);
+        if pb.brainrot_pedestal != null {
+            a.entity.set_world_position(pb.brainrot_pedestal.world_position);
+            a.entity.mark_teleported();
+        }
         // Update the jump rest position too — a brainrot mid-jump (e.g. from
         // the equip-best cash-out) would otherwise snap back to its OLD spot,
         // landing on top of whatever was moved here.
@@ -953,7 +951,10 @@ swap_placed_brainrots :: proc(pa: Pedestal, pb: Pedestal) {
     }
     if b != null && #alive(b.entity) {
         b.pedestal = pa;
-        if pa.brainrot_pedestal != null b.entity.set_world_position(pa.brainrot_pedestal.world_position);
+        if pa.brainrot_pedestal != null {
+            b.entity.set_world_position(pa.brainrot_pedestal.world_position);
+            b.entity.mark_teleported();
+        }
         b.jump_rest_pos = b.entity.local_position;
         sync_brainrot_floor_to_pedestal(b, pa);
     }
@@ -1105,6 +1106,6 @@ perf_spawn_full_load :: proc(player: Player) {
         p.claim_cooldown = 0;
     }
 
-    player.entity.set_world_position(room.entity.world_position);
+    player.teleport(room.entity.world_position);
     player.current_floor = 0;
 } @chat_command

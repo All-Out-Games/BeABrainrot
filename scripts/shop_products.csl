@@ -327,10 +327,12 @@ ao_purchase_handler :: proc(player: Player, id: string) -> bool {
     if id == MODIFIER_RAINBOW_PRODUCT_ID return apply_pending_modifier(player, Mutation.RAINBOW);
 
     // Offline earnings "Claim X10" — pay 10x the pending offline reward, settle
-    // the popup. Always confirm the consumable (a stale/empty popup just no-ops).
+    // the popup. Return whether anything was actually settled: if the popup was
+    // already resolved (e.g. the player hit Claim! while the purchase dialog was
+    // up), this returns false so the engine blocks the transaction and the
+    // player isn't charged sparks for a no-op.
     if id == OFFLINE_EARNINGS_X10_PRODUCT_ID {
-        settle_offline_earnings(player, 10.0);
-        return true;
+        return settle_offline_earnings(player, 10.0);
     }
 
     // Bundles — consumable. Grant their contents (overflow goes to the mailbox).

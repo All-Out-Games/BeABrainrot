@@ -13,11 +13,18 @@
 // doubled by it.
 
 // How far back offline earnings accrue. Tune freely.
-OFFLINE_EARNINGS_CAP_HOURS :: 4.0;
+OFFLINE_EARNINGS_CAP_HOURS :: 2.0;
 
-// Per-player save key: UTC seconds-since-epoch of the player's last settled
-// presence (last claim/close, or last clean disconnect).
+// Per-player save key: UTC seconds-since-epoch of the player's last known
+// presence. Re-stamped on a heartbeat while the player is active with no
+// unresolved popup (see tick_offline_earnings) and on clean disconnect, so a
+// server crash mis-accounts at most OFFLINE_HEARTBEAT_SECONDS of offline time.
 OFFLINE_LAST_SEEN_KEY :: "offline_last_seen";
+
+// How often, in seconds, we re-stamp the presence clock while a player is
+// active. This is the worst-case error a crash can introduce; tiny next to the
+// hour-scale earnings window, so 10s is plenty without hammering saves.
+OFFLINE_HEARTBEAT_SECONDS :: 10.0;
 
 // Current UTC wall-clock time in seconds since the Unix epoch.
 utc_now_seconds :: proc() -> f64 {
@@ -25,44 +32,175 @@ utc_now_seconds :: proc() -> f64 {
     return ns.(f64) / 1000000000.0;
 }
 
-// Called once from Player.ao_start, AFTER the player's room is claimed (so the
-// base brainrots are loaded and player_total_gps is accurate). Reads the saved
-// last-seen time and, if there's a real AFK window with income, arms the popup.
-// Does NOT advance the saved timestamp — that only happens on settle.
+// How long (seconds) tick_offline_earnings keeps waiting for the base's GPS to
+// become known before giving up on this session's popup. Covers the frames
+// where the room's pedestals haven't been collected yet (Room.ao_start vs
+// Player.ao_start init order) or the brainrot save JSON hasn't replicated.
+OFFLINE_ARM_GRACE_SECONDS :: 5.0;
+
+// Hard safety cap on the arm wait when the base HAS saved income but GPS never
+// shows up (pathological — claim is normally guaranteed by the ao_update
+// retry). Releases the wait so the player isn't stuck; last_seen stays frozen
+// so the window carries to the next session.
+OFFLINE_ARM_MAX_SECONDS :: 60.0;
+
+// Called once from Player.ao_start. Reads the saved last-seen time and records
+// the capped AFK window, but does NOT arm the popup here: player_total_gps is
+// frequently still 0 this frame because the room's pedestals/brainrots load a
+// beat later. Arming is deferred to tick_offline_earnings, which retries until
+// the base's income is actually known. Does NOT advance the saved timestamp —
+// that only happens on settle.
 compute_offline_earnings :: proc(player: Player) {
     if player == null return;
 
+    // Start every join from a clean slate. The popup is re-derived from the
+    // saved last_seen below, so nothing here should depend on leftover in-memory
+    // state. Without this, a stale pending flag (from a prior unclaimed session,
+    // the test_offline command, or field reuse) would resurface the popup for a
+    // player who has no actual offline window.
+    player.offline_earnings_pending  = false;
+    player.offline_earnings_amount   = 0;
+    player.offline_arm_waiting       = false;
+    player.offline_arm_elapsed       = 0;
+    player.offline_heartbeat_elapsed = 0;
+    player.offline_heartbeat_armed   = false;
+    player.offline_base_has_income   = false;
+
     now := utc_now_seconds();
     last := Save.get_f64(player, OFFLINE_LAST_SEEN_KEY, 0);
+    log_info("[offline] compute READ: now=% last=% raw_afk=%s", {now, last, now - last});
 
     // First time we've ever seen this player — initialize the clock and bail.
+    // No window to protect, so the heartbeat may run immediately.
     if last <= 0 {
         Save.set_f64(player, OFFLINE_LAST_SEEN_KEY, now);
+        player.offline_heartbeat_armed = true;
+        log_info("[offline] compute: FIRST-TIME, stamped last_seen=%", {now});
         return;
     }
 
     afk := (now - last).(float);
-    if afk <= 0 return;
+    // Rejoined with no real gap — nothing pending, heartbeat may run.
+    if afk <= 0 {
+        player.offline_heartbeat_armed = true;
+        log_info("[offline] compute: NO GAP (afk=%s <= 0), no popup", {afk});
+        return;
+    }
 
     cap := OFFLINE_EARNINGS_CAP_HOURS * 3600.0;
     if afk > cap afk = cap;
+    log_info("[offline] compute: WINDOW afk=%s (capped=%s) has_income=%", {(now - last).(float), afk, offline_base_has_saved_brainrots(player)});
 
-    gps := player_total_gps(player);
-    if gps <= 0 return;
+    // There IS an unclaimed window. Stash it and wait for the base to load, and
+    // keep the heartbeat DISARMED so it can't overwrite last_seen until we've
+    // resolved the window (armed the popup, or confirmed no income).
+    player.offline_afk_seconds     = afk;
+    player.offline_arm_elapsed     = 0;
+    player.offline_arm_waiting     = true;
+    player.offline_heartbeat_armed = false;
+    // Read the persisted base directly so we KNOW whether income is owed,
+    // independent of whether the room has finished claiming this frame. If the
+    // save has brainrots, tick keeps waiting for GPS instead of giving up at
+    // the short grace (claim can defer to the ao_update retry on a cold join).
+    player.offline_base_has_income = offline_base_has_saved_brainrots(player);
+}
 
-    earnings := ceil_float(gps * afk);
-    if earnings < 1 return;
+// True if the player's persisted base has at least one placed brainrot. Read
+// straight from the save (BRAINROTS_SAVE_KEY) so it's valid even before the
+// room is claimed and the live pedestals are populated.
+offline_base_has_saved_brainrots :: proc(player: Player) -> bool {
+    payload: Saved_Brainrots;
+    if !Save.try_get_json(player, BRAINROTS_SAVE_KEY, ref payload) return false;
+    if payload == null return false;
+    return payload.items.count > 0;
+}
 
-    player.offline_earnings_amount  = earnings;
-    player.offline_earnings_pending = true;
+// Called every frame from Player.ao_update. While we owe an arming attempt,
+// poll the base's GPS; the first frame it reads > 0 we arm the popup with the
+// final payout. If the base never reports income within the grace window the
+// player simply had nothing earning (a zero-income base owes nothing), so we
+// stop waiting WITHOUT advancing the last-seen clock.
+tick_offline_earnings :: proc(player: Player, dt: float) {
+    if player == null return;
+
+    // Phase 1: still resolving the join popup. Poll until the base's GPS is
+    // known; the first frame it reads > 0 we arm the popup with the final
+    // payout. Give up after the grace window (zero-income base owes nothing).
+    if player.offline_arm_waiting {
+        gps := player_total_gps(player);
+        if gps > 0 {
+            // Base confirmed loaded: the window is now resolved (either we arm a
+            // popup, or income is too small to bother). Either way it's safe to
+            // let the heartbeat run from here.
+            player.offline_heartbeat_armed = true;
+            earnings := ceil_float(gps * player.offline_afk_seconds);
+            log_info("[offline] ARM: gps=% * afk=%s = earnings=%", {gps, player.offline_afk_seconds, earnings});
+            if earnings >= 1 {
+                player.offline_earnings_amount  = earnings;
+                player.offline_earnings_pending = true;
+            }
+            player.offline_arm_waiting = false;
+            return;
+        }
+        player.offline_arm_elapsed += dt;
+        // When the saved base HAS brainrots we know income is owed, so GPS will
+        // appear once the room finishes claiming (claim can defer to the
+        // ao_update retry, which on a cold join routinely lands after the short
+        // grace). Keep waiting until then rather than dropping the window — the
+        // bug where long-AFK rejoins showed no popup. A generous hard cap still
+        // releases the wait if something is genuinely wrong, leaving last_seen
+        // frozen so the window survives to the next session.
+        give_up := player.offline_arm_elapsed >= OFFLINE_ARM_MAX_SECONDS;
+        if !player.offline_base_has_income {
+            give_up = give_up || player.offline_arm_elapsed >= OFFLINE_ARM_GRACE_SECONDS;
+        }
+        if give_up {
+            // Leave the heartbeat DISARMED and last_seen frozen so a window from
+            // a base that just loaded slowly survives to the next session
+            // instead of being lost.
+            player.offline_arm_waiting = false;
+        }
+        return;
+    }
+
+    // While a popup is still unclaimed, keep the presence clock FROZEN so an
+    // unclaimed window carries over if the player disconnects.
+    if player.offline_earnings_pending return;
+
+    // Only heartbeat once we've positively confirmed there's nothing pending to
+    // lose (base loaded, or no window this join). Protects the slow-load case.
+    if !player.offline_heartbeat_armed return;
+
+    // Phase 2: settled (claimed/closed) or never had a popup. Heartbeat the
+    // presence clock so a crash loses at most OFFLINE_HEARTBEAT_SECONDS of
+    // accuracy — no sentinel needed, the next session reads the real last-seen.
+    player.offline_heartbeat_elapsed += dt;
+    if player.offline_heartbeat_elapsed >= OFFLINE_HEARTBEAT_SECONDS {
+        player.offline_heartbeat_elapsed = 0;
+        hb := utc_now_seconds();
+        Save.set_f64(player, OFFLINE_LAST_SEEN_KEY, hb);
+        log_info("[offline] HEARTBEAT WRITE last_seen=%", {hb});
+    }
 }
 
 // Pay out the offline reward (base amount * multiplier), advance the last-seen
 // timestamp, and dismiss the popup. multiplier is 1.0 for Claim!/close, 10.0
-// for the Claim X10 purchase. Safe to call when nothing is pending (no-op).
-settle_offline_earnings :: proc(player: Player, multiplier: float) {
-    if player == null return;
-    if !player.offline_earnings_pending return;
+// for the Claim X10 purchase. Returns true if a reward was actually settled,
+// false if nothing was pending (so the X10 purchase handler can report an
+// un-fulfilled grant to the engine and avoid charging sparks for a no-op).
+settle_offline_earnings :: proc(player: Player, multiplier: float) -> bool {
+    if player == null return false;
+    if !player.offline_earnings_pending return false;
+
+    // Advance the presence clock BEFORE paying out. cash (deposit_cash) and
+    // last-seen go through the same Save.set_f64 batch so they normally flush
+    // together, but writing the timestamp first means any partial-persistence
+    // failure (e.g. a server crash mid-flush) errs toward the SAFE direction: at
+    // worst the player misses this payout, never the unsafe direction of
+    // re-earning the same window on rejoin. The heartbeat keeps it fresh after.
+    settle_now := utc_now_seconds();
+    Save.set_f64(player, OFFLINE_LAST_SEEN_KEY, settle_now);
+    log_info("[offline] SETTLE WRITE last_seen=% (paid %x%)", {settle_now, player.offline_earnings_amount, multiplier});
 
     amount := player.offline_earnings_amount * multiplier;
     if amount > 0 {
@@ -72,8 +210,7 @@ settle_offline_earnings :: proc(player: Player, multiplier: float) {
 
     player.offline_earnings_pending = false;
     player.offline_earnings_amount  = 0;
-    // Advance the clock only now — this is the player's choice to "settle".
-    Save.set_f64(player, OFFLINE_LAST_SEEN_KEY, utc_now_seconds());
+    return true;
 }
 
 // Called from Player.ao_end. Stamp the disconnect time ONLY when there's no
@@ -81,8 +218,13 @@ settle_offline_earnings :: proc(player: Player, multiplier: float) {
 // survives the disconnect.
 stamp_offline_disconnect :: proc(player: Player) {
     if player == null return;
-    if player.offline_earnings_pending return;
-    Save.set_f64(player, OFFLINE_LAST_SEEN_KEY, utc_now_seconds());
+    if player.offline_earnings_pending {
+        log_info("[offline] DISCONNECT: popup pending, last_seen FROZEN");
+        return;
+    }
+    dc := utc_now_seconds();
+    Save.set_f64(player, OFFLINE_LAST_SEEN_KEY, dc);
+    log_info("[offline] DISCONNECT WRITE last_seen=%", {dc});
 }
 
 play_offline_claim_sfx :: proc(player: Player) {
@@ -103,6 +245,40 @@ test_offline :: proc(player: Player) {
     player.offline_earnings_amount  = 95100000000000.0; // ~95.1T for layout testing
     player.offline_earnings_pending = true;
 } @chat_command
+
+// Debug: rewind the saved last-seen by 3 hours and re-run the join-time offline
+// computation, so the REAL compute -> arm -> popup path fires without having to
+// actually disconnect for hours. If the popup shows after this, the offline
+// logic is fine and the problem is that your disconnect isn't registering (the
+// clock never froze). If it does NOT show, the bug is in compute/tick/draw.
+// unit: "h" hours (default), "m" minutes, "s" seconds. e.g. /sim_offline 90 m
+sim_offline :: proc(player: Player, amount: float = 3.0, unit: string = "h") {
+    if player == null return;
+    factor: float = 3600.0;
+    if unit == "m" {
+        factor = 60.0;
+    } else if unit == "s" {
+        factor = 1.0;
+    }
+    target := utc_now_seconds() - (amount * factor).(f64);
+    Save.set_f64(player, OFFLINE_LAST_SEEN_KEY, target);
+    log_info("[offline] SIM WRITE last_seen=% (%0%s back)", {target, amount * factor});
+    compute_offline_earnings(player);
+} @chat_command @owner_or_editor
+
+// Debug: dump the live offline-earnings clock to the log so we can see the real
+// numbers (now, last_seen, computed afk, whether the base/room are loaded).
+offline_status :: proc(player: Player) {
+    if player == null return;
+    now  := utc_now_seconds();
+    last := Save.get_f64(player, OFFLINE_LAST_SEEN_KEY, 0);
+    has_income: s64 = offline_base_has_saved_brainrots(player) ? 1 : 0;
+    room_null:  s64 = (player.my_room == null) ? 1 : 0;
+    pending:    s64 = player.offline_earnings_pending ? 1 : 0;
+    waiting:    s64 = player.offline_arm_waiting ? 1 : 0;
+    log_info("[offline] now=% last=% afk_now=%s frozen_afk=%s gps=% amount=% has_income=% room_null=% pending=% waiting=% arm_elapsed=%",
+        {now, last, now - last, player.offline_afk_seconds, player_total_gps(player), player.offline_earnings_amount, has_income, room_null, pending, waiting, player.offline_arm_elapsed});
+} @chat_command @owner_or_editor
 
 // ===== UI =====
 

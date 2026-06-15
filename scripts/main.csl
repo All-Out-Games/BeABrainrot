@@ -65,6 +65,12 @@ collect_pedestal_gold :: proc(player: Player, amount: float) -> float {
 
 // Round-up to the nearest integer (CSL has no built-in ceil for float).
 ceil_float :: proc(x: float) -> float {
+    // Guard the s64 cast: values beyond the s64 range overflow it and wrap to
+    // a huge NEGATIVE number (this silently broke offline earnings — a big
+    // gps*afk product became -2^63, so the popup never armed). Such magnitudes
+    // have no fractional part at float precision anyway, so return them as-is.
+    if x >= 9000000000000000000.0 return x;
+    if x <= -9000000000000000000.0 return x;
     i := x.(s64).(float);
     if i < x return i + 1.0;
     return i;
@@ -538,6 +544,24 @@ Player :: class : Player_Base {
     // clock; amount is the base (1x) reward, frozen at join.
     offline_earnings_pending: bool;
     offline_earnings_amount:  float;
+    // Arming is deferred to ao_update because the base's GPS isn't reliably
+    // known at ao_start (room pedestals / brainrot save JSON load a beat later).
+    // afk_seconds is the capped window frozen at join; arm_waiting/arm_elapsed
+    // drive the short retry in tick_offline_earnings.
+    offline_afk_seconds:      float;
+    offline_arm_waiting:      bool;
+    offline_arm_elapsed:      float;
+    // True when the saved base has at least one brainrot, i.e. income is OWED
+    // and GPS will become > 0 once the room finishes claiming (claim can defer
+    // to the ao_update retry). Lets tick keep waiting past the short grace
+    // instead of dropping the window when GPS is merely slow to appear.
+    offline_base_has_income:  bool;
+    // Heartbeat accumulator: re-stamps offline_last_seen every
+    // OFFLINE_HEARTBEAT_SECONDS once the join popup is settled, so a crash loses
+    // at most that much offline-time accuracy. armed gates it OFF until the
+    // join-time window is resolved, so it can never overwrite an unclaimed one.
+    offline_heartbeat_elapsed: float;
+    offline_heartbeat_armed:   bool;
 
     // Sets the player's permanent (sparks-bought) speed bonus and persists it.
     // Single source of truth for any caller that needs to mutate this field.
@@ -611,6 +635,7 @@ Player :: class : Player_Base {
         }
         tick_cash_animations(this, dt);
         tick_notifications(this, dt);
+        tick_offline_earnings(this, dt);
 
         // PRIME auto-collect: sweep all base pedestal income once per second.
         if auto_collect_enabled && has_prime(this) {

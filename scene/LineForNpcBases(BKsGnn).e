@@ -55,4 +55,21 @@
     "corner_a": 1249812944,
     "corner_b": 1249971355
   }
+},
+{
+  "cid": 4,
+  "aoid": 1253241704,
+  "component_type": "Internal_Component",
+  "internal_component_type": "Box_Collider",
+  "data": {
+    "is_trigger": true,
+    "size": {
+      "X": 0.0239374488592148,
+      "Y": 0.0154775977134705
+    },
+    "offset": {
+      "X": -0.0003688898868859,
+      "Y": 0.0000061094760895
+    }
+  }
 }

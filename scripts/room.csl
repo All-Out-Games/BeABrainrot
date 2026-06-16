@@ -519,6 +519,17 @@ init_npc_room :: proc(r: Room_Npc) {
     r.chasers.clear();
     if #alive(r.entity) collect_chasers_recursive(r, r.entity);
 
+    // Detach the chasers from the room so the room entity's transform/parent
+    // chain no longer feeds into their movement and spine interpolation. Their
+    // room link is the home_room field (set in collect above) and the r.chasers
+    // refs, not the parent — so this is safe. MUST run after the collect, since
+    // collect_chasers_recursive finds them by walking the room's children.
+    // for c: r.chasers {
+    //     if c == null continue;
+    //     if !#alive(c.entity) continue;
+    //     c.entity.set_parent(null, true); // null parent = world root, keep world position
+    // }
+
     // Cache the "Roof" child entity.
     r.roof = null;
     if #alive(r.entity) {

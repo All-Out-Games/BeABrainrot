@@ -16,11 +16,14 @@ Brainrot_Config :: struct {
     // Optional Spine_Animator rig. When set it takes precedence for the WORLD
     // render and hides the sprite; sprite_path is still used as the flat icon.
     spine_path: string;
+    // Optional SFX played (local-only, to the picking player) when this brainrot
+    // is picked up. Empty = silent. Asset must live in this project's res.
+    sound_path: string;
     // Sparks-only brainrots are never added to any room's spawnable_brainrot_ids.
     is_premium: bool;
 }
 
-add_brainrot :: proc(list: ref [..]Brainrot_Config, id: string, name: string, rarity: Rarity, price: float, gps: float, sprite: string) {
+add_brainrot :: proc(list: ref [..]Brainrot_Config, id: string, name: string, rarity: Rarity, price: float, gps: float, sprite: string, sound: string = "") {
     c: Brainrot_Config;
     c.id = id;
     c.display_name = name;
@@ -28,6 +31,7 @@ add_brainrot :: proc(list: ref [..]Brainrot_Config, id: string, name: string, ra
     c.base_price = price;
     c.base_gps = gps;
     c.sprite_path = sprite;
+    c.sound_path = sound;
     append(ref list, c);
 }
 
@@ -35,7 +39,7 @@ add_brainrot :: proc(list: ref [..]Brainrot_Config, id: string, name: string, ra
 // spawnable_brainrot_ids. They render via a Spine_Animator; the shape-aware
 // mutation materials (rainbow_spine / color_shimmer_spine) make modifiers map
 // to the rig instead of smearing across the atlas.
-add_premium_spine_brainrot :: proc(list: ref [..]Brainrot_Config, id: string, name: string, rarity: Rarity, price: float, gps: float, spine: string, icon: string) {
+add_premium_spine_brainrot :: proc(list: ref [..]Brainrot_Config, id: string, name: string, rarity: Rarity, price: float, gps: float, spine: string, icon: string, sound: string = "") {
     c: Brainrot_Config;
     c.id = id;
     c.display_name = name;
@@ -44,6 +48,7 @@ add_premium_spine_brainrot :: proc(list: ref [..]Brainrot_Config, id: string, na
     c.base_gps = gps;
     c.spine_path = spine;
     c.sprite_path = icon; // sprite_path doubles as the flat icon (world render uses the spine)
+    c.sound_path = sound;
     c.is_premium = true;
     append(ref list, c);
 }
@@ -163,6 +168,15 @@ get_brainrot_configs :: proc() -> [..]Brainrot_Config {
     add_premium_spine_brainrot(ref list, "wooow_my_examen", "Wooow My Examen", Rarity.OG, 1000000, 30000000, "Spines/Memes/YesMyExamen/yesmyexamen.spine", "Textures/memes/YesMyExamen.png");
 
     return list;
+}
+
+get_brainrot_config :: proc(id: string) -> Brainrot_Config, bool {
+    configs := get_brainrot_configs();
+    for c: configs {
+        if c.id == id return c, true;
+    }
+    empty: Brainrot_Config;
+    return empty, false;
 }
 
 spawn_brainrot :: proc(id: string, position: v2) -> LivingEntity {

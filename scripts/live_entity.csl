@@ -430,6 +430,7 @@ LivingEntity :: class : Interactable {
                 Purchasing.prompt_purchase(player, PRIME_PASS_PRODUCT_ID);
                 return;
             }
+            play_brainrot_pickup_sound(player, this);
             this.(LivingEntity_Npc).handle_npc_pickup(player);
             return;
         }
@@ -439,6 +440,8 @@ LivingEntity :: class : Interactable {
             pedestal.accumulated_gold = 0;
             pedestal = null;
         }
+
+        play_brainrot_pickup_sound(player, this);
 
         effect := new(Carry_Brainrot_Effect_2);
         effect.carried = this;
@@ -615,6 +618,27 @@ LivingEntity_Npc :: class : LivingEntity {
             start_chase(get_player_chaser_in_room(npc_room, player), true);
         }
     }
+}
+
+// Play a brainrot's signature pickup SFX, local-only (just the picking player
+// hears it). Null/empty sound_path = silent — sounds are wired into the configs
+// later. Cosmetic, so it lives behind is_local().
+play_brainrot_pickup_sound :: proc(player: Player, le: LivingEntity) {
+    if player == null || le == null return;
+    if !#alive(le.entity) return;
+    if !player.is_local() return;
+
+    cfg, ok := get_brainrot_config(le.config_id);
+    if !ok return;
+    if cfg.sound_path.count == 0 return; // no sound assigned yet
+
+    snd := get_asset(SFX_Asset, cfg.sound_path);
+    if snd == null return;
+
+    desc := SFX.default_sfx_desc();
+    desc.entity_to_follow = le.entity.id;
+    desc.volume = 0.7;
+    SFX.play(snd, desc);
 }
 
 draw_brainrot_label :: proc(pos: v2, text: string, color: v4, size: float = 0.22, grow_h: float = 0.2, grow_w: float = 1.5) {

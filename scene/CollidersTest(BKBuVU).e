@@ -14,7 +14,7 @@
     "Y": 1
   },
   "previous_sibling": 1249657830,
-  "next_sibling": 1249126870
+  "next_sibling": 1244161270
 },
 {
   "cid": 1,
@@ -23,7 +23,11 @@
   "internal_component_type": "Box_Collider",
   "data": {
     "size": {
-      "X": 95.4000091552734375
+      "X": 95.4000091552734375,
+      "Y": 1.8847026824951172
+    },
+    "offset": {
+      "Y": -0.4423513412475586
     }
   }
 }

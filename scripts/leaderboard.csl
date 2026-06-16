@@ -171,6 +171,12 @@ Leaderboard :: class : Component {
         UI.push_world_draw_context();
         defer UI.pop_draw_context();
 
+        // Anchor world-space draws to the entity's interpolated visual position
+        // (V44 32hz render interpolation). No-op while the board is stationary,
+        // correct if it ever moves.
+        UI.push_interpolation_anchor(entity);
+        defer UI.pop_interpolation_anchor();
+
         pos := entity.world_position;
 
         UI.push_z(pos.y + z_pivot_offset);

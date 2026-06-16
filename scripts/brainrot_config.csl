@@ -57,115 +57,115 @@ get_brainrot_configs :: proc() -> [..]Brainrot_Config {
     list: [..]Brainrot_Config;
 
     // COMMON
-    add_brainrot(ref list, "tung_tung_sahur", "Tung Tung Tung Sahur",   Rarity.COMMON,    6,       1,       "Textures/memes/tung_tung.png");
-    add_brainrot(ref list, "boneca",          "Boneca Ambalabu",        Rarity.COMMON,    7,       1.2,     "Textures/memes/boneca.png");
-    add_brainrot(ref list, "trippi_troppi",   "Trippi Troppi",          Rarity.COMMON,    8,       1.5,     "Textures/memes/trippiTroppi.png");
-    add_brainrot(ref list, "dindin",          "Dindin Dundun",          Rarity.COMMON,    9,       1.7,     "Textures/memes/dindin.png");
-    add_brainrot(ref list, "pipi_kiwi",       "Pipi Kiwi",              Rarity.COMMON,    9,       1.6,     "Textures/memes/pipi_kiwi.png");
-    add_brainrot(ref list, "pipi_avocado",    "Pipi Avocado",           Rarity.COMMON,    10,      1.8,     "Textures/memes/Pipi_Avocado.png");
-    add_brainrot(ref list, "pipi_corni",      "Pipi Corni",             Rarity.COMMON,    10,      1.9,     "Textures/memes/Pipi_Corni.png");
-    add_brainrot(ref list, "pipi_potato",     "Pipi Potato",            Rarity.COMMON,    11,      2,       "Textures/memes/Pipi_Potato.png");
-    add_brainrot(ref list, "pipi_watermelon", "Pipi Watermelon",        Rarity.COMMON,    12,      2.2,     "Textures/memes/Pipi_Watermelon.png");
-    add_brainrot(ref list, "bobrito_bandito", "Bobrito Bandito",        Rarity.COMMON,    12,      2.3,     "Textures/memes/bobrito_bandito.png");
-    add_brainrot(ref list, "fluriflura",      "Fluriflura",             Rarity.COMMON,    13,      2.5,     "Textures/memes/Fluriflura.png");
-    add_brainrot(ref list, "frigo_camelo",    "Frigo Camelo",           Rarity.COMMON,    14,      2.7,     "Textures/memes/frigoCamelo.png");
-    add_brainrot(ref list, "tim_cheese",      "Tim Cheese",             Rarity.COMMON,    15,      3,       "Textures/memes/TimCheese.png");
-    add_brainrot(ref list, "mateoo",          "Mateoo",                 Rarity.COMMON,    16,      3.2,     "Textures/memes/Mateoo.png");
+    add_brainrot(ref list, "tung_tung_sahur", "Tung Tung Tung Sahur",   Rarity.COMMON,    6,       1,       "Textures/memes/tung_tung.png", "Sounds/TungTung.wav");
+    add_brainrot(ref list, "boneca",          "Boneca Ambalabu",        Rarity.COMMON,    7,       1.2,     "Textures/memes/boneca.png", "Sounds/BonecaAmbalabu.wav");
+    add_brainrot(ref list, "trippi_troppi",   "Trippi Troppi",          Rarity.COMMON,    8,       1.5,     "Textures/memes/trippiTroppi.png", "Sounds/Trippi_Troppi.wav");
+    add_brainrot(ref list, "dindin",          "Dindin Dundun",          Rarity.COMMON,    9,       1.7,     "Textures/memes/dindin.png", "Sounds/Dindin_Dundun.wav");
+    add_brainrot(ref list, "pipi_kiwi",       "Pipi Kiwi",              Rarity.COMMON,    9,       1.6,     "Textures/memes/pipi_kiwi.png", "Sounds/Pipi_Kiwi.wav");
+    add_brainrot(ref list, "pipi_avocado",    "Pipi Avocado",           Rarity.COMMON,    10,      1.8,     "Textures/memes/Pipi_Avocado.png", "Sounds/Pipi_Avocado.wav");
+    add_brainrot(ref list, "pipi_corni",      "Pipi Corni",             Rarity.COMMON,    10,      1.9,     "Textures/memes/Pipi_Corni.png", "Sounds/Pipi_Corni.wav");
+    add_brainrot(ref list, "pipi_potato",     "Pipi Potato",            Rarity.COMMON,    11,      2,       "Textures/memes/Pipi_Potato.png", "Sounds/Pipi_Potato.wav");
+    add_brainrot(ref list, "pipi_watermelon", "Pipi Watermelon",        Rarity.COMMON,    12,      2.2,     "Textures/memes/Pipi_Watermelon.png", "Sounds/Pipi_Watermelon.wav");
+    add_brainrot(ref list, "bobrito_bandito", "Bobrito Bandito",        Rarity.COMMON,    12,      2.3,     "Textures/memes/bobrito_bandito.png", "Sounds/Bobrito_Bandito.wav");
+    add_brainrot(ref list, "fluriflura",      "Fluriflura",             Rarity.COMMON,    13,      2.5,     "Textures/memes/Fluriflura.png", "Sounds/Fluriflura.wav");
+    add_brainrot(ref list, "frigo_camelo",    "Frigo Camelo",           Rarity.COMMON,    14,      2.7,     "Textures/memes/frigoCamelo.png", "Sounds/Frigo_Camelo.wav");
+    add_brainrot(ref list, "tim_cheese",      "Tim Cheese",             Rarity.COMMON,    15,      3,       "Textures/memes/TimCheese.png", "Sounds/Tim_Cheese.wav");
+    add_brainrot(ref list, "mateoo",          "Mateoo",                 Rarity.COMMON,    16,      3.2,     "Textures/memes/Mateoo.png", "Sounds/Mateoo.wav");
 
     // RARE
-    add_brainrot(ref list, "tralalero",       "Tralalero Tralala",      Rarity.RARE,      25,      5,       "Textures/memes/tralalero_sharkala.png");
-    add_brainrot(ref list, "smurfcat",        "Smurfcat",               Rarity.RARE,      28,      6,       "Textures/memes/smurfcat.png");
-    add_brainrot(ref list, "sigma_boy",       "Sigma Boy",              Rarity.RARE,      30,      6.5,     "Textures/memes/sigma_boy.png");
-    add_brainrot(ref list, "avocadorilla",    "Avocadorilla",           Rarity.RARE,      32,      7,       "Textures/memes/Avocadorilla.png");
-    add_brainrot(ref list, "avocadini_anti",  "Avocadini Antilopini",   Rarity.RARE,      35,      8,       "Textures/memes/Avocadini_Antilopini.png");
-    add_brainrot(ref list, "avocadini_guffo", "Avocadini Guffo",        Rarity.RARE,      36,      8.2,     "Textures/memes/Avocadini_Guffo.png");
-    add_brainrot(ref list, "bambini_crost",   "Bambini Crostini",       Rarity.RARE,      38,      9,       "Textures/memes/Bambini_Crostini.png");
-    add_brainrot(ref list, "bananita_dolph",  "Bananita Dolphinita",    Rarity.RARE,      40,      9.5,     "Textures/memes/Bananita_Dolphinita.png");
-    add_brainrot(ref list, "blueberrini",     "Blueberrini Calamerini", Rarity.RARE,      42,      10,      "Textures/memes/Blueberrini_Calamerini.png");
-    add_brainrot(ref list, "penguino_coc",    "Penguino Cocosino",      Rarity.RARE,      45,      11,      "Textures/memes/Penguino_Cocosino.png");
-    add_brainrot(ref list, "salamino_peng",   "Salamino Penguino",      Rarity.RARE,      48,      12,      "Textures/memes/Salamino_Penguino.png");
-    add_brainrot(ref list, "pandaccini",      "Pandaccini Bananini",    Rarity.RARE,      50,      12.5,    "Textures/memes/Pandaccini_Bananini.png");
-    add_brainrot(ref list, "ta_ta_sahur",     "Ta Ta Ta Sahur",         Rarity.RARE,      52,      13,      "Textures/memes/ta_ta_sahur.png");
-    add_brainrot(ref list, "ti_ti_ti_sahur",  "Ti Ti Ti Sahur",         Rarity.RARE,      55,      14,      "Textures/memes/Ti_Ti_Ti_Sahur.png");
-    add_brainrot(ref list, "job_job_sahur",   "Job Job Job Sahur",      Rarity.RARE,      58,      14.5,    "Textures/memes/JobJobJobSahur.png");
-    add_brainrot(ref list, "trulimero",       "Trulimero Trulicina",    Rarity.RARE,      60,      15,      "Textures/memes/trulimero_trulicina.png");
-    add_brainrot(ref list, "pakrahmat",       "Pak Rahmat Mamat",       Rarity.RARE,      65,      16,      "Textures/memes/Pakrahmatmamat.png");
+    add_brainrot(ref list, "tralalero",       "Tralalero Tralala",      Rarity.RARE,      25,      5,       "Textures/memes/tralalero_sharkala.png", "Sounds/Tralalero.wav");
+    add_brainrot(ref list, "smurfcat",        "Smurfcat",               Rarity.RARE,      28,      6,       "Textures/memes/smurfcat.png", "Sounds/Smurfcat.wav");
+    add_brainrot(ref list, "sigma_boy",       "Sigma Boy",              Rarity.RARE,      30,      6.5,     "Textures/memes/sigma_boy.png", "Sounds/Sigma_Boy.wav");
+    add_brainrot(ref list, "avocadorilla",    "Avocadorilla",           Rarity.RARE,      32,      7,       "Textures/memes/Avocadorilla.png", "Sounds/Avocadorilla.wav");
+    add_brainrot(ref list, "avocadini_anti",  "Avocadini Antilopini",   Rarity.RARE,      35,      8,       "Textures/memes/Avocadini_Antilopini.png", "Sounds/Avocadini_Antilopini.wav");
+    add_brainrot(ref list, "avocadini_guffo", "Avocadini Guffo",        Rarity.RARE,      36,      8.2,     "Textures/memes/Avocadini_Guffo.png", "Sounds/Avocadini_Guffo.wav");
+    add_brainrot(ref list, "bambini_crost",   "Bambini Crostini",       Rarity.RARE,      38,      9,       "Textures/memes/Bambini_Crostini.png", "Sounds/Bambini_Crostini.wav");
+    add_brainrot(ref list, "bananita_dolph",  "Bananita Dolphinita",    Rarity.RARE,      40,      9.5,     "Textures/memes/Bananita_Dolphinita.png", "Sounds/Bananita_Dolphinita.wav");
+    add_brainrot(ref list, "blueberrini",     "Blueberrini Calamerini", Rarity.RARE,      42,      10,      "Textures/memes/Blueberrini_Calamerini.png", "Sounds/Blueberrini_Calamerini.wav");
+    add_brainrot(ref list, "penguino_coc",    "Penguino Cocosino",      Rarity.RARE,      45,      11,      "Textures/memes/Penguino_Cocosino.png", "Sounds/Penguino_Cocosino.wav");
+    add_brainrot(ref list, "salamino_peng",   "Salamino Penguino",      Rarity.RARE,      48,      12,      "Textures/memes/Salamino_Penguino.png", "Sounds/Salamino_Penguino.wav");
+    add_brainrot(ref list, "pandaccini",      "Pandaccini Bananini",    Rarity.RARE,      50,      12.5,    "Textures/memes/Pandaccini_Bananini.png", "Sounds/Pandaccini_Bananini.wav");
+    add_brainrot(ref list, "ta_ta_sahur",     "Ta Ta Ta Sahur",         Rarity.RARE,      52,      13,      "Textures/memes/ta_ta_sahur.png", "Sounds/Tatatata.wav");
+    add_brainrot(ref list, "ti_ti_ti_sahur",  "Ti Ti Ti Sahur",         Rarity.RARE,      55,      14,      "Textures/memes/Ti_Ti_Ti_Sahur.png", "Sounds/Ti_Ti_Ti_Sahur.wav");
+    add_brainrot(ref list, "job_job_sahur",   "Job Job Job Sahur",      Rarity.RARE,      58,      14.5,    "Textures/memes/JobJobJobSahur.png", "Sounds/Job_Job_Job_Sahur.wav");
+    add_brainrot(ref list, "trulimero",       "Trulimero Trulicina",    Rarity.RARE,      60,      15,      "Textures/memes/trulimero_trulicina.png", "Sounds/Trulimero_Trulicina.wav");
+    add_brainrot(ref list, "pakrahmat",       "Pak Rahmat Mamat",       Rarity.RARE,      65,      16,      "Textures/memes/Pakrahmatmamat.png", "Sounds/pakrahmat.wav");
 
     // EPIC
-    add_brainrot(ref list, "bombardino",      "Bombardino Crocodilo",   Rarity.EPIC,      120,     30,      "Textures/memes/artillero_crocodillo.png");
-    add_brainrot(ref list, "karkerkar",       "Karkerkar Kurkur",       Rarity.EPIC,      135,     35,      "Textures/memes/Karkerkar_Kurkur.png");
-    add_brainrot(ref list, "ballerina_capp",  "Ballerina Cappuccina",   Rarity.EPIC,      145,     38,      "Textures/memes/ballerina_cappuccina.png");
-    add_brainrot(ref list, "glorbo",          "Glorbo Fruttodrillo",    Rarity.EPIC,      160,     42,      "Textures/memes/glorbo_fruttodrillo.png");
-    add_brainrot(ref list, "burbaloni",       "Burbaloni Luliloli",     Rarity.EPIC,      170,     45,      "Textures/memes/burbaloni_lulilolli.png");
-    add_brainrot(ref list, "cocofanto",       "Cocofanto Elefanto",     Rarity.EPIC,      180,     48,      "Textures/memes/cocofanto_elefanto.png");
-    add_brainrot(ref list, "brri_brri_bicus", "Brri Brri Bicus",        Rarity.EPIC,      195,     52,      "Textures/memes/Brri_Brri_Bicus.png");
-    add_brainrot(ref list, "cavallo",         "Cavallo Virtuoso",       Rarity.EPIC,      210,     55,      "Textures/memes/Cavallo_Virtuoso.png");
-    add_brainrot(ref list, "cocossini_mama",  "Cocossini Mama",         Rarity.EPIC,      225,     58,      "Textures/memes/Cocossini_Mama.png");
-    add_brainrot(ref list, "lerule",          "Lerulerulerule",         Rarity.EPIC,      240,     62,      "Textures/memes/Lerulerulerule.png");
-    add_brainrot(ref list, "tob_tobi_tobi",   "Tob Tobi Tobi",          Rarity.EPIC,      255,     66,      "Textures/memes/Tob_Tobi_Tobi.png");
-    add_brainrot(ref list, "sixtee_seven",    "67",                     Rarity.EPIC,      270,     70,      "Textures/memes/Sixtee_Seven.png");
-    add_brainrot(ref list, "talpa_di_fero",   "Talpa di Fero",          Rarity.EPIC,      285,     75,      "Textures/memes/Talpa_di_Fero.png");
-    add_brainrot(ref list, "gorillo_lemon",   "Gorillo Lemonchello",    Rarity.EPIC,      300,     80,      "Textures/memes/gorillo_lemonchello.png");
-    add_brainrot(ref list, "esok_sekolah",    "Esok Sekolah",           Rarity.EPIC,      320,     85,      "Textures/memes/esok_sekolah.png");
+    add_brainrot(ref list, "bombardino",      "Bombardino Crocodilo",   Rarity.EPIC,      120,     30,      "Textures/memes/artillero_crocodillo.png", "Sounds/BombardinoCrocodilo.wav");
+    add_brainrot(ref list, "karkerkar",       "Karkerkar Kurkur",       Rarity.EPIC,      135,     35,      "Textures/memes/Karkerkar_Kurkur.png", "Sounds/karkerkar_kurkur.wav");
+    add_brainrot(ref list, "ballerina_capp",  "Ballerina Cappuccina",   Rarity.EPIC,      145,     38,      "Textures/memes/ballerina_cappuccina.png", "Sounds/Balerina.wav");
+    add_brainrot(ref list, "glorbo",          "Glorbo Fruttodrillo",    Rarity.EPIC,      160,     42,      "Textures/memes/glorbo_fruttodrillo.png", "Sounds/Glorbo.wav");
+    add_brainrot(ref list, "burbaloni",       "Burbaloni Luliloli",     Rarity.EPIC,      170,     45,      "Textures/memes/burbaloni_lulilolli.png", "Sounds/BurbaloniLuliloli.wav");
+    add_brainrot(ref list, "cocofanto",       "Cocofanto Elefanto",     Rarity.EPIC,      180,     48,      "Textures/memes/cocofanto_elefanto.png", "Sounds/CocofantoElephanto.wav");
+    add_brainrot(ref list, "brri_brri_bicus", "Brri Brri Bicus",        Rarity.EPIC,      195,     52,      "Textures/memes/Brri_Brri_Bicus.png", "Sounds/Brri_Brri_Bicus.wav");
+    add_brainrot(ref list, "cavallo",         "Cavallo Virtuoso",       Rarity.EPIC,      210,     55,      "Textures/memes/Cavallo_Virtuoso.png", "Sounds/Cavallo_Virtuoso.wav");
+    add_brainrot(ref list, "cocossini_mama",  "Cocossini Mama",         Rarity.EPIC,      225,     58,      "Textures/memes/Cocossini_Mama.png", "Sounds/Cocossini_Mama.wav");
+    add_brainrot(ref list, "lerule",          "Lerulerulerule",         Rarity.EPIC,      240,     62,      "Textures/memes/Lerulerulerule.png", "Sounds/Lerulerulerule.wav");
+    add_brainrot(ref list, "tob_tobi_tobi",   "Tob Tobi Tobi",          Rarity.EPIC,      255,     66,      "Textures/memes/Tob_Tobi_Tobi.png", "Sounds/Tob_Tobi_Tobi.wav");
+    add_brainrot(ref list, "sixtee_seven",    "67",                     Rarity.EPIC,      270,     70,      "Textures/memes/Sixtee_Seven.png", "Sounds/Sixtee_Seven.wav");
+    add_brainrot(ref list, "talpa_di_fero",   "Talpa di Fero",          Rarity.EPIC,      285,     75,      "Textures/memes/Talpa_di_Fero.png", "Sounds/Talpa_di_Fero.wav");
+    add_brainrot(ref list, "gorillo_lemon",   "Gorillo Lemonchello",    Rarity.EPIC,      300,     80,      "Textures/memes/gorillo_lemonchello.png", "Sounds/gorillo_lemon.wav");
+    add_brainrot(ref list, "esok_sekolah",    "Esok Sekolah",           Rarity.EPIC,      320,     85,      "Textures/memes/esok_sekolah.png", "Sounds/esok_sekolah.wav");
 
     // LEGENDARY
-    add_brainrot(ref list, "lirili_larila",   "Lirili Larila",          Rarity.LEGENDARY, 600,     180,     "Textures/memes/lirili_larila.png");
-    add_brainrot(ref list, "cocosino_rhino",  "Cocosino Rhino",         Rarity.LEGENDARY, 680,     200,     "Textures/memes/cocosino_rhino.png");
-    add_brainrot(ref list, "il_cacto",        "Il Cacto Hippopotamo",   Rarity.LEGENDARY, 750,     220,     "Textures/memes/il_cacto_hipopotamo.png");
-    add_brainrot(ref list, "strawb_eleph",    "Strawberry Elephant",    Rarity.LEGENDARY, 820,     240,     "Textures/memes/strawberry_elephant.png");
-    add_brainrot(ref list, "strawberelli",    "Strawberelli Flamingelli",Rarity.LEGENDARY,900,     270,     "Textures/memes/Strawberelli_Flamingelli.png");
-    add_brainrot(ref list, "lionel_cact",     "Lionel Cactuseli",       Rarity.LEGENDARY, 1000,    300,     "Textures/memes/Lionel_Cactuseli.png");
-    add_brainrot(ref list, "chef_crabra",     "Chef Crabracadabra",     Rarity.LEGENDARY, 1100,    325,     "Textures/memes/Chef_Crabracadabra.png");
-    add_brainrot(ref list, "rhino_toast",     "Rhino Toasterino",       Rarity.LEGENDARY, 1200,    350,     "Textures/memes/rhino_toasterino.png");
-    add_brainrot(ref list, "schleemerini",    "Schleemerini Monsterini",Rarity.LEGENDARY, 1300,    385,     "Textures/memes/schleemerini_monsterini.png");
-    add_brainrot(ref list, "orangutini",      "Orangutini Ananasini",   Rarity.LEGENDARY, 1400,    425,     "Textures/memes/Orangutini_Ananasini.png");
-    add_brainrot(ref list, "perochello",      "Perochello Lemonchello", Rarity.LEGENDARY, 1500,    450,     "Textures/memes/Perochello_Lemonchello.png");
-    add_brainrot(ref list, "orcalero",        "Orcalero Orcala",        Rarity.LEGENDARY, 1650,    490,     "Textures/memes/orcalero_orcala.png");
-    add_brainrot(ref list, "chicleteira",     "Chicleteira Bicicleteira",Rarity.LEGENDARY,1800,    540,     "Textures/memes/chicleteira_bicicleteira.png");
+    add_brainrot(ref list, "lirili_larila",   "Lirili Larila",          Rarity.LEGENDARY, 600,     180,     "Textures/memes/lirili_larila.png", "Sounds/Lirilli.wav");
+    add_brainrot(ref list, "cocosino_rhino",  "Cocosino Rhino",         Rarity.LEGENDARY, 680,     200,     "Textures/memes/cocosino_rhino.png", "Sounds/cocosino_rhino.wav");
+    add_brainrot(ref list, "il_cacto",        "Il Cacto Hippopotamo",   Rarity.LEGENDARY, 750,     220,     "Textures/memes/il_cacto_hipopotamo.png", "Sounds/IlCacto.wav");
+    add_brainrot(ref list, "strawb_eleph",    "Strawberry Elephant",    Rarity.LEGENDARY, 820,     240,     "Textures/memes/strawberry_elephant.png", "Sounds/Strawberry_Elephant.wav");
+    add_brainrot(ref list, "strawberelli",    "Strawberelli Flamingelli",Rarity.LEGENDARY,900,     270,     "Textures/memes/Strawberelli_Flamingelli.png", "Sounds/Strawberelli_Flamingelli.wav");
+    add_brainrot(ref list, "lionel_cact",     "Lionel Cactuseli",       Rarity.LEGENDARY, 1000,    300,     "Textures/memes/Lionel_Cactuseli.png", "Sounds/Lionel_Cactuseli.wav");
+    add_brainrot(ref list, "chef_crabra",     "Chef Crabracadabra",     Rarity.LEGENDARY, 1100,    325,     "Textures/memes/Chef_Crabracadabra.png", "Sounds/Chef_Crabracadabra.wav");
+    add_brainrot(ref list, "rhino_toast",     "Rhino Toasterino",       Rarity.LEGENDARY, 1200,    350,     "Textures/memes/rhino_toasterino.png", "Sounds/Rhino_Toasterino.wav");
+    add_brainrot(ref list, "schleemerini",    "Schleemerini Monsterini",Rarity.LEGENDARY, 1300,    385,     "Textures/memes/schleemerini_monsterini.png", "Sounds/Schleemerini_Monsterini.wav");
+    add_brainrot(ref list, "orangutini",      "Orangutini Ananasini",   Rarity.LEGENDARY, 1400,    425,     "Textures/memes/Orangutini_Ananasini.png", "Sounds/Orangutini_Ananasini.wav");
+    add_brainrot(ref list, "perochello",      "Perochello Lemonchello", Rarity.LEGENDARY, 1500,    450,     "Textures/memes/Perochello_Lemonchello.png", "Sounds/Perochello_Lemonchello.wav");
+    add_brainrot(ref list, "orcalero",        "Orcalero Orcala",        Rarity.LEGENDARY, 1650,    490,     "Textures/memes/orcalero_orcala.png", "Sounds/orcalero.wav");
+    add_brainrot(ref list, "chicleteira",     "Chicleteira Bicicleteira",Rarity.LEGENDARY,1800,    540,     "Textures/memes/chicleteira_bicicleteira.png", "Sounds/chicleteira.wav");
 
     // MYTHIC
-    add_brainrot(ref list, "chimpanzini",     "Chimpanzini Bananini",   Rarity.MYTHIC,    3500,    1200,    "Textures/memes/chimpanzini_bananini.png");
-    add_brainrot(ref list, "ssundee_amba",    "SSundee Ambalabu",       Rarity.MYTHIC,    4000,    1400,    "Textures/memes/SSundeeAmbalabu.png");
-    add_brainrot(ref list, "quivioli",        "Quivioli Ameleonni",     Rarity.MYTHIC,    4500,    1600,    "Textures/memes/Quivioli_Ameleonni.png");
-    add_brainrot(ref list, "spijuniro",       "Spijuniro Golubiro",     Rarity.MYTHIC,    5500,    2000,    "Textures/memes/Spijuniro_Golubiro.png");
-    add_brainrot(ref list, "dragon_cann",     "Dragon Cannelloni",      Rarity.MYTHIC,    6000,    2200,    "Textures/memes/Dragon_Cannelloni.png");
-    add_brainrot(ref list, "ganganzelli",     "Ganganzelli Trulala",    Rarity.MYTHIC,    6500,    2350,    "Textures/memes/Ganganzelli_Trulala.png");
-    add_brainrot(ref list, "gangster_foot",   "Gangster Footera",       Rarity.MYTHIC,    7000,    2500,    "Textures/memes/GangsterFootera.png");
-    add_brainrot(ref list, "ketapat",         "Ketapat Pat Pat",        Rarity.MYTHIC,    7800,    2750,    "Textures/memes/ketapat_pat_pat.png");
-    add_brainrot(ref list, "garama",          "Garama Madundung",       Rarity.MYTHIC,    8600,    3000,    "Textures/memes/garama_madundung.png");
+    add_brainrot(ref list, "chimpanzini",     "Chimpanzini Bananini",   Rarity.MYTHIC,    3500,    1200,    "Textures/memes/chimpanzini_bananini.png", "Sounds/ChimpanziniBananini.wav");
+    add_brainrot(ref list, "ssundee_amba",    "SSundee Ambalabu",       Rarity.MYTHIC,    4000,    1400,    "Textures/memes/SSundeeAmbalabu.png", "Sounds/SSundee_Ambalabu.wav");
+    add_brainrot(ref list, "quivioli",        "Quivioli Ameleonni",     Rarity.MYTHIC,    4500,    1600,    "Textures/memes/Quivioli_Ameleonni.png", "Sounds/Quivioli_Ameleonni.wav");
+    add_brainrot(ref list, "spijuniro",       "Spijuniro Golubiro",     Rarity.MYTHIC,    5500,    2000,    "Textures/memes/Spijuniro_Golubiro.png", "Sounds/Spijuniro_Golubiro.wav");
+    add_brainrot(ref list, "dragon_cann",     "Dragon Cannelloni",      Rarity.MYTHIC,    6000,    2200,    "Textures/memes/Dragon_Cannelloni.png", "Sounds/Dragon_Cannelloni.wav");
+    add_brainrot(ref list, "ganganzelli",     "Ganganzelli Trulala",    Rarity.MYTHIC,    6500,    2350,    "Textures/memes/Ganganzelli_Trulala.png", "Sounds/Ganganzelli_Trulala.wav");
+    add_brainrot(ref list, "gangster_foot",   "Gangster Footera",       Rarity.MYTHIC,    7000,    2500,    "Textures/memes/GangsterFootera.png", "Sounds/Gangster_Footera.wav");
+    add_brainrot(ref list, "ketapat",         "Ketapat Pat Pat",        Rarity.MYTHIC,    7800,    2750,    "Textures/memes/ketapat_pat_pat.png", "Sounds/ketapat.wav");
+    add_brainrot(ref list, "garama",          "Garama Madundung",       Rarity.MYTHIC,    8600,    3000,    "Textures/memes/garama_madundung.png", "Sounds/garama.wav");
 
     // CELESTIAL
-    add_brainrot(ref list, "brr_patapim",     "Brr Brr Patapim",        Rarity.CELESTIAL, 18000,   7500,    "Textures/memes/BrrBrr.png");
-    add_brainrot(ref list, "tetetete_sahur",  "Te Te Te Te Te Sahur",   Rarity.CELESTIAL, 22000,   8500,    "Textures/memes/TeTeTeTeTeSahur.png");
-    add_brainrot(ref list, "tetetete_titi",   "Tetetete Sahur Titititi",Rarity.CELESTIAL, 26000,   10000,   "Textures/memes/tetetete_sahur_titititi.png");
-    add_brainrot(ref list, "tric_trac_bara",  "Tric Trac Baraboom",     Rarity.CELESTIAL, 30000,   12000,   "Textures/memes/Tric_Trac_Baraboom.png");
-    add_brainrot(ref list, "svinina",         "Svinina Bombardino",     Rarity.CELESTIAL, 35000,   13500,   "Textures/memes/Svinina_Bombardino.png");
-    add_brainrot(ref list, "gorillo_water",   "Gorillo Watermellondrillo",Rarity.CELESTIAL,40000,  15000,   "Textures/memes/Gorillo_Watermellondrillo.png");
+    add_brainrot(ref list, "brr_patapim",     "Brr Brr Patapim",        Rarity.CELESTIAL, 18000,   7500,    "Textures/memes/BrrBrr.png", "Sounds/brrbrr_patapim.wav");
+    add_brainrot(ref list, "tetetete_sahur",  "Te Te Te Te Te Sahur",   Rarity.CELESTIAL, 22000,   8500,    "Textures/memes/TeTeTeTeTeSahur.png", "Sounds/Te_Te_Te_Te_Te_Sahur.wav");
+    add_brainrot(ref list, "tetetete_titi",   "Tetetete Sahur Titititi",Rarity.CELESTIAL, 26000,   10000,   "Textures/memes/tetetete_sahur_titititi.png", "Sounds/Tetetete_Sahur_Titititi.wav");
+    add_brainrot(ref list, "tric_trac_bara",  "Tric Trac Baraboom",     Rarity.CELESTIAL, 30000,   12000,   "Textures/memes/Tric_Trac_Baraboom.png", "Sounds/Tric_Trac_Baraboom.wav");
+    add_brainrot(ref list, "svinina",         "Svinina Bombardino",     Rarity.CELESTIAL, 35000,   13500,   "Textures/memes/Svinina_Bombardino.png", "Sounds/Svinina_Bombardino.wav");
+    add_brainrot(ref list, "gorillo_water",   "Gorillo Watermellondrillo",Rarity.CELESTIAL,40000,  15000,   "Textures/memes/Gorillo_Watermellondrillo.png", "Sounds/Gorillo_Watermellondrillo.wav");
 
     // SECRET
-    add_brainrot(ref list, "cappuccino",      "Cappuccino Assassino",   Rarity.SECRET,    70000,   50000,   "Textures/memes/cappuccino_assassino.png");
-    add_brainrot(ref list, "trigrullini",     "Trigrullini Watermellini",Rarity.SECRET,   90000,   60000,   "Textures/memes/trigrrullini_watermellini.png");
-    add_brainrot(ref list, "zibra_zurbra",    "Zibra Zurbra Zibralini", Rarity.SECRET,    130000,  80000,   "Textures/memes/zibra_zurbra_zibralini.png");
-    add_brainrot(ref list, "tracotucotulu",   "Tracotucotulu Delapeladustuz",Rarity.SECRET,150000, 90000,   "Textures/memes/Tracotucotulu Delapeladustuz.png");
+    add_brainrot(ref list, "cappuccino",      "Cappuccino Assassino",   Rarity.SECRET,    70000,   50000,   "Textures/memes/cappuccino_assassino.png", "Sounds/CapuccinoAssassino.wav");
+    add_brainrot(ref list, "trigrullini",     "Trigrullini Watermellini",Rarity.SECRET,   90000,   60000,   "Textures/memes/trigrrullini_watermellini.png", "Sounds/Tigrallini.wav");
+    add_brainrot(ref list, "zibra_zurbra",    "Zibra Zurbra Zibralini", Rarity.SECRET,    130000,  80000,   "Textures/memes/zibra_zurbra_zibralini.png", "Sounds/Zibra.wav");
+    add_brainrot(ref list, "tracotucotulu",   "Tracotucotulu Delapeladustuz",Rarity.SECRET,150000, 90000,   "Textures/memes/Tracotucotulu Delapeladustuz.png", "Sounds/Tracotucotulu_Delapeladustuz.wav");
 
     // DIVINE
-    add_brainrot(ref list, "la_grande",       "La Grande Combination",  Rarity.DIVINE,    246890,  823000,  "Textures/memes/lagrandecombination.png");
-    add_brainrot(ref list, "nightsmonster",   "Nights Monster",         Rarity.DIVINE,    350000,  1200000, "Textures/memes/nightsmonster.png");
+    add_brainrot(ref list, "la_grande",       "La Grande Combination",  Rarity.DIVINE,    246890,  823000,  "Textures/memes/lagrandecombination.png", "Sounds/la_grande.wav");
+    add_brainrot(ref list, "nightsmonster",   "Nights Monster",         Rarity.DIVINE,    350000,  1200000, "Textures/memes/nightsmonster.png", "Sounds/NightMonster.wav");
 
     // OG
-    add_brainrot(ref list, "bombombini",      "Bombombini Gusini",      Rarity.OG,        1000000, 5000000, "Textures/memes/bombombini_gusini.png");
+    add_brainrot(ref list, "bombombini",      "Bombombini Gusini",      Rarity.OG,        1000000, 5000000, "Textures/memes/bombombini_gusini.png", "Sounds/BombombiniGusini.wav");
 
     // OG — BABY VARIANTS (highest base GPS in the game)
-    add_brainrot(ref list, "tralalero_baby",  "Los Tralalerito",        Rarity.OG,        2000000, 15000000,"Textures/memes/los_tralalerito.png");
-    add_brainrot(ref list, "trippi_baby",     "Los Trippi Troppi",      Rarity.OG,        2200000, 17500000,"Textures/memes/los_trippi_troppi.png");
-    add_brainrot(ref list, "chimpanzini_baby","Los Chimpanzini Bananini",Rarity.OG,       2400000, 20000000,"Textures/memes/los_chimpanzini_bananini.png");
-    add_brainrot(ref list, "brr_patapim_baby","Los Brr Brr Patapim",    Rarity.OG,        2600000, 25000000,"Textures/memes/los_brr_brr_patapim.png");
+    add_brainrot(ref list, "tralalero_baby",  "Los Tralalerito",        Rarity.OG,        2000000, 15000000,"Textures/memes/los_tralalerito.png", "Sounds/LasTralaleritas.wav");
+    add_brainrot(ref list, "trippi_baby",     "Los Trippi Troppi",      Rarity.OG,        2200000, 17500000,"Textures/memes/los_trippi_troppi.png", "Sounds/Lostripitopis.wav");
+    add_brainrot(ref list, "chimpanzini_baby","Los Chimpanzini Bananini",Rarity.OG,       2400000, 20000000,"Textures/memes/los_chimpanzini_bananini.png", "Sounds/LosChimpancinitos.wav");
+    add_brainrot(ref list, "brr_patapim_baby","Los Brr Brr Patapim",    Rarity.OG,        2600000, 25000000,"Textures/memes/los_brr_brr_patapim.png", "Sounds/LosBrrBrr.wav");
 
     // PREMIUM — sparks-only, spine-rendered (shape-aware mutation materials make
     // modifiers map to the rig), never spawns in any room. base_gps 30M tops the
     // OG baby variants (highest is brr_patapim_baby at 25M) so it's the strongest
     // brainrot in the game; base_price stays at 1M (cheap cash upgrades).
-    add_premium_spine_brainrot(ref list, "wooow_my_examen", "Wooow My Examen", Rarity.OG, 1000000, 30000000, "Spines/Memes/YesMyExamen/yesmyexamen.spine", "Textures/memes/YesMyExamen.png");
+    add_premium_spine_brainrot(ref list, "wooow_my_examen", "Wooow My Examen", Rarity.OG, 1000000, 30000000, "Spines/Memes/YesMyExamen/yesmyexamen.spine", "Textures/memes/YesMyExamen.png", "Sounds/wooow_my_examen.wav");
 
     return list;
 }

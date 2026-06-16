@@ -407,6 +407,7 @@ LivingEntity :: class : Interactable {
         if state == Brainrot_State.CLAIMED_IN_BASE {
             if #alive(owner) && owner != player return;
             // Already in your base → cash out + add to inventory (no carry effect).
+            play_brainrot_pickup_sound(player, this);
             add_brainrot_to_inventory(player, this);
             return;
         }
@@ -620,13 +621,13 @@ LivingEntity_Npc :: class : LivingEntity {
     }
 }
 
-// Play a brainrot's signature pickup SFX, local-only (just the picking player
-// hears it). Null/empty sound_path = silent — sounds are wired into the configs
-// later. Cosmetic, so it lives behind is_local().
+// Play a brainrot's signature pickup SFX for just the picking player, flat (no
+// spatial range). Null/empty sound_path = silent — sounds are wired into the
+// configs later. Same routing as the upgrade SFX: specific_to_player +
+// positional = false (NOT an is_local() gate — that's for visuals).
 play_brainrot_pickup_sound :: proc(player: Player, le: LivingEntity) {
     if player == null || le == null return;
     if !#alive(le.entity) return;
-    if !player.is_local() return;
 
     cfg, ok := get_brainrot_config(le.config_id);
     if !ok return;
@@ -636,7 +637,8 @@ play_brainrot_pickup_sound :: proc(player: Player, le: LivingEntity) {
     if snd == null return;
 
     desc := SFX.default_sfx_desc();
-    desc.entity_to_follow = le.entity.id;
+    desc.specific_to_player = player;
+    desc.positional = false;
     desc.volume = 0.7;
     SFX.play(snd, desc);
 }

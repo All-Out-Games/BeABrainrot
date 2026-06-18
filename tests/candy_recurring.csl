@@ -1,6 +1,0 @@
-// TEMP diagnostic driver — catch a start (and maybe end) edge.
-test_candy_recurring :: proc() {
-    Test.wait_seconds(1.0);
-    Test.run_admin_command("set_event_anchor candy");
-    Test.wait_seconds(35.0);
-}

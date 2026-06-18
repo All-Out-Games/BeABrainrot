@@ -408,9 +408,10 @@ event_speed_multiplier :: proc() -> float {
 // Poll helpers
 // ---------------------------------------------------------------------------
 
-// Rebuild active_csv from the two sources of truth: game-global save (GLOBAL
-// events, shared across servers) and the in-memory schedule (LOCAL events).
-// Expired entries are dropped. Deterministic given replicated inputs, so it is
+// Rebuild active_csv from the sources of truth: recurring anchors + game-global
+// save (GLOBAL events, shared across servers) and the in-memory schedule (LOCAL
+// events). Expired entries are dropped.
+//
 // safe to run on both client and server.
 poll_and_replicate :: proc(mgr: Event_Manager) {
     now := evt_now_seconds();
@@ -507,10 +508,30 @@ evt_get_duration :: proc(mgr: Event_Manager, id: string) -> s64 {
 // Fire on_start for newly-active events and on_end for newly-inactive ones,
 // comparing the synced active set against g_event_applied (per-machine).
 //
-// on_start/on_end are EDGE-triggered side effects that must fire once per real
-// transition. DIAGNOSTIC build: log the frame model at each edge to understand
-// why the client multi-fires before committing to a fix.
+// Fire on_start for newly-active events and on_end for newly-inactive ones,
+// comparing the active set against g_event_applied (per-machine). Runs on BOTH
+// client and server: the server fires server-side effects, the client fires
+// client-side ones (and the synced active_csv it reads is server-authoritative,
+// so it changes once per real edge -> one transition).
 apply_event_transitions :: proc(mgr: Event_Manager) {
+    // Fire on_start/on_end on the SERVER ONLY. These are edge-triggered, non-
+    // idempotent side effects (notifications, spawns, logs) that must happen
+    // exactly once per transition. On the client, reconciliation rewinds and
+    // re-simulates the same ticks; g_event_applied rewinds with them, so the same
+    // edge re-fires on each replay (we saw 2-4x on the client, and is_predicted_
+    // frame did NOT flag every replay pass, so it couldn't gate them out). The
+    // server never resimulates, so it fires exactly once. Client-visible results
+    // propagate as synced state: notifications via the synced player.notifications
+    // list, multipliers via the synced Event_Manager fields (the event_* accessors
+    // read the synced active_csv directly, so they don't need this callback).
+    //
+    // NOTE: this is the one place we read Game.is_server(), which AGENTS.md says to
+    // avoid. It's load-bearing: there is no resim-safe way to fire a once-only side
+    // effect on the client (its state rewinds), so the authority must own it — the
+    // original C# fired these server-side too, and the engine's own core packages
+    // (global_leaderboard, dropped_items) gate writes the same way. Flagged for review.
+    if !Game.is_server() return;
+
     active := evt_active_ids(mgr.active_csv);
 
     // Newly active -> on_start.
@@ -519,11 +540,7 @@ apply_event_transitions :: proc(mgr: Event_Manager) {
         if contains(g_event_applied, id) continue;
         append(ref g_event_applied, id);
         def, ok := find_event_def(id);
-        if ok && def.on_start != null {
-            log_info("[EVTDIAG] START id=% predicted=% server=% frame=% applied_count=%",
-                {id, Game.is_predicted_frame(), Game.is_server(), get_frame_number(), g_event_applied.count});
-            def.on_start(mgr, def.userdata, false);
-        }
+        if ok && def.on_start != null def.on_start(mgr, def.userdata, false);
     }
 
     // No longer active -> on_end.
@@ -532,11 +549,7 @@ apply_event_transitions :: proc(mgr: Event_Manager) {
         id := g_event_applied[j];
         if contains(active, id) { j += 1; continue; }
         def, ok := find_event_def(id);
-        if ok && def.on_end != null {
-            log_info("[EVTDIAG] END id=% predicted=% server=% frame=%",
-                {id, Game.is_predicted_frame(), Game.is_server(), get_frame_number()});
-            def.on_end(mgr, def.userdata);
-        }
+        if ok && def.on_end != null def.on_end(mgr, def.userdata);
         unordered_remove_by_index(ref g_event_applied, j);
     }
 }

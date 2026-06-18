@@ -1,8 +1,9 @@
 // ============================================================================
-// Example multiplier events, written as Component classes (same style as
-// Event_Entity_Toggle) for consistency. They carry no @ao_serialize fields --
-// each just drives one Event_Manager config multiplier and self-registers in
-// ao_start. Gameplay reads the value through the event_* accessors in
+// Example multiplier events, authored as Event_Base subclasses (the readapted
+// EventBase-override style). Each overrides the metadata getters + lifecycle
+// methods it cares about and self-registers with `register_event(this)` from
+// its OWN ao_start (so `this` is the concrete type and the generic captures the
+// right overrides). Gameplay reads the value through the event_* accessors in
 // event_manager.csl, which return 1.0 while the event is inactive.
 //
 // Each must be placed on a scene entity to exist (added to GameManager here).
@@ -10,66 +11,84 @@
 
 // --- 2X Money --------------------------------------------------------------
 
-Event_Double_Money :: class : Component {
-    ao_start :: method() {
-        def: Event_Def;
-        def.id         = "double_money";
-        def.name       = "2X Money";
-        def.desc       = "Multiplies cash earned while active. Drives money_multiplier.";
-        def.config_key = "moneymult";
-        def.on_start   = on_start;
-        def.on_end     = on_end;
-        register_event_def(def);
-    }
+Event_Double_Money :: class : Event_Base {
+    ao_start :: method() { register_event(this); }
 
-    on_start :: proc(mgr: Event_Manager, userdata: Object, is_drop_in: bool) {
+    get_event_id   :: method() -> string { return "double_money"; }
+    get_event_name :: method() -> string { return "2X Money"; }
+    get_event_desc :: method() -> string { return "Multiplies cash earned while active. Drives money_multiplier."; }
+    get_config_key :: method() -> string { return "moneymult"; }
+
+    on_event_start :: method(mgr: Event_Manager, is_drop_in: bool) {
         log_info("[Events] 2X Money started (%x)", {mgr.money_multiplier});
     }
-    on_end :: proc(mgr: Event_Manager, userdata: Object) {
+    on_event_end :: method(mgr: Event_Manager) {
         log_info("[Events] 2X Money ended");
     }
 }
 
 // --- Lucky Spawn -----------------------------------------------------------
 
-Event_Lucky_Spawn :: class : Component {
-    ao_start :: method() {
-        def: Event_Def;
-        def.id         = "lucky_spawn";
-        def.name       = "Lucky Spawn";
-        def.desc       = "Boosts mutation luck on newly bought/spawned brainrots.";
-        def.config_key = "luckmult";
-        def.on_start   = on_start;
-        def.on_end     = on_end;
-        register_event_def(def);
-    }
+Event_Lucky_Spawn :: class : Event_Base {
+    ao_start :: method() { register_event(this); }
 
-    on_start :: proc(mgr: Event_Manager, userdata: Object, is_drop_in: bool) {
+    get_event_id   :: method() -> string { return "lucky_spawn"; }
+    get_event_name :: method() -> string { return "Lucky Spawn"; }
+    get_event_desc :: method() -> string { return "Boosts mutation luck on newly bought/spawned brainrots."; }
+    get_config_key :: method() -> string { return "luckmult"; }
+
+    on_event_start :: method(mgr: Event_Manager, is_drop_in: bool) {
         log_info("[Events] Lucky Spawn started (luck %x)", {mgr.mutation_luck});
     }
-    on_end :: proc(mgr: Event_Manager, userdata: Object) {
+    on_event_end :: method(mgr: Event_Manager) {
         log_info("[Events] Lucky Spawn ended");
     }
 }
 
 // --- Speed Frenzy ----------------------------------------------------------
 
-Event_Speed_Frenzy :: class : Component {
-    ao_start :: method() {
-        def: Event_Def;
-        def.id         = "speed_frenzy";
-        def.name       = "Speed Frenzy";
-        def.desc       = "Increases everyone's movement speed while active.";
-        def.config_key = "speedmult";
-        def.on_start   = on_start;
-        def.on_end     = on_end;
-        register_event_def(def);
-    }
+Event_Speed_Frenzy :: class : Event_Base {
+    ao_start :: method() { register_event(this); }
 
-    on_start :: proc(mgr: Event_Manager, userdata: Object, is_drop_in: bool) {
+    get_event_id   :: method() -> string { return "speed_frenzy"; }
+    get_event_name :: method() -> string { return "Speed Frenzy"; }
+    get_event_desc :: method() -> string { return "Increases everyone's movement speed while active."; }
+    get_config_key :: method() -> string { return "speedmult"; }
+
+    on_event_start :: method(mgr: Event_Manager, is_drop_in: bool) {
         log_info("[Events] Speed Frenzy started (%x)", {mgr.speed_multiplier});
     }
-    on_end :: proc(mgr: Event_Manager, userdata: Object) {
+    on_event_end :: method(mgr: Event_Manager) {
         log_info("[Events] Speed Frenzy ended");
+    }
+}
+
+// --- Candy (recurring test event) ------------------------------------------
+// Cadence is configured in configure_recurring_events() (every 30s for 10s).
+// Notifies every player on start/end so the recurring schedule is visible.
+// Recurs only once its anchor is set: /set_event_anchor candy
+
+Event_Candy :: class : Event_Base {
+    ao_start :: method() { register_event(this); }
+
+    get_event_id   :: method() -> string { return "candy"; }
+    get_event_name :: method() -> string { return "Candy Time"; }
+    get_event_desc :: method() -> string { return "Recurring test event (every 30s, active 10s)."; }
+
+    on_event_start :: method(mgr: Event_Manager, is_drop_in: bool) {
+        log_info("[Events] Candy started");
+        for p: g_players {
+            if p == null continue;
+            if !#alive(p) continue;
+            show_notification(p, "Candy event STARTED");
+        }
+    }
+    on_event_end :: method(mgr: Event_Manager) {
+        log_info("[Events] Candy ended");
+        for p: g_players {
+            if p == null continue;
+            if !#alive(p) continue;
+            show_notification(p, "Candy event ENDED");
+        }
     }
 }

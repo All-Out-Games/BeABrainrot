@@ -5,12 +5,23 @@
 //   * SyncVar<T>         -> plain Event_Manager fields. In CSL all component
 //                           state is auto-synced server->client, so no SyncVar.
 //   * abstract EventBase + virtual OnEventStart/End/Update overrides
-//                        -> Event_Def, a struct of function-pointer fields.
-//                           CSL has no virtual dispatch for user-called methods
-//                           and no user-defined overloading, so a struct of
-//                           `proc` pointers is the substitute for "override the
-//                           behaviour per event". (See AGENTS / memory note:
-//                           use function-pointer fields for polymorphism.)
+//                        -> Event_Base, a Component base class you subclass and
+//                           override (get_event_id / on_event_start / ...), PLUS
+//                           Event_Def, a struct of function-pointer fields that
+//                           is the manager's uniform (type-erased) record.
+//
+//                           CSL has no runtime virtual dispatch over a base-typed
+//                           reference, so the manager can't just call
+//                           ev.on_event_start() while iterating its heterogeneous
+//                           [..]Event_Base list. Instead the generic
+//                           `register_event(e: $T/Event_Base)` runs at the
+//                           registration callsite where the CONCRETE type is
+//                           known: it reads the overridden metadata directly and
+//                           emits proc-pointer thunks (`userdata.(T).on_event_*`)
+//                           into an Event_Def. Those thunks dispatch to the
+//                           subclass override (monomorphized), so the manager
+//                           loop stays uniform while events are authored as
+//                           clean overrides. (See memory: $T/Base generics.)
 //   * Network.IsServer polling loop
 //                        -> active_csv is a synced field. Both machines run the
 //                           same deterministic expiry/transition logic; the
@@ -103,6 +114,10 @@ Event_Manager :: class : Component {
         admin_cash_amount = 10000;
         admin_speed_value = BASE_SPEED;
 
+        // Recurring cadences (period/duration per event). Keyed by id string, so
+        // it's safe to run before the events have self-registered.
+        configure_recurring_events();
+
         // Events self-register from their own components' ao_start (see
         // event_examples.csl and event_entity_toggle.csl).
     }
@@ -154,6 +169,17 @@ Event_Manager :: class : Component {
         apply_event_transitions(this);
     }
 
+    // Set the recurring anchor (unix seconds) for an event in game-global save,
+    // so every server schedules it from the same phase. unix_seconds < 0 (e.g.
+    // -1) disables recurrence (back to manual-trigger only). The cadence itself
+    // comes from configure_recurring_events(); anchoring an event with no
+    // recurring config does nothing until one is added there.
+    set_recurring_anchor :: method(id: string, unix_seconds: s64) {
+        Save.set_game_string(evt_anchor_key(id), format_string("%", {unix_seconds}));
+        poll_and_replicate(this);
+        apply_event_transitions(this);
+    }
+
     set_duration :: method(id: string, minutes: s64) {
         admin_durations_csv = evt_csv_set(admin_durations_csv, id, minutes);
     }
@@ -190,6 +216,155 @@ register_event_def :: proc(def: Event_Def) {
         if g_event_defs[i].id == def.id return; // already registered
     }
     append(ref g_event_defs, def);
+}
+
+// Set/disable a recurring event's anchor from in-game (writes the game-global
+// save key, so it takes effect on every server):
+//   set_event_anchor <id>        -> anchor to NOW (start the cadence from now)
+//   set_event_anchor <id> <unix> -> anchor to a specific unix-second time
+//   set_event_anchor <id> -1     -> disable recurrence (manual-trigger only)
+set_event_anchor :: proc(player: Player, id: string = "", unix: s64 = 0) {
+    m := get_event_manager();
+    if m == null return;
+    if id.count == 0 {
+        show_notification(player, "usage: set_event_anchor <id> [unix|-1]");
+        return;
+    }
+    t := unix;
+    if t == 0 t = evt_now_seconds(); // default (no arg) = anchor to now
+    m.set_recurring_anchor(id, t);
+    if t < 0 {
+        show_notification(player, "% recurrence disabled", {id});
+    } else {
+        show_notification(player, "% anchored @ %", {id, t});
+    }
+} @chat_command
+
+// ---------------------------------------------------------------------------
+// Event_Base — the EventBase subclass surface. Author events by subclassing
+// this, overriding the metadata getters + lifecycle methods you care about,
+// and calling `register_event(this)` from the SUBCLASS's ao_start (it must be
+// the subclass's own ao_start so `this` is the concrete type — see below).
+//
+// All methods are overridable; the base impls are inert defaults. The lifecycle
+// methods receive the Event_Manager so overrides don't need get_event_manager().
+// ---------------------------------------------------------------------------
+Event_Base :: class : Component {
+    // --- metadata (read once at registration) ---
+    get_event_id   :: method() -> string { return ""; }   // unique id, REQUIRED
+    get_event_name :: method() -> string { return ""; }   // HUD / admin label
+    get_event_desc :: method() -> string { return ""; }   // admin description
+    get_config_key :: method() -> string { return ""; }   // "" = drives no multiplier
+    // px reserved at the bottom of the admin row for draw_admin_extras (0 = none).
+    get_admin_extras_height :: method() -> float { return 0; }
+
+    // --- lifecycle (called later via the thunks register_event emits) ---
+    on_event_start  :: method(mgr: Event_Manager, is_drop_in: bool) {}
+    on_event_end    :: method(mgr: Event_Manager) {}
+    on_event_update :: method(mgr: Event_Manager, dt: float) {}
+    // Custom admin-panel UI in the reserved rect (needs get_admin_extras_height > 0).
+    draw_admin_extras :: method(mgr: Event_Manager, rect: Rect) {}
+}
+
+// Generic registration. Monomorphized per concrete T, so every `e.get_*()` here
+// dispatches to the subclass, and the emitted thunks bake in T and dispatch to
+// the subclass overrides when the manager calls them later. Call as
+// `register_event(this)` from the event subclass's ao_start.
+register_event :: proc(e: $T/Event_Base) {
+    id := e.get_event_id();
+    if id.count == 0 return; // an event with no id can't be scheduled/toggled
+
+    def: Event_Def;
+    def.id         = id;
+    def.name       = e.get_event_name();
+    if def.name.count == 0 def.name = id;
+    def.desc       = e.get_event_desc();
+    def.config_key = e.get_config_key();
+    def.admin_extras_height = e.get_admin_extras_height();
+    def.userdata   = e;
+
+    def.on_start = proc(mgr: Event_Manager, userdata: Object, is_drop_in: bool) {
+        userdata.(T).on_event_start(mgr, is_drop_in);
+    };
+    def.on_end = proc(mgr: Event_Manager, userdata: Object) {
+        userdata.(T).on_event_end(mgr);
+    };
+    def.on_update = proc(mgr: Event_Manager, userdata: Object, dt: float) {
+        userdata.(T).on_event_update(mgr, dt);
+    };
+    def.draw_admin_extras = proc(mgr: Event_Manager, userdata: Object, rect: Rect) {
+        userdata.(T).draw_admin_extras(mgr, rect);
+    };
+
+    register_event_def(def);
+}
+
+// ---------------------------------------------------------------------------
+// Recurring scheduler — "events every X hours", ported from the older
+// MergeBrainrotRework project (its ConfigureRecurringEvents + PollGlobalEvents
+// recurring branch). The cadence (period + duration) is configured centrally in
+// code below; whether an event ACTUALLY recurs is gated by a per-event anchor in
+// game-global save (Event_<id>_anchor). Undefined or -1 => not recurring (the
+// event is then manual-trigger only, via start_event). A valid unix-seconds
+// anchor => the event is active for `duration_seconds` every `period_seconds`,
+// counting from the anchor.
+//
+// Because the anchor lives in game-global save (replicated to every server) and
+// the math is a pure function of the shared unix clock, every server computes
+// the identical active window with no coordination — they light up in lockstep.
+// ---------------------------------------------------------------------------
+Recurring_Config :: struct {
+    id:               string;
+    period_seconds:   s64; // how often it repeats
+    duration_seconds: s64; // how long it stays active within each period
+}
+
+// Configured in configure_recurring_events(), keyed by event id (string), so it
+// doesn't depend on the events having registered yet.
+g_recurring: [..]Recurring_Config;
+
+add_recurring :: proc(id: string, period_seconds: s64, duration_seconds: s64) {
+    for i: 0..g_recurring.count - 1 {
+        if g_recurring[i].id == id {
+            g_recurring[i].period_seconds   = period_seconds;
+            g_recurring[i].duration_seconds = duration_seconds;
+            return;
+        }
+    }
+    rc: Recurring_Config;
+    rc.id = id;
+    rc.period_seconds   = period_seconds;
+    rc.duration_seconds = duration_seconds;
+    append(ref g_recurring, rc);
+}
+
+// The "config to setup timers" — central place declaring each recurring event's
+// cadence (mirrors the old ConfigureRecurringEvents). Add entries here. Events
+// listed here only fire recurrently once their anchor key is set (see above);
+// until then they remain manual-trigger only, so adding one is behaviour-safe.
+configure_recurring_events :: proc() {
+    g_recurring.clear();
+    // Example: Speed Frenzy every 2h, active for 15 min. Inert until anchored
+    // (set Event_speed_frenzy_anchor in game save, or use set_event_anchor).
+    add_recurring("speed_frenzy", 120 * 60, 15 * 60);
+    // Candy: recurring test event — every 30s, active for 10s.
+    add_recurring("candy", 30, 10);
+}
+
+// Anchor save key for a recurring event (game-global, shared across servers).
+evt_anchor_key :: proc(id: string) -> string {
+    return format_string("Event_%_anchor", {id});
+}
+
+// Recurring anchor (unix seconds), or -1 if undefined / disabled. Empty string
+// (never set) and any negative value (e.g. "-1") both mean "not recurring".
+evt_recurring_anchor :: proc(id: string) -> s64 {
+    s := Save.get_game_string(evt_anchor_key(id), "");
+    if s.count == 0 return -1;            // never configured
+    if s[0].(s64) == 45 return -1;        // leading '-' => "-1"/disabled
+    v, ok := parse_uint_string(s);
+    if !ok return -1;
+    return v;
 }
 
 find_event_def :: proc(id: string) -> Event_Def, bool {
@@ -241,7 +416,24 @@ poll_and_replicate :: proc(mgr: Event_Manager) {
     now := evt_now_seconds();
     out := "";
 
-    // GLOBAL events from game-global save.
+    // RECURRING events: deterministic unix-time slots from a game-global anchor.
+    // Pure function of (now, anchor, period, duration), so every server agrees.
+    for i: 0..g_recurring.count - 1 {
+        rc := g_recurring[i];
+        if rc.period_seconds <= 0 || rc.duration_seconds <= 0 continue;
+        anchor := evt_recurring_anchor(rc.id);
+        if anchor < 0 continue;     // undefined / -1 => not recurring
+        if now < anchor continue;   // before the first slot
+        period := rc.period_seconds;
+        duration := rc.duration_seconds;
+        if duration > period duration = period;
+        k := (now - anchor) / period;          // current slot index
+        slot_start := anchor + k * period;
+        slot_end   := slot_start + duration;
+        if now >= slot_start && now < slot_end out = evt_csv_set(out, rc.id, slot_end);
+    }
+
+    // GLOBAL events from game-global save (manual one-shot windows).
     for i: 0..g_event_defs.count - 1 {
         id := g_event_defs[i].id;
         end := evt_global_end(id);
@@ -314,6 +506,10 @@ evt_get_duration :: proc(mgr: Event_Manager, id: string) -> s64 {
 
 // Fire on_start for newly-active events and on_end for newly-inactive ones,
 // comparing the synced active set against g_event_applied (per-machine).
+//
+// on_start/on_end are EDGE-triggered side effects that must fire once per real
+// transition. DIAGNOSTIC build: log the frame model at each edge to understand
+// why the client multi-fires before committing to a fix.
 apply_event_transitions :: proc(mgr: Event_Manager) {
     active := evt_active_ids(mgr.active_csv);
 
@@ -323,7 +519,11 @@ apply_event_transitions :: proc(mgr: Event_Manager) {
         if contains(g_event_applied, id) continue;
         append(ref g_event_applied, id);
         def, ok := find_event_def(id);
-        if ok && def.on_start != null def.on_start(mgr, def.userdata, false);
+        if ok && def.on_start != null {
+            log_info("[EVTDIAG] START id=% predicted=% server=% frame=% applied_count=%",
+                {id, Game.is_predicted_frame(), Game.is_server(), get_frame_number(), g_event_applied.count});
+            def.on_start(mgr, def.userdata, false);
+        }
     }
 
     // No longer active -> on_end.
@@ -332,7 +532,11 @@ apply_event_transitions :: proc(mgr: Event_Manager) {
         id := g_event_applied[j];
         if contains(active, id) { j += 1; continue; }
         def, ok := find_event_def(id);
-        if ok && def.on_end != null def.on_end(mgr, def.userdata);
+        if ok && def.on_end != null {
+            log_info("[EVTDIAG] END id=% predicted=% server=% frame=%",
+                {id, Game.is_predicted_frame(), Game.is_server(), get_frame_number()});
+            def.on_end(mgr, def.userdata);
+        }
         unordered_remove_by_index(ref g_event_applied, j);
     }
 }

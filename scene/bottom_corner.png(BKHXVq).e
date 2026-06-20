@@ -1,6 +1,6 @@
 14
-1687922147331
-1251412587
+8989366550529
+1243444586
 {
   "name": "bottom_corner.png",
   "local_enabled": true,
@@ -13,21 +13,22 @@
     "X": 1,
     "Y": 1
   },
-  "previous_sibling": 1248181926,
-  "next_sibling": 1253694937,
-  "parent": 1254820415
+  "previous_sibling": 1247677379,
+  "next_sibling": 1246768873,
+  "parent": 1245400885
 },
 {
   "cid": 1,
-  "aoid": 1248307268,
+  "aoid": 1245326355,
   "component_type": "Internal_Component",
   "internal_component_type": "Sprite_Renderer",
   "data": {
-    "texture": "Textures/Cliff/grassfloor/top_corner.png",
+    "texture": "Textures/Cliff/grassfloor/top_corner_greyscale.png",
     "depth_offset": -0.1916666030883789,
     "tint": {
-      "X": 0.3529413640499115,
-      "Z": 0.2745097875595093
+      "X": 0.0632012709975243,
+      "Y": 0.5698698759078979,
+      "Z": 0.0017867088317871
     },
     "layer": 1
   }

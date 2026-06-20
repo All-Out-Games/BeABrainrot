@@ -1,6 +1,6 @@
 14
-1692217114627
-1248181926
+8993661517825
+1247677379
 {
   "name": "bottom_edge.png",
   "local_enabled": true,
@@ -13,20 +13,21 @@
     "X": 1,
     "Y": 1
   },
-  "previous_sibling": 1248529985,
-  "next_sibling": 1251412587,
-  "parent": 1254820415
+  "previous_sibling": 1256053243,
+  "next_sibling": 1243444586,
+  "parent": 1245400885
 },
 {
   "cid": 1,
-  "aoid": 1245753005,
+  "aoid": 1249083619,
   "component_type": "Internal_Component",
   "internal_component_type": "Sprite_Renderer",
   "data": {
-    "texture": "Textures/Cliff/grassfloor/bottom_edge.png",
+    "texture": "Textures/Cliff/grassfloor/bottom_edge_greyscale.png",
     "tint": {
-      "X": 0.3529413640499115,
-      "Z": 0.2745097875595093
+      "X": 0.0632012709975243,
+      "Y": 0.5698698759078979,
+      "Z": 0.0017867088317871
     },
     "layer": 1,
     "scale": {

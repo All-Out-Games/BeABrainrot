@@ -299,6 +299,11 @@ LivingEntity :: class : Interactable {
     state: Brainrot_State;
     owner: Player;
 
+    // Candy event: wall-clock ns when this turned Candy (0 = none). Set server-
+    // side by the candy modifier; drives the one-shot candy pop burst on the
+    // client. See candy_particles.csl.
+    candy_pop_at: s64;
+
     // Premium brainrots render via a runtime Spine_Animator instead of `sprite`
     // (which is hidden). Set up in setup_spine_brainrot.
     is_spine: bool;
@@ -325,6 +330,7 @@ LivingEntity :: class : Interactable {
             state = Brainrot_State.NOT_CLAIMED;
             owner = null;
         }
+
 
         if jump_t > 0 {
             progress := 1.0 - (jump_t / JUMP_DURATION);
@@ -502,6 +508,9 @@ LivingEntity :: class : Interactable {
     ao_late_update :: method(dt: float) {
         local, has_local := Game.get_local_player();
         if !has_local return;
+
+        // Candy pop burst (one-shot when this turns Candy).
+        if candy_pop_at != 0 draw_candy_pop(this);
 
         // Only show head labels for brainrots in the room the viewer is
         // currently standing in. Wild (un-pedestal'd) brainrots aren't tied

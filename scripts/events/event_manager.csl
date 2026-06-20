@@ -64,12 +64,14 @@ Event_Def :: struct {
     name:       string; // display name (HUD / admin panel)
     desc:       string; // admin panel description
     config_key: string; // which Event_Manager config this drives ("" = none)
+    icon:       Texture_Asset; // HUD icon (null = name text fallback)
 
     userdata:  Object;  // usually the owning event Component instance, or null
 
-    on_start:  proc(mgr: Event_Manager, userdata: Object, is_drop_in: bool);
-    on_end:    proc(mgr: Event_Manager, userdata: Object);
-    on_update: proc(mgr: Event_Manager, userdata: Object, dt: float);
+    on_start:       proc(mgr: Event_Manager, userdata: Object, is_drop_in: bool);
+    on_end:         proc(mgr: Event_Manager, userdata: Object);
+    on_update:      proc(mgr: Event_Manager, userdata: Object, dt: float);
+    on_late_update: proc(mgr: Event_Manager, userdata: Object, dt: float);
 
     // Per-event custom admin panel UI (the CSL equivalent of C#'s virtual
     // DrawAdminPanelExtras). The panel reserves `admin_extras_height` px at the
@@ -143,6 +145,18 @@ Event_Manager :: class : Component {
             def := g_event_defs[i];
             if def.on_update == null continue;
             if is_event_active(this, def.id) def.on_update(this, def.userdata, dt);
+        }
+    }
+
+    // Per-frame late update for active events. Runs on both machines from a
+    // component late_update, so it's the right place for an event to draw its
+    // own world UI / FX (client-gate inside on_event_late_update with the local
+    // player). Mirrors the on_update loop above.
+    ao_late_update :: method(dt: float) {
+        for i: 0..g_event_defs.count - 1 {
+            def := g_event_defs[i];
+            if def.on_late_update == null continue;
+            if is_event_active(this, def.id) def.on_late_update(this, def.userdata, dt);
         }
     }
 
@@ -255,13 +269,17 @@ Event_Base :: class : Component {
     get_event_name :: method() -> string { return ""; }   // HUD / admin label
     get_event_desc :: method() -> string { return ""; }   // admin description
     get_config_key :: method() -> string { return ""; }   // "" = drives no multiplier
+    get_event_icon :: method() -> Texture_Asset { return null; } // HUD icon (null = name text)
     // px reserved at the bottom of the admin row for draw_admin_extras (0 = none).
     get_admin_extras_height :: method() -> float { return 0; }
 
     // --- lifecycle (called later via the thunks register_event emits) ---
-    on_event_start  :: method(mgr: Event_Manager, is_drop_in: bool) {}
-    on_event_end    :: method(mgr: Event_Manager) {}
-    on_event_update :: method(mgr: Event_Manager, dt: float) {}
+    on_event_start       :: method(mgr: Event_Manager, is_drop_in: bool) {}
+    on_event_end         :: method(mgr: Event_Manager) {}
+    on_event_update      :: method(mgr: Event_Manager, dt: float) {}
+    // Late update (active events only). Draw event-owned world UI / FX here;
+    // gate to the client with Game.get_local_player() inside.
+    on_event_late_update :: method(mgr: Event_Manager, dt: float) {}
     // Custom admin-panel UI in the reserved rect (needs get_admin_extras_height > 0).
     draw_admin_extras :: method(mgr: Event_Manager, rect: Rect) {}
 }
@@ -280,6 +298,7 @@ register_event :: proc(e: $T/Event_Base) {
     if def.name.count == 0 def.name = id;
     def.desc       = e.get_event_desc();
     def.config_key = e.get_config_key();
+    def.icon       = e.get_event_icon();
     def.admin_extras_height = e.get_admin_extras_height();
     def.userdata   = e;
 
@@ -291,6 +310,9 @@ register_event :: proc(e: $T/Event_Base) {
     };
     def.on_update = proc(mgr: Event_Manager, userdata: Object, dt: float) {
         userdata.(T).on_event_update(mgr, dt);
+    };
+    def.on_late_update = proc(mgr: Event_Manager, userdata: Object, dt: float) {
+        userdata.(T).on_event_late_update(mgr, dt);
     };
     def.draw_admin_extras = proc(mgr: Event_Manager, userdata: Object, rect: Rect) {
         userdata.(T).draw_admin_extras(mgr, rect);
@@ -338,6 +360,49 @@ add_recurring :: proc(id: string, period_seconds: s64, duration_seconds: s64) {
     append(ref g_recurring, rc);
 }
 
+find_recurring :: proc(id: string) -> Recurring_Config, bool {
+    for i: 0..g_recurring.count - 1 {
+        if g_recurring[i].id == id return g_recurring[i], true;
+    }
+    empty: Recurring_Config;
+    return empty, false;
+}
+
+// "H:MM:SS" (or "M:SS" under an hour) for a countdown.
+evt_format_hms :: proc(seconds: s64) -> string {
+    s := seconds;
+    if s < 0 s = 0;
+    h   := s / 3600;
+    m   := (s % 3600) / 60;
+    sec := s % 60;
+    if h > 0 return format_string("%:%:%", {h, format_int(m, 2), format_int(sec, 2)});
+    return format_string("%:%", {format_int(m, 2), format_int(sec, 2)});
+}
+
+// For a recurring event: "LIVE" while in its active window, else the countdown
+// to its next start. "" if the event isn't recurring or has no anchor set
+// (i.e. not currently scheduled). Pure function of the shared clock + the
+// replicated anchor, so client and server agree.
+evt_time_until_start_string :: proc(id: string) -> string {
+    rc, has := find_recurring(id);
+    if !has return "";
+    if rc.period_seconds <= 0 || rc.duration_seconds <= 0 return "";
+    anchor := evt_recurring_anchor(id);
+    if anchor < 0 return ""; // not anchored => not scheduled
+
+    now := evt_now_seconds();
+    if now < anchor return evt_format_hms(anchor - now); // before the first slot
+
+    period := rc.period_seconds;
+    duration := rc.duration_seconds;
+    if duration > period duration = period;
+    k := (now - anchor) / period;
+    slot_start := anchor + k * period;
+    slot_end   := slot_start + duration;
+    if now >= slot_start && now < slot_end return "LIVE";
+    return evt_format_hms((slot_start + period) - now); // time to next slot
+}
+
 // The "config to setup timers" — central place declaring each recurring event's
 // cadence (mirrors the old ConfigureRecurringEvents). Add entries here. Events
 // listed here only fire recurrently once their anchor key is set (see above);
@@ -347,8 +412,8 @@ configure_recurring_events :: proc() {
     // Example: Speed Frenzy every 2h, active for 15 min. Inert until anchored
     // (set Event_speed_frenzy_anchor in game save, or use set_event_anchor).
     add_recurring("speed_frenzy", 120 * 60, 15 * 60);
-    // Candy: recurring test event — every 30s, active for 10s.
-    add_recurring("candy", 30, 10);
+    // Candy: every hour, active for 5 minutes.
+    add_recurring("candy", 60 * 60, 5 * 60);
 }
 
 // Anchor save key for a recurring event (game-global, shared across servers).

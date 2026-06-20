@@ -1,6 +1,6 @@
 14
-1705102016514
-1248873666
+9006546419713
+1244583883
 {
   "name": "iron_peaks_1.png",
   "local_enabled": true,
@@ -13,13 +13,13 @@
     "X": 1,
     "Y": 1
   },
-  "previous_sibling": 1251679385,
-  "next_sibling": 1250342662,
-  "parent": 1254820415
+  "previous_sibling": 1249202490,
+  "next_sibling": 1255083726,
+  "parent": 1245400885
 },
 {
   "cid": 1,
-  "aoid": 1244756001,
+  "aoid": 1248956931,
   "component_type": "Internal_Component",
   "internal_component_type": "Sprite_Renderer",
   "data": {

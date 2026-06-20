@@ -1,0 +1,140 @@
+// ============================================================================
+// Stateless, time-sampled particle system. A system is created once (seed +
+// start_time + start/end positions + options) and every particle's position /
+// color / size is a pure function of (seed, index, t). No per-frame mutable
+// state, so it's immune to client-prediction resim (the present frame's draw is
+// always correct). Reusable for any burst/stream FX.
+// ============================================================================
+
+Particle_System :: class {
+    Sampled_Particle :: struct {
+        t: float;
+        position: v2;
+        color: v4;
+        size: float;
+        alive: bool;
+    }
+
+    Options :: struct {
+        duration: float;
+        particle_size: float;
+        spread: float;
+        speed_min: float;
+        speed_max: float;
+        size_min: float;
+        size_max: float;
+        gravity: v2;
+        start_color: v4;
+        end_color: v4;
+        size_end_multiplier: float;
+        stagger: float;
+        texture: Texture_Asset;
+    }
+
+    default_options :: proc() -> Options {
+        result: Options;
+        result.duration = 3.0;
+        result.particle_size = 0.1;
+        result.spread = 0.5;
+        result.speed_min = 1;
+        result.speed_max = 1.25;
+        result.size_min = 0.75;
+        result.size_max = 1.25;
+        result.start_color = {1, 1, 1, 1};
+        result.end_color = {1, 1, 1, 1};
+        result.size_end_multiplier = 1;
+        result.stagger = 0.2;
+        return result;
+    }
+
+    seed: u64;
+    start_time: float;
+    start_position: v2;
+    end_position: v2;
+    num_particles: s64;
+    options: Options;
+
+    create :: proc(seed: u64, start_time: float, start_position: v2, end_position: v2, num_particles: s64, options: Options) -> Particle_System {
+        result := new(Particle_System);
+        result.seed = seed;
+        result.start_time = start_time;
+        result.start_position = start_position;
+        result.end_position = end_position;
+        result.num_particles = num_particles;
+        result.options = options;
+        return result;
+    }
+
+    is_alive :: method(t: float) -> bool {
+        return t >= start_time && t < start_time + options.duration + options.stagger;
+    }
+
+    sample :: method(index: s64, t: float) -> Sampled_Particle {
+        result: Sampled_Particle;
+
+        rng := rng_seed(seed ^ (index.(u64) + 1));
+
+        speed := rng_range_float(ref rng, options.speed_min, options.speed_max);
+        delay := rng_range_float(ref rng, 0, options.stagger);
+        size_mult := rng_range_float(ref rng, options.size_min, options.size_max);
+
+        elapsed := (t - start_time) * speed - delay;
+        if elapsed < 0 || elapsed > options.duration {
+            result.t = 1;
+            return result;
+        }
+
+        progress := elapsed / options.duration;
+
+        dir_vec := v2{end_position.x - start_position.x, end_position.y - start_position.y};
+        dir_len := length(dir_vec);
+
+        fan_side := rng_range_float(ref rng, -1, 1);
+        fan_radius := options.spread * max(dir_len, 50);
+
+        base_pos: v2;
+        if dir_len < 0.001 {
+            angle := rng_range_float(ref rng, 0, 2 * PI);
+            r := fan_radius * sin(progress * PI);
+            base_pos = v2{start_position.x + cos(angle) * r, start_position.y + sin(angle) * r};
+        } else {
+            main_dir := v2{dir_vec.x / dir_len, dir_vec.y / dir_len};
+            perp := v2{-main_dir.y, main_dir.x};
+            fan := fan_side * fan_radius * sin(progress * PI);
+            base_pos = v2{
+                start_position.x + dir_vec.x * progress + perp.x * fan,
+                start_position.y + dir_vec.y * progress + perp.y * fan,
+            };
+        }
+
+        // Gravity (accelerates over elapsed time).
+        base_pos.x += 0.5 * options.gravity.x * elapsed * elapsed;
+        base_pos.y += 0.5 * options.gravity.y * elapsed * elapsed;
+
+        result.position = base_pos;
+        result.color = v4{
+            lerp(options.start_color.x, options.end_color.x, progress),
+            lerp(options.start_color.y, options.end_color.y, progress),
+            lerp(options.start_color.z, options.end_color.z, progress),
+            lerp(options.start_color.w, options.end_color.w, progress),
+        };
+        result.size = options.particle_size * size_mult * lerp(1.0, options.size_end_multiplier, progress);
+        result.alive = true;
+        result.t = progress;
+        return result;
+    }
+
+    // Draw in the CURRENT draw context (caller sets up world/screen context).
+    draw :: method(t: float) {
+        if num_particles <= 0 return;
+        sprite := options.texture;
+        if sprite == null sprite = core_globals.white_sprite;
+        for i: 0..num_particles - 1 {
+            p := sample(i, t);
+            if !p.alive continue;
+            half := p.size * 0.5;
+            rect := Rect{p.position, p.position}.grow(half);
+            UI.quad(rect, sprite, p.color);
+        }
+    }
+}

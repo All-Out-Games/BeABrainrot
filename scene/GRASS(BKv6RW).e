@@ -21,7 +21,11 @@
   "component_type": "Internal_Component",
   "internal_component_type": "Sprite_Renderer",
   "data": {
-    "texture": "Textures/environments/Grass/drygrassfloor_3.png",
+    "texture": "Textures/environments/Grass/drygrassfloor_3_greyscale.png",
+    "tint": {
+      "X": 0.0457158088684082,
+      "Z": 0
+    },
     "layer": -10,
     "scale": {
       "X": 100,

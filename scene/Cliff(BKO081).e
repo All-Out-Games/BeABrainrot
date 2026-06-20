@@ -1,11 +1,11 @@
 14
-1666447310850
-1254820415
+8967891714050
+1245400885
 {
   "name": "Cliff",
   "local_enabled": true,
   "local_position": {
-    "X": -46.4663658142089844,
+    "X": -46.4376449584960938,
     "Y": 10.1604423522949219
   },
   "local_rotation": 0,
@@ -18,7 +18,7 @@
 },
 {
   "cid": 2,
-  "aoid": 1247392640,
+  "aoid": 1244747020,
   "component_type": "Internal_Component",
   "internal_component_type": "Box_Collider",
   "data": {

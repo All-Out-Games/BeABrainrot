@@ -1,0 +1,107 @@
+// ============================================================================
+// Env_Recolor — holds the world's cliff + grass sprite renderers (serialized,
+// assign in the editor) and a set of named color palettes. Switch the whole map
+// to a palette by name:
+//
+//     recolor_env("Candy");   // e.g. from the candy event's on_event_start
+//     recolor_env("Base");    // ...and back, from on_event_end
+//
+// Recolor() only sets a SYNCED target palette name; the actual sprite coloring
+// happens in ao_update on BOTH client and server (so a server-side call from an
+// event reaches every client, and a player dropping in mid-event still sees the
+// right palette). Colors are only written when they change, so no per-frame
+// churn. Add palettes in configure_env_palettes().
+// ============================================================================
+
+g_env_recolor: Env_Recolor; // singleton
+
+Env_Palette :: struct {
+    name:  string;
+    cliff: v4;
+    grass: v4;
+}
+g_env_palettes: [..]Env_Palette;
+
+// 0-255 RGBA -> normalized v4.
+env_rgba :: proc(r: float, g: float, b: float, a: float) -> v4 {
+    return v4{r / 255.0, g / 255.0, b / 255.0, a / 255.0};
+}
+
+add_env_palette :: proc(name: string, cliff: v4, grass: v4) {
+    for i: 0..g_env_palettes.count - 1 {
+        if g_env_palettes[i].name == name {
+            g_env_palettes[i].cliff = cliff;
+            g_env_palettes[i].grass = grass;
+            return;
+        }
+    }
+    p: Env_Palette;
+    p.name = name;
+    p.cliff = cliff;
+    p.grass = grass;
+    append(ref g_env_palettes, p);
+}
+
+find_env_palette :: proc(name: string) -> Env_Palette, bool {
+    for i: 0..g_env_palettes.count - 1 {
+        if g_env_palettes[i].name == name return g_env_palettes[i], true;
+    }
+    empty: Env_Palette;
+    return empty, false;
+}
+
+// The config — add map palettes here.
+configure_env_palettes :: proc() {
+    g_env_palettes.clear();
+    add_env_palette("Base",  env_rgba(16, 145, 0, 255), env_rgba(11, 255, 0, 255));
+    add_env_palette("Candy", env_rgba(230, 90, 175, 255), env_rgba(255, 120, 200, 255));
+}
+
+// Switch the map to a named palette (no-op if no manager / unknown name).
+recolor_env :: proc(name: string) {
+    if g_env_recolor == null return;
+    g_env_recolor.recolor(name);
+}
+
+Env_Recolor :: class : Component {
+    cliffs: [..]Sprite_Renderer @ao_serialize; // every cliff sprite to recolor
+    grass:  Sprite_Renderer     @ao_serialize; // the grass/ground sprite
+
+    // Synced target palette. Set by recolor(); applied every frame in ao_update.
+    current_palette: string;
+
+    ao_start :: method() {
+        g_env_recolor = this;
+        if g_env_palettes.count == 0 configure_env_palettes();
+        if current_palette.count == 0 current_palette = "Base"; // default
+    }
+
+    ao_end :: method() {
+        if g_env_recolor == this g_env_recolor = null;
+    }
+
+    // Request a palette switch. Just sets the synced target; ao_update applies it
+    // on every machine (so a server-only event callback still recolors clients).
+    recolor :: method(name: string) {
+        current_palette = name;
+    }
+
+    ao_update :: method(dt: float) {
+        p, ok := find_env_palette(current_palette);
+        if !ok return;
+
+        for i: 0..cliffs.count - 1 {
+            sr := cliffs[i];
+            if sr == null continue;
+            if !#alive(sr.entity) continue;
+            if !env_color_eq(sr.color, p.cliff) sr.color = p.cliff;
+        }
+        if grass != null && #alive(grass.entity) {
+            if !env_color_eq(grass.color, p.grass) grass.color = p.grass;
+        }
+    }
+}
+
+env_color_eq :: proc(a: v4, b: v4) -> bool {
+    return a.x == b.x && a.y == b.y && a.z == b.z && a.w == b.w;
+}

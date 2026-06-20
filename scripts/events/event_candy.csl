@@ -1,0 +1,98 @@
+// ============================================================================
+// Candy event. Recurring (cadence set in configure_recurring_events: every hour
+// for 5 min) and only runs once its anchor is set: /set_event_anchor candy.
+//
+// While active, NPC-room brainrots randomly turn Candy (see on_event_update).
+// Authored as an Event_Base subclass; see event_manager.csl for the framework.
+// ============================================================================
+
+// How often the candy roll runs, and each NPC room's independent chance per roll
+// to candy one of its brainrots. Tunable.
+CANDY_MOD_TICK_INTERVAL :: 5.0;  // seconds between rolls
+CANDY_MOD_ROOM_CHANCE   :: 0.02; // per-room chance each roll
+
+// SERVER-ONLY. Each NPC room independently rolls; on success, one random
+// non-Candy brainrot turns Candy and gets stamped with candy_pop_at. That field
+// is synced, so every client plays an intense candy pop burst on it (see
+// draw_candy_pop).
+apply_candy_modifier_tick :: proc() {
+    rng: u64 = rng_seed(Time.nanoseconds_since_epoch());
+    for ri: 0..g_npc_rooms.count - 1 {
+        r := g_npc_rooms[ri];
+        if r == null continue;
+        if !#alive(r.entity) continue;
+        // Did this room get the chance this roll?
+        if rng_range_float(ref rng, 0, 1) > CANDY_MOD_ROOM_CHANCE continue;
+
+        // Collect this room's non-Candy brainrots that aren't already incoming.
+        candidates: [..]LivingEntity;
+        for pi: 0..r.pedestals.count - 1 {
+            p := r.pedestals[pi];
+            if p == null continue;
+            le := p.placed_brainrot;
+            if le == null continue;
+            if !#alive(le.entity) continue;
+            if le.mutation == Mutation.CANDY continue;
+            append(ref candidates, le);
+        }
+        if candidates.count == 0 continue;
+
+        // Turn it Candy now and stamp the pop time (drives the burst on clients).
+        target := candidates[rng_range_int(ref rng, 0, candidates.count - 1)];
+        target.candy_pop_at = get_nanoseconds_since_epoch();
+        target.mutation = Mutation.CANDY;
+        target.update_visuals();
+    }
+}
+
+Event_Candy :: class : Event_Base {
+    // Server-side accumulator driving the candy-modifier roll cadence.
+    modifier_tick_accum: float;
+
+    ao_start :: method() { register_event(this); }
+
+    get_event_id   :: method() -> string { return "candy"; }
+    get_event_name :: method() -> string { return "Candy Time"; }
+    get_event_desc :: method() -> string { return "Every hour for 5 min: NPC brainrots randomly turn Candy."; }
+    get_event_icon :: method() -> Texture_Asset { return get_asset(Texture_Asset, "wrapped-candy_fed4aa.png"); }
+
+    on_event_start :: method(mgr: Event_Manager, is_drop_in: bool) {
+        modifier_tick_accum = 0;
+        recolor_env("Candy"); // candy map palette (synced target, applied on all machines)
+        log_info("[Events] Candy started");
+        for p: g_players {
+            if p == null continue;
+            if !#alive(p) continue;
+            show_notification(p, "Candy event STARTED");
+        }
+    }
+    on_event_end :: method(mgr: Event_Manager) {
+        recolor_env("Base"); // back to the base map palette
+        log_info("[Events] Candy ended");
+        for p: g_players {
+            if p == null continue;
+            if !#alive(p) continue;
+            show_notification(p, "Candy event ENDED");
+        }
+    }
+
+    // Runs every frame while candy is active (on both machines via the manager's
+    // update loop). The brainrot-mutation roll is server-authoritative state, so
+    // it's gated server-only (per request + the edge-effect rule); the synced
+    // mutation field carries the result to clients.
+    on_event_update :: method(mgr: Event_Manager, dt: float) {
+        if !Game.is_server() return;
+        modifier_tick_accum += dt;
+        if modifier_tick_accum < CANDY_MOD_TICK_INTERVAL return;
+        modifier_tick_accum = 0;
+        apply_candy_modifier_tick();
+    }
+
+    // Candy particle FX. Called by the Event_Manager's late-update loop while
+    // candy is active; the local-player guard makes it client-side only.
+    on_event_late_update :: method(mgr: Event_Manager, dt: float) {
+        // Stateless ambient FX (recomputed from time each frame; client-gated
+        // and camera-culled inside).
+        candy_particles_draw();
+    }
+}

@@ -1,0 +1,57 @@
+// ============================================================================
+// Event_Display — a placeable world-space label that shows the countdown to a
+// recurring event's next start ("Candy Time in 12:34"), hiding itself while the
+// event is LIVE. Ported from the old project's EventDisplay.
+//
+// Add it to a scene entity (via the modify_scene MCP tool) wherever you want the
+// countdown to appear (e.g. near the candy machine), and set event_id /
+// event_name. The countdown comes from evt_time_until_start_string, which is a
+// pure function of the shared clock + the replicated anchor, so it's correct on
+// every client. Drawn from the local player's late_update (per the UI rule), so
+// the component itself has no update — it's just data + a draw().
+// ============================================================================
+
+// Self-registered list of all placed displays, so the player draw loop iterates
+// a small static list instead of scanning every component each frame.
+g_event_displays: [..]Event_Display;
+
+Event_Display :: class : Component {
+    event_id:   string @ao_serialize; // which recurring event, e.g. "candy"
+    event_name: string @ao_serialize; // display name, e.g. "Candy Time"
+
+    ao_start :: method() { append(ref g_event_displays, this); }
+
+    ao_end :: method() {
+        for i: 0..g_event_displays.count - 1 {
+            if g_event_displays[i] == this {
+                unordered_remove_by_index(ref g_event_displays, i);
+                break;
+            }
+        }
+    }
+
+    draw :: method() {
+        timer := evt_time_until_start_string(event_id);
+        if timer.count == 0 return;  // not scheduled (no anchor / not recurring)
+        if timer == "LIVE" return;   // active now — the event HUD covers it
+
+        UI.begin_world_space_ui(entity);
+        defer UI.end_world_space_ui();
+        UI.push_layer(2);
+
+        ts := UI.default_text_settings();
+        ts.size = 0.5;
+        ts.halign = .CENTER;
+        ts.valign = .CENTER;
+        ts.color = v4{1.0, 0.6, 0.85, 1}; // candy pink
+        ts.word_wrap = false;
+        ts.overflow_wrap = false;
+        ts.do_outline = true;
+        ts.outline_thickness = 4.0;
+        ts.outline_color = v4{0, 0, 0, 1};
+
+        pos := entity.world_position;
+        rect := Rect{pos, pos}.grow(0.5, 3.0, 0.5, 3.0);
+        UI.text(rect, ts, format_string("% in %", {event_name, timer}));
+    }
+}

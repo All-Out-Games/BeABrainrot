@@ -337,8 +337,16 @@ draw_admin_cheats_tab :: proc(player: Player, content_in: Rect) {
 }
 
 // ---------------------------------------------------------------------------
-// Active-event HUD — shown to ALL players, not just admins.
+// Active-event HUD — shown to ALL players. Top-left vertical stack, fishin
+// style: name on top, icon in the middle, remaining time at the bottom. No
+// background box; text outlines keep it readable over the world.
 // ---------------------------------------------------------------------------
+
+EVENT_HUD_CELL_W :: 96.0;  // cell width (1080p-reference px)
+EVENT_HUD_CELL_H :: 118.0; // cell height
+EVENT_HUD_NAME_H :: 26.0;  // name band (top)
+EVENT_HUD_TIME_H :: 26.0;  // timer band (bottom)
+EVENT_HUD_GAP    :: 12.0;  // vertical gap between cells
 
 draw_event_hud :: proc(player: Player) {
     mgr := get_event_manager();
@@ -351,17 +359,39 @@ draw_event_hud :: proc(player: Player) {
     UI.push_layer(80);
     defer UI.pop_layer();
 
-    anchor := UI.get_safe_screen_rect().top_center_rect().offset(0, -16);
-    for i: 0..active.count - 1 {
-        def, ok := find_event_def(active[i]);
-        name := active[i];
-        if ok name = def.name;
-        timer := evt_format_timer(evt_seconds_left(mgr, active[i]));
+    // Left column, stacked downward from the top-left safe corner.
+    col := UI.get_safe_screen_rect().inset(12).cut_left(EVENT_HUD_CELL_W);
 
-        row := anchor.grow(18, 200, 18, 200).offset(0, -(i * 44).(float));
-        UI.quad(row, core_globals.white_sprite, v4{0.0, 0.0, 0.0, 0.55});
-        inner := row.inset(4, 12, 4, 12);
-        UI.text(inner.cut_left(260), admin_left_ts(18), name);
-        UI.text(inner.cut_right(110), admin_ts(18, v4{0.5, 1.0, 0.6, 1}), timer);
+    for i: 0..active.count - 1 {
+        id := active[i];
+        def, ok := find_event_def(id);
+        name := id;
+        if ok name = def.name;
+
+        cell := col.cut_top(EVENT_HUD_CELL_H);
+        col.cut_top(EVENT_HUD_GAP);
+
+        name_area  := cell.cut_top(EVENT_HUD_NAME_H);     // top band
+        timer_area := cell.cut_bottom(EVENT_HUD_TIME_H);  // bottom band
+        icon_box   := cell;                               // middle (what's left)
+
+        // Icon first so the name/timer text always draws on top of it. Contain
+        // it inside the middle box (KEEP_WIDTH if wider than the box, else
+        // KEEP_HEIGHT) so a wide icon never overflows onto the name.
+        if ok && def.icon != null {
+            asp := def.icon.get_aspect();
+            if asp > icon_box.width() / icon_box.height() {
+                UI.quad(icon_box.fit_aspect(asp, .KEEP_WIDTH), def.icon, v4{1, 1, 1, 1});
+            } else {
+                UI.quad(icon_box.fit_aspect(asp, .KEEP_HEIGHT), def.icon, v4{1, 1, 1, 1});
+            }
+        }
+
+        // Name (top). Fixed size (autofit rendered nothing in legacy UI here).
+        UI.text(name_area, admin_ts(15), name);
+
+        // Remaining time (bottom).
+        timer := evt_format_timer(evt_seconds_left(mgr, id));
+        UI.text(timer_area, admin_ts(20, v4{0.5, 1.0, 0.6, 1}), timer);
     }
 }

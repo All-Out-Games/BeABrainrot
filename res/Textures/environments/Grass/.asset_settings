@@ -1,5 +1,11 @@
 [
   {
+    "id": "Textures/environments/Grass/drygrassfloor_3_greyscale.png",
+    "texture": {
+      "wrap_repeat": true
+    }
+  },
+  {
     "id": "Textures/environments/Grass/drygrassfloor_3.png",
     "texture": {
       "wrap_repeat": true

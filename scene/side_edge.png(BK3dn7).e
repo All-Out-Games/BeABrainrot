@@ -1,11 +1,11 @@
 14
-1700807049218
-1250342662
+8997956485121
+1256053243
 {
   "name": "side_edge.png",
   "local_enabled": true,
   "local_position": {
-    "X": 8.8288021087646484,
+    "X": -7.7110576629638672,
     "Y": 114.3030014038085938
   },
   "local_rotation": 0,
@@ -13,26 +13,26 @@
     "X": 1,
     "Y": 1
   },
-  "previous_sibling": 1248873666,
-  "next_sibling": 1248529985,
-  "parent": 1254820415
+  "previous_sibling": 1255083726,
+  "next_sibling": 1247677379,
+  "parent": 1245400885
 },
 {
   "cid": 1,
-  "aoid": 1243133653,
+  "aoid": 1252402353,
   "component_type": "Internal_Component",
   "internal_component_type": "Sprite_Renderer",
   "data": {
-    "texture": "Textures/Cliff/grassfloor/side_edge.png",
+    "texture": "Textures/Cliff/grassfloor/side_edge_greyscale.png",
     "tint": {
-      "X": 0.3529413640499115,
-      "Z": 0.2745097875595093
+      "X": 0.0632012709975243,
+      "Y": 0.5698698759078979,
+      "Z": 0.0017867088317871
     },
     "layer": 1,
     "scale": {
       "Y": 76
     },
-    "wrap": true,
-    "flip_x": true
+    "wrap": true
   }
 }

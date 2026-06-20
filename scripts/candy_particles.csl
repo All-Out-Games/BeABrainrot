@@ -1,0 +1,164 @@
+// ============================================================================
+// Candy event particle FX (client-side render, world-space, camera-culled).
+//
+// FULLY STATELESS: nothing is stored between frames. Each frame we recompute
+// which burst "waves" are currently alive purely from get_time() + a per-wave
+// seed, and sample each particle. Because there's no mutable state, client
+// rollback/resim can't make particles jump or revert — every frame (present or
+// replayed) computes the same thing for a given time.
+//
+//   * ambient candy explosions bursting at random world spots in the map box,
+//   * an intense candy "pop" burst on a brainrot the moment it turns Candy
+//     (draw_candy_pop, driven by the synced candy_pop_at timestamp).
+// ============================================================================
+
+CANDY_PARTICLE_TEX_PATH :: "Textures/wrapped_candy_pink_9d74b5.png";
+
+// Candy may only burst within this world box (the map).
+CANDY_BOX_MIN :: v2{-32.070, 8.344};
+CANDY_BOX_MAX :: v2{12.905, 160.078};
+
+CANDY_WAVE_INTERVAL   :: 1.0; // a burst wave every ~1s
+CANDY_BURSTS_MIN      :: 10;  // bursts per wave, scattered across the whole box
+CANDY_BURSTS_MAX      :: 18;  // (off-screen ones are culled)
+CANDY_BURST_PARTICLES :: 12;  // particles per burst
+CANDY_POP_PARTICLES   :: 28;  // particles in a brainrot transform pop (intense)
+
+// Reused scratch system (allocated once) so the per-frame recompute doesn't
+// allocate. It's transient config + sampling only, not stored state.
+g_candy_scratch: Particle_System;
+
+candy_particle_tex :: proc() -> Texture_Asset {
+    return get_asset(Texture_Asset, CANDY_PARTICLE_TEX_PATH);
+}
+
+candy_event_is_active :: proc() -> bool {
+    m := get_event_manager();
+    if m == null return false;
+    return is_event_active(m, "candy");
+}
+
+candy_burst_options :: proc() -> Particle_System.Options {
+    o := Particle_System.default_options();
+    o.duration = 1.4;                   // a bit longer
+    o.particle_size = 1.05;             // bigger candies
+    o.spread = 0.075;                   // bigger explosion radius (× max(dir,50))
+    o.speed_min = 0.8;
+    o.speed_max = 1.3;
+    o.size_min = 0.6;
+    o.size_max = 1.1;
+    o.size_end_multiplier = 0.25;       // shrink as they fade
+    o.stagger = 0.12;
+    o.start_color = v4{1, 1, 1, 1};
+    o.end_color = v4{1, 0.55, 0.85, 0}; // fade out toward pink-transparent
+    o.gravity = v2{0, -7};              // fall (world Y is up)
+    o.texture = candy_particle_tex();
+    return o;
+}
+
+// Draw the ambient candy bursts. Stateless — recomputed from get_time() each
+// frame. Client-only (we don't render server-side). Per-quad camera culling.
+candy_particles_draw :: proc() {
+    if Game.is_server() return;       // don't draw server-side
+    if !candy_event_is_active() return;
+    if g_candy_scratch == null g_candy_scratch = new(Particle_System);
+
+    now  := get_time();
+    opts := candy_burst_options();
+    life := opts.duration + opts.stagger;
+
+    UI.push_world_draw_context();
+    defer UI.pop_draw_context();
+    UI.push_layer(60);
+    defer UI.pop_layer();
+
+    first_wave := ((now - life) / CANDY_WAVE_INTERVAL).(s64);
+    last_wave  := (now / CANDY_WAVE_INTERVAL).(s64);
+
+    w := first_wave;
+    while w <= last_wave {
+        if w < 0 { w += 1; continue; }
+        wave_time := w.(float) * CANDY_WAVE_INTERVAL;
+
+        // Deterministic per-wave burst positions across the box.
+        rng := rng_seed(rng_root_seed() ^ (w.(u64) * 2654435761));
+        bursts := rng_range_int(ref rng, CANDY_BURSTS_MIN, CANDY_BURSTS_MAX);
+        for b: 0..bursts - 1 {
+            bx := rng_range_float(ref rng, CANDY_BOX_MIN.x, CANDY_BOX_MAX.x);
+            by := rng_range_float(ref rng, CANDY_BOX_MIN.y, CANDY_BOX_MAX.y);
+            bpos := v2{bx, by};
+            if !Camera.is_visible(bpos, 4.0) continue; // whole-burst cull
+
+            // Configure the scratch system for this burst and sample it.
+            g_candy_scratch.seed = rng_root_seed() ^ w.(u64) ^ (b.(u64) * 7919 + 1);
+            g_candy_scratch.start_time = wave_time;
+            g_candy_scratch.start_position = bpos;
+            g_candy_scratch.end_position = bpos;
+            g_candy_scratch.num_particles = CANDY_BURST_PARTICLES;
+            g_candy_scratch.options = opts;
+
+            for i: 0..CANDY_BURST_PARTICLES - 1 {
+                p := g_candy_scratch.sample(i, now);
+                if !p.alive continue;
+                if !Camera.is_visible(p.position, p.size) continue; // per-quad cull
+                half := p.size * 0.5;
+                UI.quad(Rect{p.position, p.position}.grow(half), opts.texture, p.color);
+            }
+        }
+        w += 1;
+    }
+}
+
+// Intense candy explosion options (the brainrot transform pop).
+candy_pop_options :: proc() -> Particle_System.Options {
+    o := Particle_System.default_options();
+    o.duration = 1.1;
+    o.particle_size = 1.3;
+    o.spread = 0.14;                    // big radius
+    o.speed_min = 1.0;
+    o.speed_max = 1.7;
+    o.size_min = 0.6;
+    o.size_max = 1.25;
+    o.size_end_multiplier = 0.2;
+    o.stagger = 0.05;                   // tight, punchy burst
+    o.start_color = v4{1, 1, 1, 1};
+    o.end_color = v4{1, 0.5, 0.85, 0};
+    o.gravity = v2{0, -8};
+    o.texture = candy_particle_tex();
+    return o;
+}
+
+// One-shot intense candy pop on a brainrot the moment it turns Candy. Stateless,
+// driven by the synced candy_pop_at (the pop time). Called per-brainrot from
+// LivingEntity.ao_late_update (client-only + culled).
+draw_candy_pop :: proc(le: LivingEntity) {
+    if le.candy_pop_at == 0 return;
+    now_ns  := get_nanoseconds_since_epoch();
+    local_t := (now_ns - le.candy_pop_at).(float) / 1000000000.0; // seconds since pop
+    opts := candy_pop_options();
+    if local_t < 0 return;
+    if local_t > opts.duration + opts.stagger return; // burst finished
+    center := le.entity.world_position;
+    if !Camera.is_visible(center, 5.0) return;
+    if g_candy_scratch == null g_candy_scratch = new(Particle_System);
+
+    g_candy_scratch.seed = le.candy_pop_at.(u64) ^ 1469598103;
+    g_candy_scratch.start_time = 0; // sample directly at local_t
+    g_candy_scratch.start_position = center;
+    g_candy_scratch.end_position = center;
+    g_candy_scratch.num_particles = CANDY_POP_PARTICLES;
+    g_candy_scratch.options = opts;
+
+    UI.push_world_draw_context();
+    defer UI.pop_draw_context();
+    UI.push_layer(61);
+    defer UI.pop_layer();
+
+    for i: 0..CANDY_POP_PARTICLES - 1 {
+        p := g_candy_scratch.sample(i, local_t);
+        if !p.alive continue;
+        if !Camera.is_visible(p.position, p.size) continue;
+        half := p.size * 0.5;
+        UI.quad(Rect{p.position, p.position}.grow(half), opts.texture, p.color);
+    }
+}

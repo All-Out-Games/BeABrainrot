@@ -23,10 +23,11 @@
   "component_type": "Internal_Component",
   "internal_component_type": "Sprite_Renderer",
   "data": {
-    "texture": "Textures/Cliff/grassfloor/bottom_edge.png",
+    "texture": "Textures/Cliff/grassfloor/bottom_edge_greyscale.png",
     "tint": {
-      "X": 0.3529413640499115,
-      "Z": 0.2745097875595093
+      "X": 0.0632012709975243,
+      "Y": 0.5698698759078979,
+      "Z": 0.0017867088317871
     },
     "layer": 1,
     "scale": {

@@ -1,5 +1,17 @@
 [
   {
+    "id": "Textures/Cliff/grassfloor/side_edge_greyscale.png",
+    "texture": {
+      "wrap_repeat": true
+    }
+  },
+  {
+    "id": "Textures/Cliff/grassfloor/bottom_edge_greyscale.png",
+    "texture": {
+      "wrap_repeat": true
+    }
+  },
+  {
     "id": "Textures/Cliff/grassfloor/side_edge.png",
     "texture": {
       "wrap_repeat": true

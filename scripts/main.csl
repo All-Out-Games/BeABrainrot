@@ -796,6 +796,18 @@ Player :: class : Player_Base {
             draw_tutorial(this);
             draw_notifications(this);
             draw_event_hud(this);
+
+            // World-space "next event" countdown labels — iterate the static
+            // self-registered list (see event_display.csl), culled to on-screen.
+            for i: 0..g_event_displays.count - 1 {
+                ed := g_event_displays[i];
+                if ed == null continue;
+                if !#alive(ed) continue;
+                if !#alive(ed.entity) continue;
+                if !Camera.is_visible(ed.entity.world_position, 3.0) continue;
+                ed.draw();
+            }
+
             update_admin_panel(this);
         }
         if is_local() {

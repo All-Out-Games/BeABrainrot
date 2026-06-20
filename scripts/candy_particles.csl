@@ -69,7 +69,7 @@ candy_particles_draw :: proc() {
 
     UI.push_world_draw_context();
     defer UI.pop_draw_context();
-    UI.push_layer(60);
+    UI.push_layer(0); // ambient candies sit on the ground layer
     defer UI.pop_layer();
 
     first_wave := ((now - life) / CANDY_WAVE_INTERVAL).(s64);
@@ -151,7 +151,10 @@ draw_candy_pop :: proc(le: LivingEntity) {
 
     UI.push_world_draw_context();
     defer UI.pop_draw_context();
-    UI.push_layer(61);
+    // Match the brainrot's render layer (its floor) so the pop sits with it.
+    pop_layer: s32 = 0;
+    if le.floor_renderer != null && #alive(le.floor_renderer) pop_layer = le.floor_renderer.floor.(s32);
+    UI.push_layer(pop_layer);
     defer UI.pop_layer();
 
     for i: 0..CANDY_POP_PARTICLES - 1 {

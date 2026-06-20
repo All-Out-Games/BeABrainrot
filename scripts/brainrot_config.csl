@@ -6,8 +6,8 @@ Brainrot_Config :: struct {
     id: string;
     display_name: string;
     rarity: Rarity;
-    base_price: float;
-    base_gps: float;
+    base_price: f64;
+    base_gps: f64;
     // The 2D image for this brainrot: the world sprite texture for sprite
     // brainrots, and the inventory/index/icon everywhere. For a spine brainrot
     // the world render comes from spine_path (which hides the sprite), but

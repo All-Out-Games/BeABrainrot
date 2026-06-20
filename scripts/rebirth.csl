@@ -18,7 +18,7 @@
 Rebirth_Reward :: class {
     stat_id:        string; // empty if this reward is not a multiplier
     mult_add:       float;  // additive contribution to that stat's multiplier
-    grant_cash:     float;  // one-time cash grant
+    grant_cash:     f64;    // one-time cash grant
     grant_pedestals: s64;   // permanent pedestal-slot unlock count
     label:          string;
     icon_path:      string;
@@ -27,13 +27,13 @@ Rebirth_Reward :: class {
 Rebirth_Level :: class {
     level:          s64;
     required_speed: s64;
-    required_cash:  float;
+    required_cash:  f64;
     rewards:        [..]Rebirth_Reward;
 }
 
 ALL_REBIRTH_LEVELS: [..]Rebirth_Level;
 
-register_rebirth_level :: proc(level: s64, required_speed: s64, required_cash: float = 0) -> Rebirth_Level {
+register_rebirth_level :: proc(level: s64, required_speed: s64, required_cash: f64 = 0) -> Rebirth_Level {
     lvl := new(Rebirth_Level);
     lvl.level          = level;
     lvl.required_speed = required_speed;
@@ -51,7 +51,7 @@ add_rebirth_multiplier :: proc(lvl: Rebirth_Level, stat_id: string, mult_add: fl
     append(ref lvl.rewards, r);
 }
 
-add_rebirth_cash_grant :: proc(lvl: Rebirth_Level, amount: float, label: string, icon_path: string = "") {
+add_rebirth_cash_grant :: proc(lvl: Rebirth_Level, amount: f64, label: string, icon_path: string = "") {
     r := new(Rebirth_Reward);
     r.grant_cash = amount;
     r.label      = label;
@@ -122,7 +122,7 @@ do_rebirth :: proc(player: Player, force: bool = false) -> bool {
     if !force && player.speed < nxt.required_speed return false;
     if !force && player.cash < nxt.required_cash return false;
 
-    grant_total: float = 0;
+    grant_total: f64 = 0;
     pedestal_total: s64 = 0;
     for r: nxt.rewards {
         if r.grant_cash > 0 grant_total += r.grant_cash;
@@ -172,7 +172,7 @@ register_default_rebirth_levels :: proc() {
     i: s64 = 0;
     while i < 25 {
         required_speed: s64 = 50 + i * 10; // first rebirth 50, then 60, 70, 80, ...
-        required_cash: float = 5000.0 * pow(2.4, (i + 1).(float));
+        required_cash: f64 = 5000.0 * pow(2.4, (i + 1).(f64));
         lvl := register_rebirth_level(i, required_speed, required_cash);
         add_rebirth_multiplier(lvl, "money", 0.5, "+0.5x money");
         add_rebirth_pedestal_grant(lvl, 1, "+1 Pedestal");
@@ -368,7 +368,7 @@ draw_rebirth_modal :: proc(player: Player) {
 
         cash_progress: float = 1.0;
         if nxt.required_cash > 0 {
-            cash_progress = player.cash / nxt.required_cash;
+            cash_progress = (player.cash / nxt.required_cash).(f32);
             if cash_progress > 1.0 cash_progress = 1.0;
             if cash_progress < 0.0 cash_progress = 0.0;
         }

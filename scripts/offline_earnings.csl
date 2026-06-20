@@ -133,7 +133,7 @@ tick_offline_earnings :: proc(player: Player, dt: float) {
             // popup, or income is too small to bother). Either way it's safe to
             // let the heartbeat run from here.
             player.offline_heartbeat_armed = true;
-            earnings := ceil_float(gps * player.offline_afk_seconds);
+            earnings := ceil_float(gps * player.offline_afk_seconds.(f64));
             log_info("[offline] ARM: gps=% * afk=%s = earnings=%", {gps, player.offline_afk_seconds, earnings});
             if earnings >= 1 {
                 player.offline_earnings_amount  = earnings;
@@ -202,7 +202,7 @@ settle_offline_earnings :: proc(player: Player, multiplier: float) -> bool {
     Save.set_f64(player, OFFLINE_LAST_SEEN_KEY, settle_now);
     log_info("[offline] SETTLE WRITE last_seen=% (paid %x%)", {settle_now, player.offline_earnings_amount, multiplier});
 
-    amount := player.offline_earnings_amount * multiplier;
+    amount := player.offline_earnings_amount * multiplier.(f64);
     if amount > 0 {
         deposit_cash(player, amount);
         play_offline_claim_sfx(player);

@@ -32,7 +32,7 @@ Pedestal :: class : Interactable {
     floor_renderer: Floor_Renderer @ao_serialize;
 
     placed_brainrot: LivingEntity;
-    accumulated_gold: float;
+    accumulated_gold: f64;
     claim_cooldown: float;
     gps_tick_timer: float;
     room: Room;
@@ -104,7 +104,7 @@ Pedestal :: class : Interactable {
                 base := placed_brainrot.get_gps();
                 amount := base;
                 if room != null && #alive(room.owner) {
-                    amount = ceil_float(base * get_rebirth_multiplier(room.owner, "money"));
+                    amount = ceil_float(base * get_rebirth_multiplier(room.owner, "money").(f64));
                 }
                 accumulated_gold += amount;
                 gps_tick_timer -= 1.0;
@@ -932,7 +932,7 @@ pedestal_floor :: proc(p: Pedestal) -> s64 {
 }
 
 // GPS of the brainrot on a pedestal, or -1 if empty (so empties sort last).
-pedestal_gps :: proc(p: Pedestal) -> float {
+pedestal_gps :: proc(p: Pedestal) -> f64 {
     if p == null return -1.0;
     if p.placed_brainrot == null return -1.0;
     if !#alive(p.placed_brainrot.entity) return -1.0;

@@ -19,7 +19,7 @@ Premium_Brainrot_Stand :: class : Interactable {
     cfg_loaded: bool;
     cfg_found:  bool;
     display_name: string;
-    base_gps:     float;
+    base_gps:     f64;
 
     ao_start :: method() {
         this.set_listener(this);
@@ -86,7 +86,7 @@ Premium_Brainrot_Stand :: class : Interactable {
         }
 
         lvl := effective_level();
-        gps := base_gps * pow(GPS_PER_LEVEL_MULT, (lvl - 1).(float));
+        gps := base_gps * pow(GPS_PER_LEVEL_MULT, (lvl - 1).(f64));
 
         UI.begin_world_space_ui(entity);
         defer UI.end_world_space_ui();

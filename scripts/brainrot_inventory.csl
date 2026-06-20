@@ -1,7 +1,7 @@
 Brainrot_Item_Definition :: class : Item_Definition {
     config_id: string;
-    base_price: float;
-    base_gps: float;
+    base_price: f64;
+    base_gps: f64;
     rarity: Rarity;
 }
 
@@ -232,7 +232,7 @@ place_brainrot_from_item :: proc(pedestal: Pedestal, player: Player, item: Brain
 
 // ===== Sell helpers =====
 
-get_brainrot_item_gps :: proc(item: Brainrot_Item) -> float {
+get_brainrot_item_gps :: proc(item: Brainrot_Item) -> f64 {
     if item == null return 0;
     if !#alive(item) return 0;
     defn := item.get_definition();
@@ -241,13 +241,13 @@ get_brainrot_item_gps :: proc(item: Brainrot_Item) -> float {
     br_defn := defn.(Brainrot_Item_Definition);
     lvl := item.level;
     if lvl < 1 lvl = 1;
-    e := (lvl - 1).(float);
+    e := (lvl - 1).(f64);
     g := br_defn.base_gps * pow(GPS_PER_LEVEL_MULT, e);
     g *= get_mutation_gps_multiplier(item.mutation);
     return g;
 }
 
-get_brainrot_item_sell_price :: proc(item: Brainrot_Item) -> float {
+get_brainrot_item_sell_price :: proc(item: Brainrot_Item) -> f64 {
     return get_brainrot_item_gps(item) * 10.0;
 }
 
@@ -264,7 +264,7 @@ sell_all_brainrots :: proc(player: Player) {
     if player == null return;
     inv := player.default_inventory;
     if inv == null return;
-    total: float = 0;
+    total: f64 = 0;
     for i: 0..inv.capacity - 1 {
         item := inv.get_item(i);
         if item == null continue;
@@ -280,11 +280,11 @@ sell_all_brainrots :: proc(player: Player) {
 // Sweep pending gold off every unlocked base pedestal and deposit the total in
 // one go (single cash popup) + jump the brainrots. Shared by the PRIME
 // auto-collect tick. Returns the total collected.
-collect_all_pedestal_gold :: proc(player: Player) -> float {
+collect_all_pedestal_gold :: proc(player: Player) -> f64 {
     if player == null return 0;
     room := player.my_room;
     if room == null return 0;
-    total: float = 0;
+    total: f64 = 0;
     for i: 0..room.pedestals.count - 1 {
         if i >= player.pedestals_unlocked break;
         p := room.pedestals[i];
@@ -331,7 +331,7 @@ auto_equip_best :: proc(player: Player) {
     player.equip_best_next_at = now + EQUIP_BEST_COOLDOWN;
 
     // Phase 1: collect any pending gold from every unlocked pedestal.
-    cashed_out: float = 0;
+    cashed_out: f64 = 0;
     for i: 0..room.pedestals.count - 1 {
         if i >= player.pedestals_unlocked break;
         p := room.pedestals[i];
@@ -365,13 +365,13 @@ auto_equip_best :: proc(player: Player) {
         p := room.pedestals[pi];
         if p == null continue;
 
-        cur_gps: float = -1.0;
+        cur_gps: f64 = -1.0;
         if p.placed_brainrot != null && #alive(p.placed_brainrot.entity) {
             cur_gps = p.placed_brainrot.get_gps();
         }
 
         best_idx: s64 = -1;
-        best_gps: float = cur_gps;
+        best_gps: f64 = cur_gps;
         for i: 0..inv.capacity - 1 {
             it := inv.get_item(i);
             if it == null continue;
@@ -687,7 +687,7 @@ draw_sell_modal :: proc(player: Player) {
     if inv == null return;
 
     sell_indices: [..]s64;
-    total_value: float = 0;
+    total_value: f64 = 0;
     for i: 0..inv.capacity - 1 {
         item := inv.get_item(i);
         if item == null continue;
@@ -876,7 +876,7 @@ draw_sell_modal :: proc(player: Player) {
 }
 
 // Confirmation prompt shown before selling the entire inventory.
-draw_sell_all_confirm :: proc(player: Player, count: s64, total_value: float) {
+draw_sell_all_confirm :: proc(player: Player, count: s64, total_value: f64) {
     if !player.show_sell_all_confirm return;
 
     UIK.begin(UIK.modal(UIK.rect_window_small(), 25));

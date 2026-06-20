@@ -15,13 +15,13 @@ LEADERBOARD_WRITE_INTERVAL :: 30.0; // seconds between score publishes
 // Sum of every placed brainrot's GPS in the player's base, with their rebirth
 // money multiplier applied -- matches how pedestal income actually accrues
 // (see Pedestal.ao_update in room.csl).
-player_total_gps :: proc(player: Player) -> float {
+player_total_gps :: proc(player: Player) -> f64 {
     if player == null return 0;
     if !#alive(player.entity) return 0;
     room := player.my_room;
     if room == null return 0;
-    mult := get_rebirth_multiplier(player, "money");
-    total: float = 0;
+    mult := get_rebirth_multiplier(player, "money").(f64);
+    total: f64 = 0;
     for p: room.pedestals {
         if p == null continue;
         g := pedestal_gps(p);

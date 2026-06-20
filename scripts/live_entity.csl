@@ -148,7 +148,7 @@ play_brainrot_upgrade_sfx :: proc(player: Player) {
     SFX.play(sfx, desc);
 }
 
-get_mutation_gps_multiplier :: proc(m: Mutation) -> float {
+get_mutation_gps_multiplier :: proc(m: Mutation) -> f64 {
     if m == Mutation.GOLD return 1.25;
     if m == Mutation.DIAMOND return 1.5;
     if m == Mutation.RAINBOW return 3.0;
@@ -288,8 +288,8 @@ LivingEntity :: class : Interactable {
     level: s64 @ao_serialize;
     rarity: Rarity @ao_serialize;
     mutation: Mutation @ao_serialize;
-    base_price: float @ao_serialize;
-    base_gps: float @ao_serialize;
+    base_price: f64 @ao_serialize;
+    base_gps: f64 @ao_serialize;
     base_scale: float @ao_serialize;
     sprite: Sprite_Renderer @ao_serialize;
     floor_renderer: Floor_Renderer @ao_serialize;
@@ -353,13 +353,13 @@ LivingEntity :: class : Interactable {
         jump_t = JUMP_DURATION;
     }
 
-    get_upgrade_price :: method() -> float {
-        e := (level - 1).(float);
+    get_upgrade_price :: method() -> f64 {
+        e := (level - 1).(f64);
         return base_price * pow(PRICE_PER_LEVEL_MULT, e);
     }
 
-    get_gps :: method() -> float {
-        e := (level - 1).(float);
+    get_gps :: method() -> f64 {
+        e := (level - 1).(f64);
         g := base_gps * pow(GPS_PER_LEVEL_MULT, e);
         g *= get_mutation_gps_multiplier(mutation);
         return ceil_float(g);

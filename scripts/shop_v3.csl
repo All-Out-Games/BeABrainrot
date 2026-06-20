@@ -483,7 +483,7 @@ draw_shop_v3 :: proc(player: Player) {
     examen_gps_text := "";
     examen_defn := find_brainrot_definition(WOOOW_MY_EXAMEN_ID);
     if examen_defn != null {
-        g := examen_defn.base_gps * pow(GPS_PER_LEVEL_MULT, (WOOOW_MY_EXAMEN_LEVEL - 1).(float));
+        g := examen_defn.base_gps * pow(GPS_PER_LEVEL_MULT, (WOOOW_MY_EXAMEN_LEVEL - 1).(f64));
         examen_gps_text = format_string("%/s", {format_cash(g)});
     }
     examen_holder := UIK.layout_column();

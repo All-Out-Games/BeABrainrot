@@ -25,10 +25,10 @@ speed_price_mult_at :: proc(s: s64) -> float {
     return SPEED_PRICE_MULT_START + (s - BASE_SPEED).(float) * SPEED_PRICE_MULT_GROW;
 }
 
-speed_price_single_at :: proc(s: s64) -> float {
-    cost := SPEED_PRICE_BASE;
+speed_price_single_at :: proc(s: s64) -> f64 {
+    cost: f64 = SPEED_PRICE_BASE;
     for i: BASE_SPEED..s - 1 {
-        cost *= speed_price_mult_at(i);
+        cost *= speed_price_mult_at(i).(f64);
     }
     return cost;
 }
@@ -54,12 +54,12 @@ compute_agent_movement_speed_uncapped :: proc(stat_speed: s64) -> float {
     return BASE_AGENT_SPEED + over * per_stat;
 }
 
-speed_upgrade_cash_cost :: proc(current_speed: s64, amount: s64) -> float {
+speed_upgrade_cash_cost :: proc(current_speed: s64, amount: s64) -> f64 {
     if amount <= 0 return 0;
     cost := speed_price_single_at(current_speed);
     total := cost;
     for i: current_speed..current_speed + amount - 2 {
-        cost *= speed_price_mult_at(i);
+        cost *= speed_price_mult_at(i).(f64);
         total += cost;
     }
     return total;

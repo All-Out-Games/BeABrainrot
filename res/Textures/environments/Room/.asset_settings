@@ -1,12 +1,14 @@
 [
   {
     "id": "Textures/environments/Room/Sidewalk/sidewalk_bottom.png",
+    "should_mip": true,
     "texture": {
       "wrap_repeat": true
     }
   },
   {
     "id": "Textures/environments/Room/Sidewalk/sidewalk_top.png",
+    "should_mip": true,
     "texture": {
       "wrap_repeat": true
     }
@@ -25,5 +27,21 @@
     "texture": {
       "wrap_repeat": true
     }
+  },
+  {
+    "id": "Textures/environments/Room/Sidewalk/sidewalk_topr.png",
+    "should_mip": true
+  },
+  {
+    "id": "Textures/environments/Room/Sidewalk/sidewalk_R.png",
+    "should_mip": true
+  },
+  {
+    "id": "Textures/environments/Room/Sidewalk/sidewalk_bottoml.png",
+    "should_mip": true
+  },
+  {
+    "id": "Textures/environments/Room/Sidewalk/sidewalk_bottomr.png",
+    "should_mip": true
   }
 ]

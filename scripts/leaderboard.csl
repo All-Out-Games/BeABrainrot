@@ -329,19 +329,30 @@ Leaderboard :: class : Component {
             suffix_rect := final_rank_rect.right_rect().offset(0, -0.02);
             UI.text(suffix_rect, suffix_ts, lb_ordinal_suffix(i));
 
-            name_ts := base_ts;
-            name_ts.size   = text_size;
-            name_ts.halign = .LEFT;
-            name_rect := entry_rect.left_rect().offset(1, 0);
-            if i == 0 { name_rect = name_rect.offset(0, -0.03); }
-            UI.text(name_rect, name_ts, display_name);
-
             score_ts := base_ts;
             score_ts.size   = text_size;
             score_ts.halign = .RIGHT;
+            score_str := format_score_suffix(score);
+
+            // Reserve the score's measured width (+gap) on the right, then squeeze
+            // the name into whatever's left (autofit) so they never overlap.
+            score_w := UI.measure_text(entry_rect, score_ts, "%", {score_str}).width();
+
+            name_ts := base_ts;
+            name_ts.size             = text_size;
+            name_ts.halign           = .LEFT;
+            name_ts.valign           = .CENTER;
+            name_ts.do_autofit       = true;
+            name_ts.autofit_max_size = text_size;
+            name_ts.autofit_min_size = text_size * 0.35;
+            name_ts.autofit_iters    = 8;
+            name_box := entry_rect.inset(0.04, score_w + 0.4, 0.04, 1.0);
+            if i == 0 { name_box = name_box.offset(0, -0.03); }
+            UI.text_sync(name_box, name_ts, display_name);
+
             score_rect := entry_rect.right_rect().offset(-0.175, 0);
             if i == 0 { score_rect = score_rect.offset(-0.075, -0.03); }
-            UI.text(score_rect, score_ts, "%", {format_score_suffix(score)});
+            UI.text(score_rect, score_ts, "%", {score_str});
         }
     }
 
@@ -370,19 +381,29 @@ Leaderboard :: class : Component {
         suffix_rect := final_rank_rect.right_rect().offset(0, -0.02);
         UI.text(suffix_rect, suffix_ts, lb_ordinal_suffix(my_entry.placement.(int)));
 
-        name_ts := base_ts;
-        name_ts.size   = text_size;
-        name_ts.halign = .LEFT;
-        name_rect := my_rect.left_rect().offset(1, 0);
         display_name := my_entry.username;
         if display_name.count == 0 { display_name = "Me"; }
-        UI.text(name_rect, name_ts, display_name);
 
         score_ts := base_ts;
         score_ts.size   = text_size;
         score_ts.halign = .RIGHT;
+        score_str := format_score_suffix(my_entry.score);
+
+        score_w := UI.measure_text(my_rect, score_ts, "%", {score_str}).width();
+
+        name_ts := base_ts;
+        name_ts.size             = text_size;
+        name_ts.halign           = .LEFT;
+        name_ts.valign           = .CENTER;
+        name_ts.do_autofit       = true;
+        name_ts.autofit_max_size = text_size;
+        name_ts.autofit_min_size = text_size * 0.35;
+        name_ts.autofit_iters    = 8;
+        name_box := my_rect.inset(0.04, score_w + 0.4, 0.04, 1.0);
+        UI.text_sync(name_box, name_ts, display_name);
+
         score_rect := my_rect.right_rect().offset(-0.175, 0);
-        UI.text(score_rect, score_ts, "%", {format_score_suffix(my_entry.score)});
+        UI.text(score_rect, score_ts, "%", {score_str});
     }
 }
 

@@ -1,5 +1,7 @@
 import "core:ao"
 
+AO_DROPPED_ITEMS_IMPORTED :: true;
+
 Dropped_Item :: class : Component {
     item: Item_Instance;
     sprite: Sprite_Renderer;
@@ -75,26 +77,37 @@ Dropped_Item :: class : Component {
         entity.set_local_enabled(visible);
     }
 
-    ao_update :: method(dt: float) {
+    update_dropped_item :: method(dt: float) {
+        visible := Camera.is_visible(visual_root.world_position);
         if claimed {
-            t := Ease.out_quart(Ease.T(get_time() - time_claimed, 1));
-            visual_root.set_local_scale({lerp(1.0, 0.5, t), lerp(1.0, 1.5, t)});
-            sprite.color.w = lerp(sprite.color.w, 0, t);
-            starburst.color.w = lerp(starburst.color.w, 0, t);
-            shadow.color.w = lerp(shadow.color.w, 0, t);
-            visual_root.set_local_position(lerp(v2{}, v2{0, 2}, t));
+            if visible {
+                t := Ease.out_quart(Ease.T(get_time() - time_claimed, 1));
+                visual_root.set_local_scale({lerp(1.0, 0.5, t), lerp(1.0, 1.5, t)});
+                sprite.color.w = lerp(sprite.color.w, 0, t);
+                starburst.color.w = lerp(starburst.color.w, 0, t);
+                shadow.color.w = lerp(shadow.color.w, 0, t);
+                visual_root.set_local_position(lerp(v2{}, v2{0, 2}, t));
+            }
         }
         else {
             if is_animating {
                 t := Ease.T(get_time() - spawn_time, 0.5);
                 if t < 1 {
-                    // do an arc for y
-                    y := sin(t * PI);
-                    visual_root.set_local_position({0, y});
+                    // Position and completion are gameplay state, so they must
+                    // advance identically in every realm even when presentation
+                    // work is culled for an offscreen item.
                     current_position := lerp(start_position, target_position, t);
                     entity.set_local_position(current_position);
+
+                    if visible {
+                        // do an arc for y
+                        y := sin(t * PI);
+                        visual_root.set_local_position({0, y});
+                    }
                 }
                 else {
+                    entity.set_local_position(target_position);
+                    visual_root.set_local_position({});
                     is_animating = false;
                 }
             }
@@ -107,36 +120,40 @@ Dropped_Item :: class : Component {
                 return;
             }
             else if time_alive >= DESPAWN_WARNING_TIME {
-                UI.push_world_draw_context();
-                defer UI.pop_draw_context();
+                if visible {
+                    UI.push_world_draw_context();
+                    defer UI.pop_draw_context();
 
-                pos := entity.world_position;
-                UI.push_z(pos.y);
-                defer UI.pop_z();
+                    pos := entity.world_position;
+                    UI.push_z(pos.y);
+                    defer UI.pop_z();
 
-                // Calculate remaining time as 0-1 (1 = full, 0 = empty)
-                time_alive := get_time() - despawn_time_start;
-                time_in_warning := time_alive - DESPAWN_WARNING_TIME;
-                fill_pct := 1.0 - (time_in_warning / DESPAWN_DURATION);
+                    // Calculate remaining time as 0-1 (1 = full, 0 = empty)
+                    time_alive := get_time() - despawn_time_start;
+                    time_in_warning := time_alive - DESPAWN_WARNING_TIME;
+                    fill_pct := 1.0 - (time_in_warning / DESPAWN_DURATION);
 
-                // Bar position above the item
-                bar_pos := pos + v2{0, 0.7};
-                bar_rect := Rect{bar_pos, bar_pos}.grow(0.04, 0.3, 0.04, 0.3);
+                    // Bar position above the item
+                    bar_pos := pos + v2{0, 0.7};
+                    bar_rect := Rect{bar_pos, bar_pos}.grow(0.04, 0.3, 0.04, 0.3);
 
-                // Background
-                UI.quad(bar_rect, core_globals.white_sprite, {0, 0, 0, 0.6});
+                    // Background
+                    UI.quad(bar_rect, core_globals.white_sprite, {0, 0, 0, 0.6});
 
-                // Fill (red to show urgency)
-                if fill_pct > 0 {
-                    fill_rect := bar_rect.inset_unscaled(0.02).subrect(0, 0, fill_pct, 1);
-                    UI.quad(fill_rect, core_globals.white_sprite, {0.8, 0.2, 0.2, 0.9});
+                    // Fill (red to show urgency)
+                    if fill_pct > 0 {
+                        fill_rect := bar_rect.inset_unscaled(0.02).subrect(0, 0, fill_pct, 1);
+                        UI.quad(fill_rect, core_globals.white_sprite, {0.8, 0.2, 0.2, 0.9});
+                    }
                 }
             }
         }
 
         // Spin the starburst
-        rotation := (get_time() - spawn_time) * 30;
-        starburst.entity.set_local_rotation(rotation);
+        if visible {
+            rotation := (get_time() - spawn_time) * 30;
+            starburst.entity.set_local_rotation(rotation);
+        }
     }
 
     spawn :: proc(position: v2, item: Item_Instance) -> Dropped_Item {

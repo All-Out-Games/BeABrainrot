@@ -110,6 +110,8 @@ Component_Iterator :: struct(T: typeid) {
 Sprite_Renderer :: class : Component {
     set_texture  :: method(texture: Texture_Asset) #foreign "sprite_renderer_set_texture";
     get_texture  :: method() -> Texture_Asset #foreign "sprite_renderer_get_texture";
+    set_canvas   :: method(canvas: Dynamic_Canvas) #foreign "sprite_renderer_set_canvas";
+    get_canvas   :: method() -> Dynamic_Canvas #foreign "sprite_renderer_get_canvas";
     set_material :: method(material: Material, transfer_ownership: bool) #foreign "sprite_renderer_set_material";
     get_world_size :: method() -> v2 #foreign "sprite_renderer_get_world_size";
     #error_on_use "`Sprite_Renderer.tint` does not exist. Did you mean to use `Sprite_Renderer.color`?"
@@ -195,6 +197,8 @@ Interactable :: class : Component {
     set_text      :: method(text: string) #foreign "interactable_set_text";
     get_hold_text :: method() -> string   #foreign "interactable_get_hold_text";
     set_hold_text :: method(text: string) #foreign "interactable_set_hold_text";
+    get_subtitle  :: method() -> string   #foreign "interactable_get_subtitle";
+    set_subtitle  :: method(text: string) #foreign "interactable_set_subtitle";
     set_listener :: method(new_listener: $T/Component) #unsafe {
         listener = new_listener;
         can_use_proc     = #optional_procedure_of_call(new_listener.can_use(null));
@@ -206,6 +210,7 @@ Interactable :: class : Component {
     radius:             float     #foreign;
     required_hold_time: float     #foreign;
     priority:           s64       #foreign;
+    subtitle_color:     v4        #foreign;
     listener: Component #foreign "csl_listener"         #read_only("use set_listener()");
     can_use_proc:     (proc(t: Component, player: Player) -> bool) #foreign "csl_can_use_proc"     #read_only("use set_listener()");
     on_interact_proc: (proc(t: Component, player: Player))         #foreign "csl_on_interact_proc" #read_only("use set_listener()");
@@ -227,6 +232,13 @@ Spine_Animator :: class : Component {
     set_state_machine       :: method(new_state_machine: State_Machine, transfer_ownership: bool) #foreign "spine_animator_set_state_machine";
     get_bone_local_position :: method(bone_name: string) -> v2 #foreign "spine_animator_get_bone_position";
     set_bone_local_position :: method(bone_name: string, position: v2) #foreign "spine_animator_set_bone_position";
+    // Hit-tests the current animated geometry of every skeleton-space
+    // attachment using canvas, then maps the topmost hit back to the stable
+    // setup-pose canvas UV. The result is normalized with texture row 0 at the
+    // top. It uses the deterministic sim pose, not render interpolation. This
+    // is a geometric mesh hit; Spine clipping and transparent atlas pixels
+    // inside a triangle are not applied to the hit test.
+    try_get_paint_canvas_uv :: method(world_position: v2, canvas: Dynamic_Canvas) -> v2, bool #foreign "spine_animator_try_get_paint_canvas_uv";
     set_skeleton            :: method(asset: Spine_Asset) -> u64 #foreign "spine_animator_set_skeleton";
     get_skeleton            :: method(id: u64 = 0) -> Spine_Asset #foreign "spine_animator_get_skeleton";
     set_animation           :: method(animation: string, loop: bool, track: s64, speed: float = 1) #foreign "spine_animator_set_animation";
@@ -236,6 +248,8 @@ Spine_Animator :: class : Component {
     disable_all_skins       :: method() #foreign "spine_animator_disable_all_skins";
     refresh_skins           :: method() #foreign "spine_animator_refresh_skins";
     set_to_setup_pose       :: method() #foreign "spine_animator_set_to_setup_pose";
+    set_to_player_material  :: method(player: Player) #foreign "spine_animator_set_to_player_material";
+    set_destroy_entity_when_done_current_animation :: method(enabled: bool) #foreign "spine_animator_set_destroy_entity_when_done_current_animation";
     get_skins               :: method() -> []string #foreign "spine_animator_get_skins";
     get_tint                :: method() -> v4 #foreign "spine_animator_get_tint";
     set_tint                :: method(new_tint: v4) #foreign "spine_animator_set_tint";
@@ -290,6 +304,7 @@ Camera :: struct {
     position:            v2            #foreign;
     position_last_frame: v2 #read_only #foreign;
     size:                float         #foreign "orthographic_size";
+    size_last_frame:     float #read_only #foreign "orthographic_size_last_frame";
     follow_player:       bool          #foreign;
 
     is_visible :: proc(point: v2, apron: float = 1) -> bool #foreign "camera_is_visible_point";
@@ -381,7 +396,26 @@ Texture_Asset :: class : Asset {
     get_pivot :: method() -> v2 #foreign "texture_asset_get_pivot";
     get_pixels_per_unit :: method() -> float #foreign "texture_asset_get_pixels_per_unit";
     get_uvs :: method() -> v2, v2 #foreign "texture_asset_get_uvs";
+
 } #foreign_struct "Texture"
+
+// A scene-owned straight-alpha sRGB RGBA8 canvas. Its pixels participate in
+// ordinary CSL scene syncing, prediction, rollback, and reconciliation; they
+// are not client-local state. Use a future local-auth buffer for effects whose
+// state must survive authoritative scene corrections. Width and height are
+// limited to 512; a scene may hold 16 canvases and 4 MiB of canvas pixels.
+Dynamic_Canvas :: class {
+    create    :: proc(width: s64, height: s64, pixels_per_unit: float = 100) -> Dynamic_Canvas #foreign "dynamic_canvas_create";
+    destroy   :: method() #foreign "dynamic_canvas_destroy";
+    fill      :: method(color: v4) #foreign "dynamic_canvas_fill";
+    set_pixel :: method(x: s64, y: s64, color: v4) #foreign "dynamic_canvas_set_pixel";
+    get_pixel :: method(x: s64, y: s64) -> v4 #foreign "dynamic_canvas_get_pixel";
+    stamp     :: method(from: v2, to: v2, radius: float, color: v4, softness: float = 0.5, opacity: float = 1) #foreign "dynamic_canvas_stamp";
+
+    width: s64              #read_only #foreign;
+    height: s64             #read_only #foreign;
+    pixels_per_unit: float  #read_only #foreign;
+} #gc_root #foreign_struct "Dynamic_Canvas"
 
 SFX_Asset :: class : Asset {
 } #foreign_struct "SFX_Asset"
@@ -398,6 +432,9 @@ Prefab_Asset :: class : Asset {
 Font_Asset :: class : Asset {
 } #foreign_struct "Font"
 
+UIDoc_Asset :: class : Asset {
+} #foreign_struct "UIDoc_Asset"
+
 Shader_Asset :: class : Asset {
 } #foreign_struct "Shader"
 
@@ -411,6 +448,11 @@ Material :: class {
     set_int     :: method(name: string, value: int) #foreign "material_set_int";
     set_texture :: method(name: string, texture: Texture_Asset) #foreign "material_set_texture";
 } #gc_root #foreign_struct "Pooled_User_Material"
+
+UIDoc_Event :: struct {
+    handler: string;
+    key:     string;
+}
 
 State_Machine :: class {
     create :: proc() -> State_Machine #foreign "state_machine_create";
@@ -654,6 +696,8 @@ Inventory_Draw_Options :: struct {
     scroll_item_selection:      bool    #foreign;
     keyboard_item_selection:    bool    #foreign;
     enable_use_from_hotbar:     bool    #foreign;
+    on_before_draw:             (proc(item: Item_Instance, rect: Rect)) #foreign;
+    on_after_draw:              (proc(item: Item_Instance, rect: Rect)) #foreign;
     default :: proc() -> Inventory_Draw_Options {
         desc: Inventory_Draw_Options;
         desc.force_select_hotbar_index = -1;
@@ -848,7 +892,7 @@ core_before_scene_load :: proc() {
 
     core_globals.white_sprite               = get_asset(Texture_Asset, "$AO/white.png");
     core_globals.tutorial_arrow             = get_asset(Texture_Asset, "$AO/big_arrow.png");
-    core_globals.button_green               = get_asset(Texture_Asset, "$AO/ui/kit/Modals/basic_buttons/button_large_green1.png");
+    core_globals.button_green               = get_asset(Texture_Asset, "$AO/ui/kit/Game UI/Buttons/basic_buttons/button_large_green1.png");
     core_globals.ability_bg                 = get_asset(Texture_Asset, "$AO/new/Ability Buttons/v2/small_ability_button.png");
     core_globals.ability_pressed_bg         = get_asset(Texture_Asset, "$AO/new/Ability Buttons/v2/small_ability_button_pressed.png");
     core_globals.ability_bg_big             = get_asset(Texture_Asset, "$AO/new/Ability Buttons/v2/big_ability_button.png");
@@ -891,6 +935,14 @@ core_start :: proc() {
 core_update :: proc(dt: float) {
     #if #exists(ao_update) {
         ao_update(dt);
+    }
+
+    #if #exists(AO_DROPPED_ITEMS_IMPORTED) {
+        for dropped_item: component_iterator(Dropped_Item) {
+            UI.push_interpolation_anchor(dropped_item.entity);
+            defer UI.pop_interpolation_anchor();
+            dropped_item.update_dropped_item(dt);
+        }
     }
 }
 
@@ -1096,6 +1148,7 @@ get_asset :: proc($T: typeid, id: string) -> T {
 }
 
 get_time :: proc() -> float #foreign;
+get_fixed_delta_time :: proc() -> float #foreign;
 
 #deprecate_soft "get_real_time() is being deprecated. If being used for an RNG seed switch to rng_root_seed(). If you have another use-case let me know!"
 get_real_time :: proc() -> float #foreign;
@@ -1207,6 +1260,9 @@ UI :: struct {
     wire_circle :: proc(center: v2, radius: float, thickness: float, color: v4 = {0, 1, 0, 1}, resolution := 32) #foreign "ui_wire_circle";
     line :: proc(start: v2, end: v2, thickness: float, texture: Texture_Asset, color: v4 = {1, 1, 1, 1}, repeat_texture := false) #foreign "ui_line";
     quad :: proc(rect: Rect, texture: Texture_Asset, color: v4 = {1, 1, 1, 1}, params: Quad_Params = {}) #foreign "ui_quad";
+    player_avatar :: proc(rect: Rect, player: Player, color: v4 = {1, 1, 1, 1}) #foreign "ui_player_avatar";
+    quad_interpolated :: proc(rect: Rect, previous_rect: Rect, texture: Texture_Asset, color: v4 = {1, 1, 1, 1}, params: Quad_Params = {}) #foreign "ui_quad_interpolated";
+    quad_interpolated :: proc(rect: Rect, previous_rect: Rect, previous_matrix: Matrix4, texture: Texture_Asset, color: v4 = {1, 1, 1, 1}, params: Quad_Params = {}) #foreign "ui_quad_interpolated_matrix";
     text :: proc(rect: Rect, settings: Text_Settings, str: string, args: [^]any = {}) #foreign "ui_text";
     text_sync :: proc(rect: Rect, settings: Text_Settings, str: string, args: [^]any = {}) -> Rect #foreign "ui_text_sync";
     measure_text :: proc(rect: Rect, settings: Text_Settings, str: string, args: [^]any = {}) -> Rect #foreign "ui_measure_text";
@@ -1263,6 +1319,18 @@ UI :: struct {
 
     drag_drop_source :: proc(rect: Rect, id: string, payload: Object, payload_id: string) -> bool #foreign "ui_drag_drop_source";
     drag_drop_target :: proc(rect: Rect, payload_id: string) -> Interact_Result #foreign "ui_drag_drop_target";
+
+    uidoc :: proc(document: UIDoc_Asset, consume: bool = false, userdata: Object = {}, callback: proc(event: UIDoc_Event, userdata: Object) = {}) #foreign "ui_uidoc";
+    uidoc_clear_bindings :: proc() #foreign "ui_uidoc_clear_bindings";
+    uidoc_bind_bool :: proc(name: string, value: bool) #foreign "ui_uidoc_bind_bool";
+    uidoc_bind_text :: proc(name: string, value: string) #foreign "ui_uidoc_bind_text";
+    uidoc_bind_float :: proc(name: string, value: float) #foreign "ui_uidoc_bind_float";
+    uidoc_begin_list :: proc(name: string) #foreign "ui_uidoc_begin_list";
+    uidoc_list_item :: proc(key: string) #foreign "ui_uidoc_list_item";
+    uidoc_list_bind_text :: proc(name: string, value: string) #foreign "ui_uidoc_list_bind_text";
+    uidoc_list_bind_float :: proc(name: string, value: float) #foreign "ui_uidoc_list_bind_float";
+    uidoc_end_list :: proc() #foreign "ui_uidoc_end_list";
+    uidoc_text_value :: proc(document: UIDoc_Asset, key: string, default_value: string) -> string #foreign "ui_uidoc_text_value";
 
     default_button_settings :: proc() -> Button_Settings {
         #static initted: bool;
@@ -1405,6 +1473,7 @@ UI :: struct {
 }
 
 world_to_screen :: proc(world: v2) -> v2 #foreign;
+world_to_screen_interpolation_offset :: proc(world: v2, world_offset_from_last_frame: v2) -> v2 #foreign;
 screen_to_world :: proc(world: v2) -> v2 #foreign;
 
 Rect :: struct {
@@ -1918,6 +1987,7 @@ Item_Transaction_Entry :: struct {
 
 Inventory :: class {
     get_item :: proc(inventory: Inventory, index: s64) -> Item_Instance #foreign "inventory_get_item";
+    has_item_id :: proc(inventory: Inventory, item_id: string) -> bool #foreign "inventory_has_item_id";
 
     capacity: s64   #read_only #foreign;
 } #gc_root #foreign_struct "Inventory"
@@ -2081,6 +2151,11 @@ Color_Replace_Color :: enum {
     // NOTE(JOSH): SYNC :CrewchsiaEnum
 }
 
+// RGB of a Color_Replace_Color palette entry (the avatar colors), alpha 1.
+// Useful for matching a player's skin color, e.g. when initializing a
+// paintable canvas to their avatar color.
+color_replace_get_color :: proc(color: Color_Replace_Color) -> v4 #foreign "csl_color_replace_get_color";
+
 Spine_Instance_Fields :: class {
     state_machine:    State_Machine                  #foreign "state_machine_csl_handle"           #read_only("use set_state_machine()");
     color_multiplier: v4                             #foreign;
@@ -2129,8 +2204,28 @@ Spine_Instance :: class : Spine_Instance_Fields {
 
     apply_cosmetic :: method(cosmetic: Cosmetic_Asset) #foreign "spine_instance_apply_cosmetic";
 
-    override_attachment_sprite       :: method(attachment_name: string, texture: Texture_Asset) -> u64                                         #foreign "spine_instance_override_attachment_sprite";
+    // skeleton_space_uvs treats the texture as ONE canvas shared by every
+    // attachment overridden this way (character painting): each vertex samples
+    // it by setup-pose position mapped through set_paint_canvas_rect, so the
+    // image spans the whole character and sticks to the body while animating.
+    // Facing flips are compensated at render time: the canvas always reads
+    // unmirrored on screen no matter which way the character faces.
+    // Default (false) stretches the texture over each attachment separately.
+    override_attachment_sprite       :: method(attachment_name: string, texture: Texture_Asset, skeleton_space_uvs: bool = false) -> u64       #foreign "spine_instance_override_attachment_sprite";
+    // Canvas overrides use the normal Spine albedo/shadow path so the renderer
+    // can bind the source atlas as an alpha mask. Explicit render passes and
+    // custom game materials keep their shader and draw the source attachment;
+    // the engine player color-replace material is superseded by the canvas.
+    override_attachment_canvas       :: method(attachment_name: string, canvas: Dynamic_Canvas, skeleton_space_uvs: bool = false) -> u64       #foreign "spine_instance_override_attachment_canvas";
     clear_attachment_sprite_override :: method(id: u64)                                                                                        #foreign "spine_instance_clear_attachment_sprite_override";
+
+    // The character-space rect (setup pose, skeleton-local units, y up) that a
+    // skeleton_space_uvs override texture stretches over - typically the
+    // character's standee bounds. Texture row 0 lands at max.y (the top),
+    // column 0 at min.x. An inverted axis (min > max) mirrors the canvas on
+    // that axis - rigs are often authored facing the opposite way they're
+    // normally displayed.
+    set_paint_canvas_rect            :: method(min: v2, max: v2)                                                                               #foreign "spine_instance_set_paint_canvas_rect";
 
     add_attachment_sprite            :: method(slot_name: string, texture: Texture_Asset, desc: Attachment_Desc) -> u64                        #foreign "spine_instance_add_attachment_sprite";
     clear_attachment_sprite          :: method(id: u64)                                                                                        #foreign "spine_instance_clear_attachment_sprite";
@@ -2174,11 +2269,57 @@ Player_Base :: class : AO_Player {
     add_disable_movement_input_reason    :: method(reason: string) #foreign "player_add_disable_movement_input_reason";
     remove_disable_movement_input_reason :: method(reason: string) #foreign "player_remove_disable_movement_input_reason";
 
+    has_equipped_emote :: method(animation_name: string) -> bool #foreign "player_has_equipped_emote";
+
+    add_emote_block_reason :: method(reason: string) {
+        emote_block_reasons.append(reason);
+    }
+
+    remove_emote_block_reason :: method(reason: string) -> bool {
+        i := 0;
+        while i < emote_block_reasons.count {
+            if emote_block_reasons[i] == reason {
+                for j: i..emote_block_reasons.count-2 {
+                    emote_block_reasons[j] = emote_block_reasons[j+1];
+                }
+                #unsafe emote_block_reasons.count -= 1;
+                return true;
+            }
+            i += 1;
+        }
+        return false;
+    }
+
+    is_emote_blocked :: method() -> bool {
+        return emote_block_reasons.count > 0;
+    }
+
+    try_trigger_emote :: method(animation_name: string) -> bool {
+        return player_try_trigger_emote(this, animation_name);
+    }
+
+    cancel_emote :: method() -> bool {
+        return player_cancel_emote(this);
+    }
+
     add_joystick_disable_reason    :: method(reason: string) #foreign "player_add_joystick_disable_reason";
     remove_joystick_disable_reason :: method(reason: string) #foreign "player_remove_joystick_disable_reason";
 
     is_local_or_server :: method() -> bool #foreign "player_is_local_or_server";
     is_local           :: method() -> bool #foreign "player_is_local";
+
+    // Asynchronously samples the world-composited display color at a screen position.
+    // Call this only from this local player's callbacks. The result is client-authored
+    // visual data carried in resimmable input; do not use it as trusted game state.
+    // Returns false when the request cannot be queued. A queued result arrives later
+    // through try_get_scene_color_sample; use tag to distinguish request purposes.
+    // The success bool is client-only, so never branch synchronized state on it.
+    request_scene_color_sample :: method(screen_position: v2, tag: s64 = 0) -> bool #foreign "player_request_scene_color_sample";
+
+    // Poll from the same player's callbacks. ok is false until a sample has arrived.
+    // serial increases for each completed request and lets callers consume each sticky,
+    // redundantly-transmitted input value once. Color is opaque composited RGB.
+    try_get_scene_color_sample :: method() -> v4, u64, s64, bool #foreign "player_try_get_scene_color_sample";
 
     is_chat_open              :: method() -> bool #foreign "player_is_chat_open";
     is_ptt_button_visible     :: method() -> bool #foreign "player_is_ptt_button_visible";
@@ -2210,6 +2351,7 @@ Player_Base :: class : AO_Player {
     get_all_friends :: method() -> []Friend #foreign "player_get_all_friends";
 
     abilities: [..]Ability_Base;
+    emote_block_reasons: [..]string;
     was_aiming_ability_index: s64;
     was_aiming_ability_frame_number: u64;
     active_ability: Ability_Base;
@@ -2253,6 +2395,13 @@ Effect_Base :: class {
 
     get_elapsed_time :: method() -> float {
         return get_time() - start_time;
+    }
+
+    get_duration_remaining :: method() -> float {
+        if internal.remove_at_time == 0 {
+            return 0;
+        }
+        return max(0.0, internal.remove_at_time - get_time());
     }
 
     set_duration :: method(duration: float) {
@@ -2532,6 +2681,183 @@ effect_iterator :: proc(entity: Entity) -> Effect_Iterator {
     return Effect_Iterator{entity.effect_data.first_effect, null};
 }
 
+Emote_Fart_VFX :: class : Component {
+    player: Player;
+    animator: Spine_Animator;
+
+    ao_start :: method() {
+        animator = entity.add_component(Spine_Animator);
+        animator.depth_offset = -0.6;
+        animator.set_skeleton(get_asset(Spine_Asset, "$AO/fart/fart.spine"));
+        animator.set_animation("animation", false, 0);
+        animator.set_destroy_entity_when_done_current_animation(true);
+    }
+
+    ao_on_state_sync :: method() {
+        if !Game.is_server() && animator != null && player != null {
+            animator.set_to_player_material(player);
+        }
+    }
+}
+
+Emote_Effect :: class : Effect_Base {
+    trigger_name: string;
+    can_move_without_removing_effect: bool;
+    is_fart: bool;
+    has_spawned_fart: bool;
+    loop_until_move: bool;
+    is_dab: bool;
+    animation_started: bool;
+    sound_id: u64;
+
+    effect_start :: method() {
+        player_specific.disable_movement_inputs = true;
+
+        sound_asset: SFX_Asset;
+        can_perturb := true;
+        is_dab = string_split(trigger_name, "/Dab/").count > 1;
+
+        if trigger_name == "Emote/Fart" {
+            is_fart = true;
+            sound_asset = get_asset(SFX_Asset, "$AO/sfx/character_emote_fart.wav");
+        }
+        else if trigger_name == "Emote/Dance" {
+            loop_until_move = true;
+            can_perturb = false;
+            sound_asset = get_asset(SFX_Asset, "$AO/sfx/character_emote_dance_loop_v2.wav");
+        }
+        else if trigger_name == "Emote/Wave" {
+            sound_asset = get_asset(SFX_Asset, "$AO/sfx/character_emote_wave.wav");
+        }
+        else if trigger_name == "Emote/Thumbs_Up" {
+            sound_asset = get_asset(SFX_Asset, "$AO/sfx/character_emote_thumbs_up_v2.wav");
+        }
+        else if trigger_name == "Emote/point_laugh_loop_mIK" ||
+                trigger_name == "Emote/Dance_L" ||
+                trigger_name == "Emote/Dance_Gwiddy" ||
+                trigger_name == "Emote/Dance_floss" ||
+                trigger_name == "Emote/Head_Bang" ||
+                trigger_name == "Emote/Dance_Griddy_VIP" {
+            loop_until_move = true;
+            sound_asset = get_asset(SFX_Asset, "$AO/sfx/character_emote_thumbs_up_v2.wav");
+        }
+        else if is_dab {
+            loop_until_move = true;
+            sound_asset = get_asset(SFX_Asset, "$AO/sfx/character_emote_thumbs_up_v2.wav");
+        }
+        else if trigger_name == "Emote/Cartwheels" {
+            loop_until_move = true;
+            sound_asset = get_asset(SFX_Asset, "$AO/sfx/character_emote_dance_loop_v2.wav");
+        }
+        else {
+            sound_asset = get_asset(SFX_Asset, "$AO/sfx/character_emote_thumbs_up_v2.wav");
+        }
+
+        if trigger_name == "Emote/T_Pose" {
+            can_move_without_removing_effect = true;
+            player_specific.disable_movement_inputs = false;
+        }
+
+        if Game.is_server() && sound_asset != null {
+            desc := SFX.default_sfx_desc();
+            desc.set_position(player.entity.world_position);
+            desc.volume = 0.25;
+            if loop_until_move && !is_dab {
+                desc.loop = true;
+            }
+            if can_perturb {
+                desc.speed_perturb = 0.2;
+            }
+            sound_id = SFX.play(sound_asset, desc);
+        }
+
+        player.animator.instance.state_machine.set_trigger(trigger_name);
+    }
+
+    effect_update :: method(dt: float) {
+        layer := player.animator.instance.state_machine.try_get_layer("main");
+        assert(layer != null, "player state machine is missing its main layer");
+
+        if !animation_started {
+            state := layer.get_current_state();
+            if state != null && state.get_name() == trigger_name {
+                animation_started = true;
+                if !loop_until_move {
+                    set_duration(layer.get_current_state_length());
+                }
+            }
+        }
+
+        if Game.is_server() && is_fart && animation_started && !has_spawned_fart && get_duration_remaining() < 0.5 {
+            has_spawned_fart = true;
+
+            y_offset := 0.6;
+            scale := v2{2.4, 2.4} * player.entity.local_scale * player.animator.instance.scale;
+            offset := v2{1.2, y_offset} * scale / 2.4;
+            offset.x = -offset.x;
+
+            fart_entity := Scene.create_entity();
+            fart_entity.set_world_position(player.entity.world_position + offset);
+            fart_vfx := fart_entity.add_component(Emote_Fart_VFX);
+            fart_vfx.player = player;
+            fart_vfx.animator.instance.scale = scale;
+            fart_vfx.animator.instance.update(0);
+        }
+
+        if length_squared(player.input_this_frame) > 0 && !can_move_without_removing_effect {
+            remove_effect(true);
+            return;
+        }
+    }
+
+    effect_end :: method(interrupt: bool) {
+        if Game.is_server() && sound_id != 0 {
+            SFX.stop(sound_id);
+        }
+
+        layer := player.animator.instance.state_machine.try_get_layer("main");
+        assert(layer != null, "player state machine is missing its main layer");
+        layer.reset_to_initial_state();
+    }
+}
+
+player_try_trigger_emote :: proc(player: Player_Base, animation_name: string) -> bool {
+    if !player.has_equipped_emote(animation_name) {
+        return false;
+    }
+
+    if player.is_emote_blocked() {
+        if player.is_local() && Game.is_predicted_frame() {
+            Notifier.notify("You cannot emote right now");
+        }
+        return false;
+    }
+
+    active_effect := player.entity.get_active_effect();
+    if active_effect != null && active_effect.#type != Emote_Effect {
+        return false;
+    }
+
+    effect := new(Emote_Effect);
+    effect.trigger_name = animation_name;
+    player.entity.set_active_effect(effect);
+    return true;
+}
+
+player_cancel_emote :: proc(player: Player_Base) -> bool {
+    active_effect := player.entity.get_active_effect();
+    if active_effect == null || active_effect.#type != Emote_Effect {
+        return false;
+    }
+
+    active_effect.(Emote_Effect).remove_effect(true);
+    return true;
+}
+
+core_player_try_trigger_emote :: proc(player: Player, animation_name: string) -> bool {
+    return player.try_trigger_emote(animation_name);
+}
+
 //
 // Abilities
 //
@@ -2563,63 +2889,76 @@ Ability_Update_Params :: struct : Interact_Result {
     drag_direction: v2;
 }
 
-draw_thin_aiming_line :: proc(world_position: v2, dir: v2, scale: float) {
-    UI.push_layer(-10);
-    defer UI.pop_layer();
-
-    // todo(josh): scale factor based on camera zoom
-    UI.push_scale_factor(UI.get_current_scale_factor() * scale);
-    defer UI.pop_scale_factor();
-
-    screen_position := world_to_screen(world_position);
-    degrees := to_degrees(atan2(dir.y, dir.x));
-    line_rect := Rect{screen_position, screen_position}.grow(10, 500, 10, 0);
-
-    offset := line_rect.left_center();
-    matrix := Matrix4.translate(offset).multiply(Matrix4.rotate(degrees, {0, 0, 1}).multiply(Matrix4.translate(-offset)));
-
-    UI.push_matrix(matrix);
-    defer UI.pop_matrix();
-
-    UI.quad(line_rect, core_globals.aiming_line_bg);
-    UI.quad(line_rect, core_globals.aiming_line_lines_shadow);
-    UI.quad(line_rect, core_globals.aiming_line_lines);
+draw_thin_aiming_line :: proc(world_position: v2, dir: v2, scale: float, world_offset_from_last_frame: v2 = {}, previous_dir: v2 = {}, previous_scale: float = 0) {
+    draw_aiming_line_internal(world_position, dir, scale, world_offset_from_last_frame, previous_dir, previous_scale, 10, false);
 }
 
-draw_aiming_line :: proc(world_position: v2, dir: v2, scale: float) {
+draw_aiming_line :: proc(world_position: v2, dir: v2, scale: float, world_offset_from_last_frame: v2 = {}, previous_dir: v2 = {}, previous_scale: float = 0) {
+    draw_aiming_line_internal(world_position, dir, scale, world_offset_from_last_frame, previous_dir, previous_scale, 60, true);
+}
+
+draw_aiming_line_internal :: proc(world_position: v2, dir: v2, scale: float, world_offset_from_last_frame: v2, previous_dir: v2, previous_scale: float, half_height: float, draw_arrows: bool) {
     UI.push_layer(-10);
     defer UI.pop_layer();
 
-    // todo(josh): scale factor based on camera zoom
-    UI.push_scale_factor(UI.get_current_scale_factor() * scale);
+    base_scale_factor := UI.get_current_scale_factor();
+    if previous_scale == 0 {
+        previous_scale = scale;
+    }
+
+    UI.push_scale_factor(base_scale_factor * scale);
     defer UI.pop_scale_factor();
 
     screen_position := world_to_screen(world_position);
+    previous_screen_position := screen_position - world_to_screen_interpolation_offset(world_position, world_offset_from_last_frame);
+    if length_squared(previous_dir) == 0 {
+        previous_dir = dir;
+    }
+
     degrees := to_degrees(atan2(dir.y, dir.x));
-    line_rect := Rect{screen_position, screen_position}.grow(60, 500, 60, 0);
+    previous_degrees := to_degrees(atan2(previous_dir.y, previous_dir.x));
+    line_rect := Rect{screen_position, screen_position}.grow(half_height, 500, half_height, 0);
+    previous_line_rect := Rect{previous_screen_position, previous_screen_position}.grow_unscaled(half_height * base_scale_factor * previous_scale, 500 * base_scale_factor * previous_scale, half_height * base_scale_factor * previous_scale, 0);
 
     offset := line_rect.left_center();
+    previous_offset := previous_line_rect.left_center();
     matrix := Matrix4.translate(offset).multiply(Matrix4.rotate(degrees, {0, 0, 1}).multiply(Matrix4.translate(-offset)));
+    previous_matrix := Matrix4.translate(previous_offset).multiply(Matrix4.rotate(previous_degrees, {0, 0, 1}).multiply(Matrix4.translate(-previous_offset)));
 
     UI.push_matrix(matrix);
     defer UI.pop_matrix();
 
-    UI.quad(line_rect, core_globals.aiming_line_bg,           {1, 1, 1, 0.5});
-    UI.quad(line_rect, core_globals.aiming_line_lines_shadow, {1, 1, 1, 0.5});
-    UI.quad(line_rect, core_globals.aiming_line_lines,        {1, 1, 1, 0.5});
+    color := v4{1, 1, 1, 1};
+    if draw_arrows {
+        color.w = 0.5;
+    }
 
-    draw_aiming_arrows(line_rect, 6, 0.2, 1.0);
+    UI.quad_interpolated(line_rect, previous_line_rect, previous_matrix, core_globals.aiming_line_bg,           color);
+    UI.quad_interpolated(line_rect, previous_line_rect, previous_matrix, core_globals.aiming_line_lines_shadow, color);
+    UI.quad_interpolated(line_rect, previous_line_rect, previous_matrix, core_globals.aiming_line_lines,        color);
+
+    if draw_arrows {
+        draw_aiming_arrows_interpolated(line_rect, previous_line_rect, previous_matrix, base_scale_factor * previous_scale, true, 6, 0.2, 1.0);
+    }
 }
 
 draw_aiming_arrows :: proc(rect: Rect, arrow_count: int, fade_percent: float, fade_out_end: float) {
+    draw_aiming_arrows_interpolated(rect, rect, {}, UI.get_current_scale_factor(), false, arrow_count, fade_percent, fade_out_end);
+}
+
+draw_aiming_arrows_interpolated :: proc(rect: Rect, previous_rect: Rect, previous_matrix: Matrix4, previous_scale_factor: float, has_previous_matrix: bool, arrow_count: int, fade_percent: float, fade_out_end: float) {
     arrow_trip_time := 6.0;
     arrow_offset := arrow_trip_time / arrow_count.(float);
 
     start_pos := rect.left_center();
     end_pos   := rect.right_center();
+    previous_start_pos := previous_rect.left_center();
+    previous_end_pos   := previous_rect.right_center();
     time := get_time();
+    previous_time := max(0, time - get_fixed_delta_time());
     for i: 0..arrow_count-1 {
         t := ((time + arrow_offset * i.(float)) % arrow_trip_time) / arrow_trip_time;
+        previous_t := ((previous_time + arrow_offset * i.(float)) % arrow_trip_time) / arrow_trip_time;
 
         alpha := 1.0;
         if (t < fade_percent) alpha = t/fade_percent;
@@ -2628,10 +2967,19 @@ draw_aiming_arrows :: proc(rect: Rect, arrow_count: int, fade_percent: float, fa
 
 
         pos := lerp(start_pos, end_pos, t);
+        previous_pos := lerp(previous_start_pos, previous_end_pos, previous_t);
         arrow_rect := Rect{pos, pos};
+        previous_arrow_rect := Rect{previous_pos, previous_pos};
         h := rect.height() / 2 - UI.get_current_scale_factor() * 10;
+        previous_h := previous_rect.height() / 2 - previous_scale_factor * 10;
         arrow_rect = arrow_rect.grow_unscaled(h, 0, h, 0).fit_aspect(core_globals.aiming_arrow.get_aspect(), .KEEP_HEIGHT);
-        UI.quad(arrow_rect, core_globals.aiming_arrow, {1, 1, 1, 0.5 * alpha});
+        previous_arrow_rect = previous_arrow_rect.grow_unscaled(previous_h, 0, previous_h, 0).fit_aspect(core_globals.aiming_arrow.get_aspect(), .KEEP_HEIGHT);
+        if has_previous_matrix {
+            UI.quad_interpolated(arrow_rect, previous_arrow_rect, previous_matrix, core_globals.aiming_arrow, {1, 1, 1, 0.5 * alpha});
+        }
+        else {
+            UI.quad_interpolated(arrow_rect, previous_arrow_rect, core_globals.aiming_arrow, {1, 1, 1, 0.5 * alpha});
+        }
     }
 }
 
@@ -2930,8 +3278,9 @@ Ability_Utilities :: struct {
                 player.active_ability = null;
             }
             if aiming.aim {
+                previous_aim_direction := player.last_aim_direction;
                 player.last_aim_direction = aiming.aim_direction;
-                draw_aiming_line(player.entity.world_position, aiming.aim_direction, 1.0 / player.camera.size * 4);
+                draw_aiming_line(player.entity.world_position, aiming.aim_direction, 1.0 / player.camera.size * 4, player.entity.calculate_interpolation_offset(), previous_aim_direction, 1.0 / player.camera.size_last_frame * 4);
             }
             if aiming.activate {
                 player.active_ability = null;
@@ -2956,8 +3305,9 @@ Ability_Utilities :: struct {
             aiming := Ability_Utilities.update_aiming_ability(player, ref params);
             result.direction = aiming.aim_direction;
             if aiming.aim {
+                previous_aim_direction := player.last_aim_direction;
                 player.last_aim_direction = aiming.aim_direction;
-                draw_thin_aiming_line(player.entity.world_position, aiming.aim_direction, 1.0 / player.camera.size * 4);
+                draw_thin_aiming_line(player.entity.world_position, aiming.aim_direction, 1.0 / player.camera.size * 4, player.entity.calculate_interpolation_offset(), previous_aim_direction, 1.0 / player.camera.size_last_frame * 4);
             }
             if aiming.activate {
                 if params.can_use {
@@ -2994,13 +3344,24 @@ Tutorial_Arrow :: struct {
         return result;
     }
 
-    draw :: proc(player: Player, target_position: v2, options: Tutorial_Arrow_Options) {
+    draw :: proc(player: Player, target_position: v2, options: Tutorial_Arrow_Options, target_offset_from_last_frame: v2 = {}) {
         UI.push_world_draw_context();
         defer UI.pop_draw_context();
+
+        // The player callback's implicit anchor is not always the arrow's motion: near
+        // arrows follow the target, while far arrows are clamped between both positions.
+        UI.push_interpolation_offset({});
+        defer UI.pop_interpolation_offset();
 
         max_distance := player.camera.size * 0.8;
         offset_to_target := normalize_vector_to_radius(target_position - player.entity.world_position, max_distance) * max_distance;
         arrow_position := player.entity.world_position + offset_to_target;
+
+        previous_player_position := player.entity.world_position - player.entity.calculate_interpolation_offset();
+        previous_target_position := target_position - target_offset_from_last_frame;
+        previous_max_distance := player.camera.size_last_frame * 0.8;
+        previous_offset_to_target := normalize_vector_to_radius(previous_target_position - previous_player_position, previous_max_distance) * previous_max_distance;
+        previous_arrow_position := previous_player_position + previous_offset_to_target;
 
         alpha := options.alpha;
         if options.fade_out_based_on_aim_direction {
@@ -3017,38 +3378,53 @@ Tutorial_Arrow :: struct {
             arrow_sprite = core_globals.tutorial_arrow;
         }
 
-        arrow_rect := Rect{arrow_position, arrow_position}.grow(0.5).fit_aspect(arrow_sprite.get_aspect());
+        far := length_squared(arrow_position - target_position) > 0.1;
+        if (far && !options.far) || (!far && !options.near) {
+            return;
+        }
 
-        if length_squared(arrow_position - target_position) > 0.1 {
-            if options.far {
-                UI.push_layer(options.far_layer);
-                defer UI.pop_layer();
-
-                UI.push_z(target_position.y);
-                defer UI.pop_z();
-
-                dir := normalize(offset_to_target);
-                rads := atan2(dir.y, dir.x);
-                UI.push_matrix(Matrix4.rotate_about_point(arrow_rect.center(), to_degrees(rads)));
-                defer UI.pop_matrix();
-                UI.quad(arrow_rect, arrow_sprite);
-            }
+        layer := options.near_layer;
+        rotation := 270.0;
+        if far {
+            layer = options.far_layer;
+            dir := normalize(offset_to_target);
+            rotation = to_degrees(atan2(dir.y, dir.x));
         }
         else {
-            if options.near {
-                UI.push_layer(options.near_layer);
-                defer UI.pop_layer();
-
-                UI.push_z(target_position.y);
-                defer UI.pop_z();
-
-                y := (sin(2 * PI * get_time()) * 0.5 + 0.5) * options.bob_scale;
-                arrow_rect = arrow_rect.offset(0, options.bob_bias + y);
-                UI.push_matrix(Matrix4.rotate_about_point(arrow_rect.center(), 270));
-                defer UI.pop_matrix();
-                UI.quad(arrow_rect, arrow_sprite);
-            }
+            y := (sin(2 * PI * get_time()) * 0.5 + 0.5) * options.bob_scale;
+            arrow_position.y += options.bob_bias + y;
         }
+
+        previous_far := length_squared(previous_arrow_position - previous_target_position) > 0.1;
+        previous_rotation := 270.0;
+        if previous_far {
+            previous_dir := normalize(previous_offset_to_target);
+            previous_rotation = to_degrees(atan2(previous_dir.y, previous_dir.x));
+        }
+        else {
+            previous_time := max(0, get_time() - get_fixed_delta_time());
+            previous_y := (sin(2 * PI * previous_time) * 0.5 + 0.5) * options.bob_scale;
+            previous_arrow_position.y += options.bob_bias + previous_y;
+        }
+
+        arrow_rect := Rect{arrow_position, arrow_position}.grow(0.5).fit_aspect(arrow_sprite.get_aspect());
+        previous_arrow_rect := Rect{previous_arrow_position, previous_arrow_position}.grow(0.5).fit_aspect(arrow_sprite.get_aspect());
+        matrix := Matrix4.rotate_about_point(arrow_rect.center(), rotation);
+        previous_matrix := Matrix4.rotate_about_point(previous_arrow_rect.center(), previous_rotation);
+
+        UI.push_layer(layer);
+        defer UI.pop_layer();
+
+        UI.push_z(target_position.y);
+        defer UI.pop_z();
+
+        UI.push_matrix(matrix);
+        defer UI.pop_matrix();
+        UI.quad_interpolated(arrow_rect, previous_arrow_rect, previous_matrix, arrow_sprite);
+    }
+
+    draw :: proc(player: Player, target: Entity, options: Tutorial_Arrow_Options) {
+        Tutorial_Arrow.draw(player, target.world_position, options, target.calculate_interpolation_offset());
     }
 }
 

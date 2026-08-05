@@ -312,6 +312,15 @@ offline_ensure_materials :: proc() -> bool {
     return true;
 }
 
+// A shrink-to-content cell used to wrap a single UIK.text run so the layout
+// reserves exactly the width the glyphs need.
+text_fit_cell :: proc() -> UIK.Panel_Desc {
+    c := UIK.layout_row();
+    c.width  = UIK.fit();
+    c.height = UIK.fit();
+    return c;
+}
+
 // A big bottom-row button: label, the exact cash payout, and an optional
 // spark-price badge (used for the X10 button). The whole panel is the click
 // target.
@@ -339,11 +348,17 @@ offline_button :: proc(id: string, mat: Material, label: string, amount_text: st
     top.cross_align = .CENTER;
     top.main_align  = .CENTER;
     UIK.panel_begin(top);
+    // Each text sits in its own fit() panel. A bare UIK.text sibling in a row
+    // isn't given a slot that matches its rasterized width, so at small layout
+    // scales (the scale is viewport_height/1080) the glyphs overrun their slot
+    // and collide with the spark badge. Wrapping gives each run a measured box.
     lt := UIK.text_title();
     lt.set_size_mult(0.95);
     lt.set_word_wrap(false);
     lt.set_outline(true, 3.5, v4{0, 0, 0, 1});
+    UIK.panel_begin(text_fit_cell());
     UIK.text(label, lt);
+    UIK.panel_end();
     if price > 0 {
         spark := get_asset(Texture_Asset, "$AO/new/icons/sparks/spark_icon.png");
         if spark != null {
@@ -354,8 +369,11 @@ offline_button :: proc(id: string, mat: Material, label: string, amount_text: st
         }
         pt := UIK.text_title();
         pt.set_size_mult(0.8);
+        pt.set_word_wrap(false);
         pt.set_outline(true, 3.0, v4{0, 0, 0, 1});
+        UIK.panel_begin(text_fit_cell());
         UIK.text(format_string("%", {price}), pt);
+        UIK.panel_end();
     }
     UIK.panel_end(); // top
 
@@ -366,7 +384,9 @@ offline_button :: proc(id: string, mat: Material, label: string, amount_text: st
         at.set_color({1, 1, 1, 1});
         at.set_word_wrap(false);
         at.set_outline(true, 3.0, v4{0, 0, 0, 1});
+        UIK.panel_begin(text_fit_cell());
         UIK.text(amount_text, at);
+        UIK.panel_end();
     }
 
     UIK.panel_end();

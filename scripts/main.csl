@@ -732,7 +732,7 @@ Player :: class : Player_Base {
             draw_speed_upgrade_ui(this);
             draw_upgrade_hud(this);
 
-            options := Inventory_Draw_Options.default();
+            options := Inventory_Draw_Options.hotbar_default();
             options.hotbar_item_count = 6;
             options.enable_selection = true;
             options.scroll_item_selection = true;

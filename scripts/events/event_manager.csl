@@ -302,19 +302,19 @@ register_event :: proc(e: $T/Event_Base) {
     def.admin_extras_height = e.get_admin_extras_height();
     def.userdata   = e;
 
-    def.on_start = proc(mgr: Event_Manager, userdata: Object, is_drop_in: bool) {
+    def.on_start = proc "p47_278176816841f8e3c01bc164"(mgr: Event_Manager, userdata: Object, is_drop_in: bool) {
         userdata.(T).on_event_start(mgr, is_drop_in);
     };
-    def.on_end = proc(mgr: Event_Manager, userdata: Object) {
+    def.on_end = proc "p47_a2d9f35cc5c816fc5b5e3bf1"(mgr: Event_Manager, userdata: Object) {
         userdata.(T).on_event_end(mgr);
     };
-    def.on_update = proc(mgr: Event_Manager, userdata: Object, dt: float) {
+    def.on_update = proc "p47_67cc8b5a4fc4fb94ff42166a"(mgr: Event_Manager, userdata: Object, dt: float) {
         userdata.(T).on_event_update(mgr, dt);
     };
-    def.on_late_update = proc(mgr: Event_Manager, userdata: Object, dt: float) {
+    def.on_late_update = proc "p47_d539595c8d0d2ab58fed2fd7"(mgr: Event_Manager, userdata: Object, dt: float) {
         userdata.(T).on_event_late_update(mgr, dt);
     };
-    def.draw_admin_extras = proc(mgr: Event_Manager, userdata: Object, rect: Rect) {
+    def.draw_admin_extras = proc "p47_9e5665ecb0cae7fd2de597ac"(mgr: Event_Manager, userdata: Object, rect: Rect) {
         userdata.(T).draw_admin_extras(mgr, rect);
     };
 

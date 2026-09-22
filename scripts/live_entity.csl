@@ -98,7 +98,7 @@ draw_debug_living_entity :: proc(player: Player) {
 
     line :: proc(s: string) {
         d := UIK.text_body();
-        UIK.text_set_halign(&d, .LEFT);
+        #unsafe UIK.text_set_halign(&d, .LEFT);
         UIK.text(s, d);
     }
 

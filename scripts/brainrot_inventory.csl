@@ -772,7 +772,7 @@ draw_sell_modal :: proc(player: Player) {
             }
 
             name_desc := UIK.text_button();
-            UIK.text_set_word_wrap(&name_desc, false);
+            #unsafe UIK.text_set_word_wrap(&name_desc, false);
             UIK.text(defn.name, name_desc);
 
             icon := defn.get_icon();
@@ -807,13 +807,13 @@ draw_sell_modal :: proc(player: Player) {
             mut_text := UIK.text_body();
             mut_text.color = get_mutation_color(br.mutation);
             mut_text.set_outline(true, 2.5, v4{0, 0, 0, 1});
-            UIK.text_set_word_wrap(&mut_text, false);
+            #unsafe UIK.text_set_word_wrap(&mut_text, false);
             UIK.text(mut_label, mut_text);
 
             price_desc := UIK.text_body();
             price_desc.color = v4{0.55, 1.0, 0.45, 1};
             price_desc.set_outline(true, 2.5, v4{0, 0, 0, 1});
-            UIK.text_set_word_wrap(&price_desc, false);
+            #unsafe UIK.text_set_word_wrap(&price_desc, false);
             UIK.text(format_cash(get_brainrot_item_sell_price(br)), price_desc);
 
             UIK.panel_end(); // info

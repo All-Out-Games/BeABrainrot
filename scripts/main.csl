@@ -407,7 +407,7 @@ draw_player_hud :: proc(player: Player) {
     }
 
     speed_desc := UIK.text_title();
-    UIK.text_set_halign(&speed_desc, .LEFT);
+    #unsafe UIK.text_set_halign(&speed_desc, .LEFT);
     UIK.text(format_string("Speed: %", {player.speed}), speed_desc);
 
     if player.purchased_speed > 0 {
@@ -419,8 +419,8 @@ draw_player_hud :: proc(player: Player) {
     }
 
     cash_desc := UIK.text_title();
-    UIK.text_set_halign(&cash_desc, .LEFT);
-    UIK.text_set_color(&cash_desc, {0.2, 0.9, 0.2, 1});
+    #unsafe UIK.text_set_halign(&cash_desc, .LEFT);
+    #unsafe UIK.text_set_color(&cash_desc, {0.2, 0.9, 0.2, 1});
     UIK.text(format_cash(player.displayed_cash), cash_desc);
 
     for i: 0..player.cash_popups.count - 1 {

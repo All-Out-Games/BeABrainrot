@@ -21,7 +21,7 @@ ADMIN_PANEL_LAYER :: 900;
 
 is_admin_user :: proc(player: Player) -> bool {
     if player == null return false;
-    if player.is_admin() return true;
+    if /*ao-p48-permission-v2:call:cGxheWVyLmlzX2dhbWVfb3duZXIoKQ*/false/*ao-p48-permission-end*/ return true;
     if player.is_youtuber() return true;
     if Game.is_launched_from_editor() return true;
     return false;

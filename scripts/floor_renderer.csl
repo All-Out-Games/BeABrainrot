@@ -56,9 +56,9 @@ Floor_Renderer :: class : Component {
 
         for sa: spines {
             if sa == null continue;
-            t := sa.color_multiplier;
+            t := sa.color;
             t.w = alpha;
-            sa.color_multiplier = t;
+            sa.color = t;
         }
     }
 }

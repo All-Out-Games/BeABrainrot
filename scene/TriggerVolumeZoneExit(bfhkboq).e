@@ -24,7 +24,7 @@
   "internal_component_type": "Sprite_Renderer",
   "data": {
     "texture": "Textures/environments/Bases/floor_light.png",
-    "tint": {
+    "color": {
       "W": 0.3320973217487335
     },
     "editor_only": true

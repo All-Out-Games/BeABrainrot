@@ -23,7 +23,7 @@
   "data": {
     "texture": "Textures/environments/square_chip_large_green.png",
     "depth_offset": 2.0645809173583984,
-    "tint": {
+    "color": {
       "X": 0.7257140278816223,
       "Y": 0.7257140278816223,
       "Z": 0.7257140278816223

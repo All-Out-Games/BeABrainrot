@@ -1,4 +1,4 @@
-// Test component: cycles a Spine_Animator's color_multiplier between
+// Test component: cycles a Spine_Animator's color between
 // white -> red -> transparent -> white so we can confirm the field is
 // actually writable from CSL and applied at render time.
 //
@@ -36,6 +36,6 @@ Spine_Tint_Test :: class : Component {
             c = v4{1, 1, 1, 0.3};          // faded
         }
 
-        target.color_multiplier = c;
+        target.color = c;
     }
 }

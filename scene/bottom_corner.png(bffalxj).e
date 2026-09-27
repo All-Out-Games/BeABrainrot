@@ -25,7 +25,7 @@
   "data": {
     "texture": "Textures/Cliff/grassfloor/top_corner_greyscale.png",
     "depth_offset": -0.1916666030883789,
-    "tint": {
+    "color": {
       "X": 0.0632012709975243,
       "Y": 0.5698698759078979,
       "Z": 0.0017867088317871

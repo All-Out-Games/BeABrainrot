@@ -24,7 +24,7 @@
   "data": {
     "texture": "$AO/white.png",
     "depth_offset": 0.0112421037629247,
-    "tint": {
+    "color": {
       "X": 0,
       "Y": 0.2690923213958740
     },

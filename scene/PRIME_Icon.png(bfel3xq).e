@@ -22,7 +22,7 @@
   "internal_component_type": "Sprite_Renderer",
   "data": {
     "texture": "Textures/PRIME_Icon.png",
-    "tint": {
+    "color": {
       "W": 0.3877561986446381
     }
   }

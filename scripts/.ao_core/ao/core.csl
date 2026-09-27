@@ -13,7 +13,7 @@ Entity :: class {
     get_name                   :: method() -> string                                                                                                                    #foreign "entity_get_name";
     set_name                   :: method(new_name: string)                                                                                                              #foreign "entity_set_name";
     compare_name               :: method(name: string) -> bool                                                                                                          #foreign "entity_compare_name";
-    set_parent                 :: method(new_parent: Entity, keep_world_position: bool)                                                                                 #foreign "entity_set_parent";
+    set_parent                 :: method(new_parent: Entity, keep_world_transform: bool)                                                                                #foreign "entity_set_parent";
     set_local_position         :: method(p: v2)                                                                                                                         #foreign "entity_set_local_position";
     set_world_position         :: method(p: v2)                                                                                                                         #foreign "entity_set_world_position";
     lerp_local_position        :: method(target: v2, t: float)                                                                                                          #foreign "entity_lerp_local_position";
@@ -29,6 +29,11 @@ Entity :: class {
     remove_component_raw       :: method(t: typeid)                                                                                                                     #foreign "entity_mark_component_for_removal";
     add_component :: proc(entity: Entity, $T: typeid, userdata: Object = {}, on_before_start: proc(component: Component, userdata: Object) = {}) -> T {
         return add_component_raw(entity, T, userdata, on_before_start).(T);
+    }
+    add_component :: proc(entity: Entity, $T: typeid, on_before_start: proc(component: T)) -> T {
+        return add_component_raw(entity, T, {}, proc(component: Component, userdata: Object) {
+            on_before_start(component.(T));
+        }).(T);
     }
     get_component :: proc(entity: Entity, $T: typeid) -> T {
         return get_component_raw(entity, T).(T);
@@ -52,7 +57,7 @@ Entity :: class {
     local_scale:          v2                  #read_only("use set_local_scale()") #foreign "_local_scale";
     world_scale:          v2                  #read_only #foreign "cached_world_scale";
     model_matrix:         Matrix4             #read_only #foreign "cached_model_matrix";
-    inverse_model_matrix: Matrix4             #read_only #foreign "cached_inverted_model_matrix";
+    inverse_model_matrix  :: method() -> Matrix4 #foreign "entity_get_inverse_model_matrix";
     Effect_Data :: class {
         active_effect: Effect_Base #read_only;
         first_effect:  Effect_Base #read_only;
@@ -86,16 +91,16 @@ Component :: class {
     set_enabled :: method(new_value: bool) #foreign "component_set_enabled";
     // Defers removal until end-of-frame cleanup. The component remains addressable until that pass runs.
     remove_component :: method() #foreign "component_mark_for_removal";
-    #interface ao_start                   :: proc(using this: Component);
-    #interface ao_update                  :: proc(using this: Component, dt: float);
-    #interface ao_late_update             :: proc(using this: Component, dt: float);
-    #interface ao_draw                    :: proc(using this: Component, dt: float);
-    #interface ao_end                     :: proc(using this: Component);
-    #interface ao_can_use_ability         :: proc(using this: Component, ability: Ability_Base) -> bool;
-    #interface ao_can_use_interactable    :: proc(using this: Component, interactable: Interactable) -> bool;
-    #interface ao_on_interactable_used    :: proc(using this: Component, interactable: Interactable);
-    #interface ao_on_holding_interactable :: proc(using this: Component, interactable: Interactable);
-    #interface ao_on_state_sync           :: proc(using this: Component);
+    #interface ao_start                   :: method();
+    #interface ao_update                  :: method(dt: float);
+    #interface ao_late_update             :: method(dt: float);
+    #interface ao_draw                    :: method(dt: float);
+    #interface ao_end                     :: method();
+    #interface ao_can_use_ability         :: method(ability: Ability_Base) -> bool;
+    #interface ao_can_use_interactable    :: method(interactable: Interactable) -> bool;
+    #interface ao_on_interactable_used    :: method(interactable: Interactable);
+    #interface ao_on_holding_interactable :: method(interactable: Interactable);
+    #interface ao_on_state_sync           :: method();
     component_id:             u64       #read_only #foreign;
     entity:                   Entity    #read_only #foreign "entity_csl_handle";
 } #gc_root #foreign_struct "Component_Base"
@@ -104,7 +109,7 @@ Component_Iterator :: struct(T: typeid) {
     component_iterator_next_raw :: method() -> bool #foreign "component_iterator_next";
     current: T #read_only #foreign "current_csl_handle";
     next :: method() -> bool {
-        return (&this).(*Component_Iterator(Component)).*.component_iterator_next_raw();
+        #unsafe return (&this).(*Component_Iterator(Component)).*.component_iterator_next_raw();
     }
 } #foreign_struct "Hierarchical_Component_Iterator<Component_Base>"
 
@@ -116,10 +121,10 @@ Sprite_Renderer :: class : Component {
     set_material :: method(material: Material, transfer_ownership: bool) #foreign "sprite_renderer_set_material";
     get_world_size :: method() -> v2 #foreign "sprite_renderer_get_world_size";
     #error_on_use "`Sprite_Renderer.tint` does not exist. Did you mean to use `Sprite_Renderer.color`?"
-    tint: v4           #foreign;
-    color: v4           #foreign "tint";
+    tint: v4           #foreign "color";
+    color: v4          #foreign;
     depth_offset: float #foreign;
-    layer: s32          #foreign;
+    layer: s64          #foreign;
     scale: v2           #foreign;
     flip_x: bool           #foreign;
     flip_y: bool           #foreign;
@@ -296,15 +301,21 @@ Interactable :: class : Component {
     can_use_proc:     (proc(t: Component, player: Player) -> bool) #foreign "csl_can_use_proc"     #read_only("use set_listener()");
     on_interact_proc: (proc(t: Component, player: Player))         #foreign "csl_on_interact_proc" #read_only("use set_listener()");
     on_holding_proc:  (proc(t: Component, player: Player))         #foreign "csl_on_holding_proc"  #read_only("use set_listener()");
-    #interface can_use     :: proc(t: Interactable, player: Player) -> bool;
-    #interface on_interact :: proc(t: Interactable, player: Player);
-    #interface on_holding  :: proc(t: Interactable, player: Player);
+    #interface can_use     :: method(player: Player) -> bool;
+    #interface on_interact :: method(player: Player);
+    #interface on_holding  :: method(player: Player);
 } #foreign_struct "Interactable"
+
+Spine_Bone_Transform :: struct {
+    position: v2 #foreign;
+    x_axis:   v2 #foreign;
+    y_axis:   v2 #foreign;
+} #foreign_struct "Spine_Bone_Transform"
 
 
 Spine_Animator :: class : Component {
     depth_offset: float #foreign;
-    layer: s32 #foreign;
+    layer: s64 #foreign;
     mask_in_shadow: bool #foreign;
     instance: Spine_Instance #read_only #foreign "instance_csl_handle";
     using _instance_fields: Spine_Instance_Fields #read_only #foreign "instance_csl_handle";
@@ -312,6 +323,7 @@ Spine_Animator :: class : Component {
     set_material            :: method(material: Material, transfer_ownership: bool) #foreign "spine_animator_set_material";
     set_state_machine       :: method(new_state_machine: State_Machine, transfer_ownership: bool) #foreign "spine_animator_set_state_machine";
     get_bone_local_position :: method(bone_name: string) -> v2 #foreign "spine_animator_get_bone_position";
+    try_get_bone_local_transform :: method(bone_name: string) -> (Spine_Bone_Transform, bool) #foreign "spine_animator_try_get_bone_transform";
     set_bone_local_position :: method(bone_name: string, position: v2) #foreign "spine_animator_set_bone_position";
     // Hit-tests the current animated geometry of every skeleton-space
     // attachment using canvas, then maps the topmost hit back to the stable
@@ -448,6 +460,7 @@ AO_Player :: class : Component {
     username_rect:             Rect                        #foreign "final_name_rect";
     full_nameplate_rect:       Rect                        #foreign;
     input_this_frame:          v2                          #foreign;
+    #deprecate_soft "Use override_movement_input_for_next_step()."
     input_override:            v2                          #foreign;
     player_for_prediction:     Player                      #foreign "player_for_prediction_csl_handle";
 } #foreign_struct "Player"
@@ -460,25 +473,36 @@ Movement_Agent :: class : Component {
     }
     set_path_target        :: method(target: v2, speed: float) -> Set_Path_Target_Result #foreign "movement_agent_set_path_target";
     set_navmesh_to_lock_to :: method(navmesh: Navmesh) #foreign "movement_agent_set_navmesh_to_lock_to";
+    // Acceleration-like input tuning value, not world units per second.
+    // 300 settles near 5 world units per second at the default friction 0.5.
     movement_speed:   float #foreign;
     agent_radius:     float #foreign;
+    // Fraction of velocity lost per 1/60-second reference frame.
     friction:         float #foreign;
+    // Actual world-space velocity in world units per second.
     velocity:         v2    #foreign;
     input_this_frame: v2    #foreign;
 } #foreign_struct "Movement_Agent"
 
+// Asset classes are handles, not views onto engine memory. Every method takes the
+// CSL reference and goes through Scene::get_asset_for_csl_handle, so the object's
+// own bytes are never read. No #foreign_struct: adopting the engine struct's size
+// would make each of these cost sizeof(Texture)/sizeof(Spine_Skeleton_Data)/... of
+// permanently-zero scene arena per asset. Contrast Material and Dynamic_Canvas,
+// whose live objects alias the real engine struct and must keep its layout.
 Asset :: class {
-} #gc_root #foreign_struct "Asset_Base"
+} #gc_root
 
 Texture_Asset :: class : Asset {
     get_width :: method() -> s64 #foreign "texture_asset_get_width";
     get_height :: method() -> s64 #foreign "texture_asset_get_height";
+    get_world_size :: method() -> v2 #foreign "texture_asset_get_world_size";
     get_aspect :: method() -> float #foreign "texture_asset_get_aspect";
     get_pivot :: method() -> v2 #foreign "texture_asset_get_pivot";
     get_pixels_per_unit :: method() -> float #foreign "texture_asset_get_pixels_per_unit";
     get_uvs :: method() -> (v2, v2) #foreign "texture_asset_get_uvs";
 
-} #foreign_struct "Texture"
+}
 
 // A scene-owned straight-alpha sRGB RGBA8 canvas. Its pixels participate in
 // ordinary CSL scene syncing, prediction, rollback, and reconciliation; they
@@ -499,25 +523,25 @@ Dynamic_Canvas :: class {
 } #gc_root #foreign_struct "Dynamic_Canvas"
 
 SFX_Asset :: class : Asset {
-} #foreign_struct "SFX_Asset"
+}
 
 Spine_Asset :: class : Asset {
-} #foreign_struct "Spine_Skeleton_Data"
+}
 
 Cosmetic_Asset :: class : Asset {
-} #foreign_struct "Cosmetic_Asset"
+}
 
 Prefab_Asset :: class : Asset {
-} #foreign_struct "Prefab"
+}
 
 Font_Asset :: class : Asset {
-} #foreign_struct "Font"
+}
 
 UIDoc_Asset :: class : Asset {
-} #foreign_struct "UIDoc_Asset"
+}
 
 Shader_Asset :: class : Asset {
-} #foreign_struct "Shader"
+}
 
 Material :: class {
     create      :: proc(shader: Shader_Asset) -> Material #foreign "material_create";
@@ -617,6 +641,7 @@ SFX_Desc :: struct {
     entity_to_follow: u64                   #foreign;
     loop:             bool                  #foreign;
     channel:          SFX_Channel           #foreign;
+    unique_id:        u64                   #foreign;
     set_position :: method(p: v2) {
         positional = true;
         #unsafe position = p;
@@ -771,10 +796,10 @@ Inventory_Draw_Options :: struct {
     show_background:            bool    #foreign;
     allow_drag_drop:            bool    #foreign;
     drag_drop_color_multiplier: v4      #foreign;
-    hotbar_item_count:          s32     #foreign;
-    columns:                    s32     #foreign;
-    rows:                       s32     #foreign;
-    force_select_hotbar_index:  s32     #foreign;
+    hotbar_item_count:          int     #foreign;
+    columns:                    int     #foreign;
+    rows:                       int     #foreign;
+    force_select_hotbar_index:  int     #foreign;
     hide_bag_button:            bool    #foreign;
     enable_selection:           bool    #foreign;
     scroll_item_selection:      bool    #foreign;
@@ -831,6 +856,20 @@ Game :: struct {
     get_server_id :: proc() -> string #foreign "server_get_id";
 }
 
+// Protocol 48. Funnels are defined in game code and appear automatically in Studio.
+// The complete ordered labels travel with each event, including unreached steps.
+Analytics :: struct {
+    // step is 1-based. Use the same name and ordered labels at every call site.
+    // Example: Analytics.funnel_step(player, "onboarding", {"Spawned", "First coin", "Upgrade"}, 1);
+    // Names: 1–64 ASCII letters/digits/underscores/dots/hyphens, starting with a letter.
+    // Labels: 2–20 entries, each 1–80 UTF-8 bytes without surrounding whitespace.
+    // Changing the name or labels starts a separate series; old data is preserved.
+    // Returns true when queued, not delivered. False on clients, editor play,
+    // disconnected players, or after 256 events/session or 20 events/second.
+    // Call once per milestone, never every frame. Do not include personal data.
+    funnel_step :: proc(player: Player, name: string, steps: []string, step: int) -> bool #foreign "analytics_funnel_step";
+}
+
 Live_Event_Presenter :: struct {
     slot: int;
     display_name: string;
@@ -871,6 +910,8 @@ Server :: struct {
     queue_set_server_available :: proc(queue: string, available: bool)   #foreign "server_queue_set_server_available";
 
     transfer_player_to_game    :: proc(player: Player, game_id: string)  #foreign "server_transfer_player_to_game";
+    // Server only. Targets an existing instance of this game; normal access/capacity checks apply.
+    transfer_player_to_server :: proc(player: Player, server_id: string) #foreign "server_transfer_player_to_server";
 
     get_id :: proc() -> string #foreign "server_get_id";
     get_private_server_host_id :: proc() -> (string, bool) #foreign "server_get_private_server_host_id";
@@ -878,6 +919,14 @@ Server :: struct {
 
 Editor :: struct {
     is_entity_selected :: proc(entity: Entity) -> bool #foreign "editor_is_entity_selected";
+}
+
+// Define named notifications with title/body translation slugs through the game's
+// push-notification-definitions REST API before sending. Server only; user IDs may be offline.
+Push_Notifications :: struct {
+    send_now :: proc(player_id: string, notification_id: string) #foreign "push_notifications_send_now";
+    // UTC Unix seconds. Must be in the future and within 30 days. One pending push per game/player.
+    schedule :: proc(player_id: string, notification_id: string, send_at_unix_seconds: int) #foreign "push_notifications_schedule";
 }
 
 Chat :: struct {
@@ -903,6 +952,14 @@ Scene :: struct {
 
     create_entity :: proc() -> Entity #foreign;
     instantiate :: proc(prefab: Prefab_Asset, position: v2 = {}, userdata: Object = {}, on_before_start: proc(entity: Entity, userdata: Object) = {}) -> Entity #foreign "prefab_instantiate";
+    instantiate :: proc(prefab: Prefab_Asset, position: v2, on_before_start: proc(entity: Entity)) -> Entity {
+        return Scene.instantiate(prefab, position, {}, proc(entity: Entity, userdata: Object) {
+            on_before_start(entity);
+        });
+    }
+    instantiate :: proc(prefab: Prefab_Asset, on_before_start: proc(entity: Entity)) -> Entity {
+        return Scene.instantiate(prefab, {}, on_before_start);
+    }
 
     get_player_inventory_capacity :: proc() -> int #foreign "scene_get_player_inventory_capacity";
     set_player_inventory_capacity :: proc(capacity: int) #foreign "scene_set_player_inventory_capacity";
@@ -929,13 +986,14 @@ JSON :: struct {
     try_deserialize_raw :: proc(json: string, out_value: *u8, t: typeid) -> bool #foreign "json_deserialize_raw";
 
     try_deserialize :: proc(json: string, out_value: ref $T) -> bool {
-        return try_deserialize_raw(json, (&out_value).(*u8), T);
+        #unsafe return try_deserialize_raw(json, (&out_value).(*u8), T);
     }
 }
 
 compute_current_stack_trace :: proc() -> string #foreign "compute_current_stack_trace";
 
 core_globals: struct "ao core globals" {
+    tutorials: [..]Tutorial;
     white_sprite:   Texture_Asset;
     tutorial_arrow: Texture_Asset;
     tutorial_hand:  Texture_Asset;
@@ -982,7 +1040,7 @@ try_get_constant_procedure :: proc(ti: Type_Info_Struct, name: string, $T: typei
                 offset := ti.members[i].offset;
                 assert(offset >= 0, "offset was invalid: % %, %, %", {ti.*, T, name, offset});
                 if ti.members[i].type.kind == .OVERLOAD_SET {
-                    overloads := (&ti.constant_storage[offset]).(*[]Type_Info_Overload).*;
+                    #unsafe overloads := (&ti.constant_storage[offset]).(*[]Type_Info_Overload).*;
                     required_type := #type_info(T).(Type_Info_Procedure);
                     for j: 0..overloads.count-1 #reverse {
                         overload := overloads[j];
@@ -1015,11 +1073,11 @@ try_get_constant_procedure :: proc(ti: Type_Info_Struct, name: string, $T: typei
                             }
                         }
 
-                        if compatible return overload.procedure.(T);
+                        if compatible #unsafe return (&overload.procedure).(*T).*;
                     }
                     return null;
                 }
-                return (&ti.constant_storage[offset]).(*T).*;
+                #unsafe return (&ti.constant_storage[offset]).(*T).*;
             }
         }
     }
@@ -1064,6 +1122,7 @@ ensure_player_has_ability :: proc(player: Player, ability: User_Ability_Info) {
     instance := dynamic_new(ability.class_type).(Ability_Base);
     instance.type = ability.class_type;
     instance.player = player;
+    instance._tutorial_id = format_string("%", {ability.class_type});
     player.abilities.append(instance);
     if ability.on_init != null {
         ability.on_init(instance);
@@ -1272,7 +1331,7 @@ entity_iterator :: proc(include_disabled := false) -> Entity_Iterator #foreign "
 component_iterator_raw :: proc(t: typeid, include_disabled := false) -> Component_Iterator(Component) #foreign "component_iterator_raw";
 
 component_iterator :: proc($T: typeid, include_disabled := false) -> Component_Iterator(T) {
-    return (&component_iterator_raw(T, include_disabled)).(*Component_Iterator(T)).*;
+    #unsafe return (&component_iterator_raw(T, include_disabled)).(*Component_Iterator(T)).*;
 }
 
 List :: struct(T: typeid) {
@@ -1530,7 +1589,7 @@ UI :: struct {
     drag_drop_source :: proc(rect: Rect, id: string, payload: Object, payload_id: string) -> bool #foreign "ui_drag_drop_source";
     drag_drop_target :: proc(rect: Rect, payload_id: string) -> Interact_Result #foreign "ui_drag_drop_target";
 
-    uidoc :: proc(document: UIDoc_Asset, consume: bool = false, userdata: Object = {}, callback: proc(event: UIDoc_Event, userdata: Object) = {}) #foreign "ui_uidoc";
+    uidoc :: proc(document: UIDoc_Asset, consume: bool = false, userdata: Object = {}, #no_captures callback: proc(event: UIDoc_Event, userdata: Object) = {}) #foreign "ui_uidoc";
     uidoc_clear_bindings :: proc() #foreign "ui_uidoc_clear_bindings";
     uidoc_bind_bool :: proc(name: string, value: bool) #foreign "ui_uidoc_bind_bool";
     uidoc_bind_text :: proc(name: string, value: string) #foreign "ui_uidoc_bind_text";
@@ -1966,6 +2025,8 @@ Product :: struct {
 
 Purchasing :: struct {
     prompt_purchase :: proc(player: Player, id: string)         #foreign "purchasing_prompt_purchase";
+    // Opens the VIP subscription purchase flow for the local player. Call once from a UI action.
+    prompt_vip_purchase :: proc(player: Player) #foreign "purchasing_prompt_vip_purchase";
     owns_product    :: proc(player: Player, id: string) -> bool #foreign "purchasing_owns_product";
     get_product     :: proc(id: string) -> Product              #foreign "purchasing_get_product";
 }
@@ -2050,9 +2111,9 @@ Shop :: struct {
     add_category          :: proc(shop_handle: u64, id: string) -> u64                    #foreign "shop_add_category";
     draw                  :: proc(shop_handle: u64, rect: Rect) -> bool                   #foreign "shop_draw";
     purchase              :: proc(shop_handle: u64, player: Player, product_handle: u64)  #foreign "shop_purchase";
-    set_purchase_handler  :: proc(shop_handle: u64, userdata: Object, handler: proc(player: Player, product_handle: u64, userdata: Object) -> bool)  #foreign "shop_set_purchase_handler";
-    set_purchase_modifier :: proc(shop_handle: u64, userdata: Object, modifier: proc(player: Player, product_handle: u64, userdata: Object) -> Shop_Purchase_Modification)  #foreign "shop_set_purchase_modifier";
-    set_custom_display    :: proc(shop_handle: u64, userdata: Object, display: proc(product_handle: u64, rect: Rect, userdata: Object))  #foreign "shop_set_custom_display";
+    set_purchase_handler  :: proc(shop_handle: u64, userdata: Object, #no_captures handler: proc(player: Player, product_handle: u64, userdata: Object) -> bool)  #foreign "shop_set_purchase_handler";
+    set_purchase_modifier :: proc(shop_handle: u64, userdata: Object, #no_captures modifier: proc(player: Player, product_handle: u64, userdata: Object) -> Shop_Purchase_Modification)  #foreign "shop_set_purchase_modifier";
+    set_custom_display    :: proc(shop_handle: u64, userdata: Object, #no_captures display: proc(product_handle: u64, rect: Rect, userdata: Object))  #foreign "shop_set_custom_display";
 }
 
 Ordered_Save_Entry :: struct {
@@ -2082,12 +2143,20 @@ Save_Game_Key :: struct {
 }
 
 Save :: struct {
+    save_item_reference :: proc(player: Player, key: string, item: Item_Instance) #foreign "save_save_item_reference";
+    get_item_reference  :: proc(player: Player, key: string) -> Item_Instance     #foreign "save_get_item_reference";
     set_string :: proc(player: Player, key: string, value: string)             #foreign "save_set_string";
     get_string :: proc(player: Player, key: string, default: string) -> string #foreign "save_get_string";
     set_int    :: proc(player: Player, key: string, value: s64)                #foreign "save_set_int";
     get_int    :: proc(player: Player, key: string, default: s64) -> s64       #foreign "save_get_int";
     set_f64    :: proc(player: Player, key: string, value: f64)                #foreign "save_set_f64";
     get_f64    :: proc(player: Player, key: string, default: f64) -> f64       #foreign "save_get_f64";
+    set_float  :: proc(player: Player, key: string, value: float) {
+        set_f64(player, key, value.(f64));
+    }
+    get_float  :: proc(player: Player, key: string, default: float) -> float {
+        return get_f64(player, key, default.(f64)).(float);
+    }
     delete_key     :: proc(player: Player, key: string)                         #foreign "save_delete_key";
     delete_all_keys :: proc(player: Player)                                    #foreign "save_delete_all_keys";
     get_all_keys   :: proc(player: Player) -> []string                         #foreign "save_get_all_keys";
@@ -2100,7 +2169,7 @@ Save :: struct {
     }
 
     try_get_json :: proc(player: Player, key: string, out_value: ref $T) -> bool {
-        return try_get_json_raw(player, key, (&out_value).(*u8), T);
+        #unsafe return try_get_json_raw(player, key, (&out_value).(*u8), T);
     }
 
     // Compatibility bridge: old clients do not relocate the pending game-key deletion list.
@@ -2125,11 +2194,14 @@ Save :: struct {
     get_all_game_keys     :: proc() -> []Save_Game_Key                                             #foreign "save_get_all_game_keys";
 
     ordered_set     :: proc(document: string, key: string, value: f64) #foreign "save_ordered_set";
-    ordered_get     :: proc(document: string, key: string, default: f64, userdata: Object, callback: proc(entry: Ordered_Save_Entry, userdata: Object)) #foreign "save_ordered_get";
-    ordered_get_all :: proc(document: string, offset: s64, limit: s64, userdata: Object, callback: proc(entries: []Ordered_Save_Entry, userdata: Object)) #foreign "save_ordered_get_all";
+    ordered_get     :: proc(document: string, key: string, default: f64, userdata: Object, #no_captures callback: proc(entry: Ordered_Save_Entry, userdata: Object)) #foreign "save_ordered_get";
+    ordered_get_all :: proc(document: string, offset: s64, limit: s64, userdata: Object, #no_captures callback: proc(entries: []Ordered_Save_Entry, userdata: Object)) #foreign "save_ordered_get_all";
 }
 
 Items :: struct {
+    // Only callable during this player's ao_start. Store the returned inventory for later use.
+    create_player_inventory                     :: proc(player: Player, key: string, capacity: s64) -> Inventory #foreign "items_create_player_inventory";
+    mark_item_dirty                             :: proc(item: Item_Instance) #foreign "items_mark_item_dirty";
     create_inventory                            :: proc(unique_id: string, capacity: s64)                                                             -> Inventory          #foreign "items_create_inventory";
     destroy_inventory                           :: proc(inventory: Inventory)                                                                -> bool               #foreign "items_destroy_inventory";
 
@@ -2255,9 +2327,10 @@ Item_Definition :: class {
 Item_Instance :: class {
     get_definition :: method() -> Item_Definition #foreign "item_instance_get_definition";
 
-    inventory: Inventory  #read_only #foreign "inventory_csl_handle";
-    slot_index: s64       #read_only #foreign "inventory_slot";
-    quantity:   s64       #read_only #foreign;
+    inventory:            Inventory #read_only #foreign "inventory_csl_handle";
+    slot_index:           s64       #read_only #foreign "inventory_slot";
+    entry_id_in_inventory: s64      #read_only #foreign "inventory_entry_id";
+    quantity:             s64       #read_only #foreign;
 } #gc_root #foreign_struct "Item_Instance"
 
 Notifier :: struct {
@@ -2408,7 +2481,9 @@ color_replace_get_color :: proc(color: Color_Replace_Color) -> v4 #foreign "csl_
 
 Spine_Instance_Fields :: class {
     state_machine:    State_Machine                  #foreign "state_machine_csl_handle"           #read_only("use set_state_machine()");
-    color_multiplier: v4                             #foreign;
+    #error_on_use "`color_multiplier` was renamed to `color` on Spine_Instance and Spine_Animator."
+    color_multiplier: v4                             #foreign "color";
+    color:            v4                             #foreign;
     scale:            v2                             #foreign "skeleton_scale";
     speed_multiplier: float                          #foreign;
     color_replace_color: Color_Replace_Color         #foreign "last_set_crewchsia_color"           #read_only("use set_color_replace_color()");
@@ -2421,6 +2496,7 @@ Spine_Instance :: class : Spine_Instance_Fields {
     set_state_machine :: method(new_state_machine: State_Machine, transfer_ownership: bool)  #foreign "spine_instance_set_state_machine";
 
     get_bone_local_position :: method(bone_name: string) -> v2         #foreign "spine_instance_get_bone_position";
+    try_get_bone_local_transform :: method(bone_name: string) -> (Spine_Bone_Transform, bool) #foreign "spine_instance_try_get_bone_transform";
     set_bone_local_position :: method(bone_name: string, position: v2) #foreign "spine_instance_set_bone_position";
 
     create            :: proc() -> Spine_Instance                                            #foreign "spine_instance_create";
@@ -2446,9 +2522,9 @@ Spine_Instance :: class : Spine_Instance_Fields {
     set_color_replace_color      :: method(color: Color_Replace_Color) #foreign "spine_instance_set_color_replace_color";
     set_material                 :: method(material: Material, transfer_ownership: bool) #foreign "spine_instance_set_material";
 
-    set_on_event                 :: method(userdata: Object, callback: proc(userdata: Object, event: Spine_Event_Data)) #foreign "spine_instance_set_on_event";
-    set_on_animation_start       :: method(userdata: Object, callback: proc(userdata: Object, animation: string)) #foreign "spine_instance_set_on_animation_start";
-    set_on_animation_end         :: method(userdata: Object, callback: proc(userdata: Object, animation: string)) #foreign "spine_instance_set_on_animation_end";
+    set_on_event                 :: method(userdata: Object, #no_captures callback: proc(userdata: Object, event: Spine_Event_Data)) #foreign "spine_instance_set_on_event";
+    set_on_animation_start       :: method(userdata: Object, #no_captures callback: proc(userdata: Object, animation: string)) #foreign "spine_instance_set_on_animation_start";
+    set_on_animation_end         :: method(userdata: Object, #no_captures callback: proc(userdata: Object, animation: string)) #foreign "spine_instance_set_on_animation_end";
 
     set_to_setup_pose :: method()                                                            #foreign "spine_instance_set_to_setup_pose";
 
@@ -2503,24 +2579,40 @@ Player_Base :: class : AO_Player {
 
     add_freeze_reason    :: method(reason: string) #foreign "player_add_freeze_reason";
     remove_freeze_reason :: method(reason: string) #foreign "player_remove_freeze_reason";
+    has_freeze_reason    :: method(reason: string) -> bool #foreign "player_has_freeze_reason";
+    has_any_freeze_reason :: method() -> bool #foreign "player_has_any_freeze_reason";
 
     add_invisibility_reason    :: method(reason: string) #foreign "player_add_invisibility_reason";
     remove_invisibility_reason :: method(reason: string) #foreign "player_remove_invisibility_reason";
+    has_invisibility_reason    :: method(reason: string) -> bool #foreign "player_has_invisibility_reason";
+    has_any_invisibility_reason :: method() -> bool #foreign "player_has_any_invisibility_reason";
 
     add_name_invisibility_reason    :: method(reason: string) #foreign "player_add_name_invisibility_reason";
     remove_name_invisibility_reason :: method(reason: string) #foreign "player_remove_name_invisibility_reason";
+    has_name_invisibility_reason    :: method(reason: string) -> bool #foreign "player_has_name_invisibility_reason";
+    has_any_name_invisibility_reason :: method() -> bool #foreign "player_has_any_name_invisibility_reason";
 
     add_name_offset_reason    :: method(reason: string, offset: float) #foreign "player_add_name_offset_reason";
     remove_name_offset_reason :: method(reason: string) #foreign "player_remove_name_offset_reason";
+    has_name_offset_reason    :: method(reason: string) -> bool #foreign "player_has_name_offset_reason";
+    has_any_name_offset_reason :: method() -> bool #foreign "player_has_any_name_offset_reason";
 
     // Synchronized and restored for late joiners; do not reapply in ao_on_state_sync.
     // Reasons are counted (each add needs one remove); removing an absent reason is a no-op.
     // This changes built-in player presentation only, not collision or gameplay targeting.
     add_ghost_reason    :: method(reason: string) #foreign "player_add_ghost_reason";
     remove_ghost_reason :: method(reason: string) #foreign "player_remove_ghost_reason";
+    has_ghost_reason    :: method(reason: string) -> bool #foreign "player_has_ghost_reason";
+    has_any_ghost_reason :: method() -> bool #foreign "player_has_any_ghost_reason";
 
     add_disable_movement_input_reason    :: method(reason: string) #foreign "player_add_disable_movement_input_reason";
     remove_disable_movement_input_reason :: method(reason: string) #foreign "player_remove_disable_movement_input_reason";
+    has_disable_movement_input_reason    :: method(reason: string) -> bool #foreign "player_has_disable_movement_input_reason";
+    has_any_disable_movement_input_reason :: method() -> bool #foreign "player_has_any_disable_movement_input_reason";
+
+    // Replaces input for the next movement step, including with v2{0, 0}.
+    // Applied after disabled-input reasons, so scripted movement can deliberately bypass them.
+    override_movement_input_for_next_step :: method(input: v2) #foreign "player_override_movement_input_for_next_step";
 
     has_equipped_emote :: method(animation_name: string) -> bool #foreign "player_has_equipped_emote";
 
@@ -2543,8 +2635,22 @@ Player_Base :: class : AO_Player {
         return false;
     }
 
-    is_emote_blocked :: method() -> bool {
+    has_emote_block_reason :: method(reason: string) -> bool {
+        for block_reason: emote_block_reasons {
+            if block_reason == reason {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    has_any_emote_block_reason :: method() -> bool {
         return emote_block_reasons.count > 0;
+    }
+
+    #deprecate_soft "Use has_any_emote_block_reason()."
+    is_emote_blocked :: method() -> bool {
+        return has_any_emote_block_reason();
     }
 
     try_trigger_emote :: method(animation_name: string) -> bool {
@@ -2557,6 +2663,8 @@ Player_Base :: class : AO_Player {
 
     add_joystick_disable_reason    :: method(reason: string) #foreign "player_add_joystick_disable_reason";
     remove_joystick_disable_reason :: method(reason: string) #foreign "player_remove_joystick_disable_reason";
+    has_joystick_disable_reason    :: method(reason: string) -> bool #foreign "player_has_joystick_disable_reason";
+    has_any_joystick_disable_reason :: method() -> bool #foreign "player_has_any_joystick_disable_reason";
 
     is_local_or_server :: method() -> bool #foreign "player_is_local_or_server";
     is_local           :: method() -> bool #foreign "player_is_local";
@@ -2581,8 +2689,14 @@ Player_Base :: class : AO_Player {
     get_system_buttons_rect :: method() -> Rect #foreign "player_get_system_buttons_rect";
     get_ptt_rect            :: method() -> Rect #foreign "player_get_ptt_rect";
 
-    is_admin           :: method() -> bool #foreign "player_is_admin";
+    // Game owner = the account that owns the game; editor = someone the owner added to the
+    // team. This is what "admin" means inside a game (platform staff is not exposed).
+    is_game_owner      :: method() -> bool #foreign "player_is_game_owner";
+    is_game_editor     :: method() -> bool #foreign "player_is_game_editor";
+    is_owner_or_editor :: method() -> bool #foreign "player_is_owner_or_editor";
     is_vip             :: method() -> bool #foreign "player_is_vip";
+    // Recorded friend-code referrals, refreshed on joining a server. Independent of capped Spark bonuses.
+    get_friend_referral_count :: method() -> int #foreign "player_get_friend_referral_count";
     is_moderator       :: method() -> bool #foreign "player_is_moderator";
     is_youtuber        :: method() -> bool #foreign "player_is_youtuber";
 
@@ -2630,11 +2744,11 @@ Effect_Base :: class {
         disable_movement_inputs: bool;
     };
 
-    #interface effect_start           :: proc(c: Effect_Base);
-    #interface effect_update          :: proc(c: Effect_Base, dt: float);
-    #interface effect_late_update     :: proc(c: Effect_Base, dt: float);
-    #interface effect_draw            :: proc(c: Effect_Base, dt: float);
-    #interface effect_end             :: proc(c: Effect_Base, interrupt: bool);
+    #interface effect_start           :: method();
+    #interface effect_update          :: method(dt: float);
+    #interface effect_late_update     :: method(dt: float);
+    #interface effect_draw            :: method(dt: float);
+    #interface effect_end             :: method(interrupt: bool);
 
     internal: struct {
         already_ending: bool;
@@ -3101,7 +3215,7 @@ player_try_trigger_emote :: proc(player: Player_Base, animation_name: string) ->
         return false;
     }
 
-    if player.is_emote_blocked() {
+    if player.has_any_emote_block_reason() {
         if player.is_local() && Game.is_predicted_frame() {
             Notifier.notify("You cannot emote right now");
         }
@@ -3147,6 +3261,7 @@ Ability_Base :: class {
 
     current_cooldown: float;
     type: typeid;
+    _tutorial_id: string;
     is_aimed_ability: bool;
     mouse_position_on_press: v2;
     max_drag_offset_this_press: float;
@@ -3155,9 +3270,9 @@ Ability_Base :: class {
     disable_keybind: bool;
     draw_but_dont_use_keybind: bool;
 
-    #interface on_update      :: proc(ability: Ability_Base, params: ref Ability_Update_Params);
-    #interface can_use        :: proc(ability: Ability_Base) -> bool ;
-    #interface on_draw_button :: proc(ability: Ability_Base, rect: Rect);
+    #interface on_update      :: method(params: ref Ability_Update_Params);
+    #interface can_use        :: method() -> bool ;
+    #interface on_draw_button :: method(rect: Rect);
 
 }
 
@@ -3262,10 +3377,10 @@ draw_aiming_arrows_interpolated :: proc(rect: Rect, previous_rect: Rect, previou
 }
 
 // Use an existing foreign API so newly published games still compile on older clients.
-observe_ability_button :: proc(player: Player, index: int, can_use: bool, aiming_blocked: bool, is_aimed: bool, cooldown: float) {
+observe_ability_button :: proc(player: Player, index: int, can_use: bool, ability_can_use: bool, aiming_blocked: bool, is_aimed: bool, cooldown: float) {
     if Game.is_launched_from_editor() && player.is_local() {
-        log_debug("[automation ability] player=% slot=% can_use=% aiming_blocked=% is_aimed=% cooldown=%",
-            {player, index, can_use, aiming_blocked, is_aimed, cooldown});
+        log_debug("[automation ability] player=% slot=% can_use=% ability_can_use=% aiming_blocked=% is_aimed=% cooldown=%",
+            {player, index, can_use, ability_can_use, aiming_blocked, is_aimed, cooldown});
     }
 }
 
@@ -3296,6 +3411,7 @@ draw_ability_button :: proc(player: Player, $T: typeid, index: int) {
             can_use = true;
         }
     }
+    ability_can_use := can_use;
     if can_use {
         #if #exists(Player.ao_can_use_ability) {
             can_use = Player.ao_can_use_ability(player, ability);
@@ -3303,6 +3419,7 @@ draw_ability_button :: proc(player: Player, $T: typeid, index: int) {
     }
 
     ability_button_rect: Rect;
+    ability_layout_scale: float;
 
     {
         scale_factor := 0.6;
@@ -3313,6 +3430,7 @@ draw_ability_button :: proc(player: Player, $T: typeid, index: int) {
 
         UI.push_scale_factor(UI.get_current_scale_factor() * scale_factor);
         defer UI.pop_scale_factor();
+        ability_layout_scale = UI.get_current_scale_factor();
 
         button_offsets := ([6]v2){
             {-105, 90},
@@ -3349,7 +3467,7 @@ draw_ability_button :: proc(player: Player, $T: typeid, index: int) {
         defer UI.pop_id();
 
         was_aiming := player.was_aiming_ability_frame_number == get_frame_number() || player.was_aiming_ability_frame_number == get_frame_number() - 1;
-        observe_ability_button(player, index, can_use, was_aiming && index != player.was_aiming_ability_index, ability.is_aimed_ability, ability.current_cooldown);
+        observe_ability_button(player, index, can_use, ability_can_use, was_aiming && index != player.was_aiming_ability_index, ability.is_aimed_ability, ability.current_cooldown);
         if Game.is_launched_from_editor() && player.is_local() {
             log_debug("[automation ability identity] player=% slot=% ability=%", {player, index, ability});
         }
@@ -3417,7 +3535,9 @@ draw_ability_button :: proc(player: Player, $T: typeid, index: int) {
             }
         }
 
-        if player.is_mobile() && player.aimed_ability_drag_hint == ability {
+        tutorial_hand := _tutorial_ability_element(player, ability._tutorial_id, ability_button_rect,
+            ability.is_aimed_ability, interact.active, ability_layout_scale);
+        if player.is_mobile() && player.aimed_ability_drag_hint == ability && !tutorial_hand {
             hint_elapsed := get_time() - player.aimed_ability_drag_hint_started_at;
             if hint_elapsed >= 2.4 {
                 player.aimed_ability_drag_hint = null;
@@ -4633,7 +4753,7 @@ UIK :: struct {
     grid_begin :: proc(columns: s64, cell_height: float) #foreign "uik_grid_begin";
     grid_end :: proc() #foreign "uik_grid_end";
 
-    card_begin :: proc(id: string, desc: Card_Desc, before_draw: u64 = 0, after_draw: u64 = 0, userdata: u64 = 0) #foreign "uik_card_begin";
+    card_begin :: proc(id: string, desc: Card_Desc, #no_captures before_draw: proc(rect: Rect, userdata: Object) = {}, #no_captures after_draw: proc(rect: Rect, userdata: Object) = {}, userdata: Object = {}) #foreign "uik_card_begin";
     card_end :: proc() -> Interact_Result #foreign "uik_card_end";
     card_zone :: proc(zone: Card_Zone) #foreign "uik_card_zone";
     card_zone_end :: proc() #foreign "uik_card_zone_end";

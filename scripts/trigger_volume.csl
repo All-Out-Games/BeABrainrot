@@ -41,8 +41,8 @@ Trigger_Volume :: class : Component {
 
     set_listener :: method(
         l: Component,
-        on_enter: proc(listener: Component, player: Player),
-        on_exit:  proc(listener: Component, player: Player),
+        #no_captures on_enter: proc(listener: Component, player: Player),
+        #no_captures on_exit:  proc(listener: Component, player: Player),
     ) {
         listener      = l;
         on_enter_proc = on_enter;

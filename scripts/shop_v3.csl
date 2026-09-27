@@ -433,7 +433,7 @@ draw_shop_v3 :: proc(player: Player) {
     UIK.panel_begin(text_col);
     UIK.text("PRIME Pass", UIK.text_title());
     sub_ts := UIK.text_title();
-    UIK.text_set_size_mult(&sub_ts, 0.5);
+    #unsafe UIK.text_set_size_mult(&sub_ts, 0.5);
     UIK.text("VIP floor + boosted brainrots", sub_ts);
     UIK.text("Auto-collects your coins", sub_ts);
     UIK.panel_end();

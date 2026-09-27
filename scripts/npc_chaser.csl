@@ -142,7 +142,7 @@ face_along_x :: proc(e: Entity, world_dx: float) {
     local_dx := world_dx;
     parent := e.get_parent();
     if parent != null && #alive(parent) {
-        local_dx = transform_delta_2d(parent.inverse_model_matrix, v2{world_dx, 0}).x;
+        local_dx = transform_delta_2d(parent.inverse_model_matrix(), v2{world_dx, 0}).x;
     }
     if abs(local_dx) < 0.0001 return;
     s := e.local_scale;

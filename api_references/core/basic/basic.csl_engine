@@ -45,6 +45,13 @@ memcpy :: proc(dst: *u8, src: *u8, count: int) #foreign "csl_memcpy";
 
 
 
+Math :: struct {
+    exp :: proc(v: f32) -> f32 #intrinsic "exp_f32";
+    exp :: proc(v: f64) -> f64 #intrinsic "exp_f64";
+    log :: proc(v: f32) -> f32 #intrinsic "log_f32";
+    log :: proc(v: f64) -> f64 #intrinsic "log_f64";
+}
+
 sin   :: proc(v: float) -> float #intrinsic "sin_f32";
 sin   :: proc(v: f64) -> f64 #intrinsic "sin_f64";
 cos   :: proc(v: float) -> float #intrinsic "cos_f32";
@@ -94,6 +101,15 @@ to_upper    :: proc(str: string) -> string #foreign;
 rng_seed        :: proc(seed: u64)                          -> u64   #foreign;
 rng_range_float :: proc(rng: ref u64, lo: float, hi: float) -> float #foreign;
 rng_range_int   :: proc(rng: ref u64, lo: s64,   hi: s64)   -> s64   #foreign;
+
+mix_u64 :: proc(a: u64, b: u64) -> u64 {
+    a += b + 0x9e3779b97f4a7c15;
+    a = (a ^ (a >> 30)) * 0xbf58476d1ce4e5b9;
+    a = (a ^ (a >> 27)) * 0x94d049bb133111eb;
+    return a ^ (a >> 31);
+}
+
+rng_mix :: proc(rng: ref u64, value: u64) { rng = mix_u64(rng, value); }
 
 rng_shuffle :: proc(rng: ref u64, array: []$T) {
     for i: 0..array.count-1 {

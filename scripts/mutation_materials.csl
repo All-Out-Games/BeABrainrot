@@ -175,7 +175,7 @@ test_rainbow_spine_cmd :: proc(player: Player) {
     if player == null return;
     if !#alive(player.entity) return;
     e := Scene.create_entity();
-    e.set_local_position(player.entity.world_position + v2{2, 0});
+    e.set_local_position(player.entity.world_position.xy + v2{2, 0});
     anim := e.add_component(Spine_Animator);
     anim.awaken();
     asset := get_asset(Spine_Asset, "Spines/Memes/YesMyExamen/yesmyexamen.spine");

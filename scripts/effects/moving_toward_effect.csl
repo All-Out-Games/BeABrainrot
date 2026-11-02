@@ -45,7 +45,7 @@ Moving_Toward_Effect :: class : Effect_Base {
         }
         units_per_sec := agent_speed / MOVING_TOWARD_FRICTION_DIVISOR * scale;
 
-        pos := player.entity.local_position;
+        pos := player.entity.local_position.xy;
         pos.y += units_per_sec * dt;
 
         // Hard ceiling: never auto-walk past the last NPC room's bounds Y.

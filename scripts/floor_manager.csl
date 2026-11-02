@@ -29,7 +29,7 @@ Floor_Manager :: class : Component {
         if viewer == null return;
         viewer_floor := viewer.current_floor;
 
-        cam_pos  := viewer.camera.position;
+        cam_pos  := viewer.camera.position.xy;
         cam_size := viewer.camera.size;
 
         // Camera not ready (size 0) — fall back to the full walk so nothing is
@@ -65,7 +65,7 @@ Floor_Manager :: class : Component {
                     if !#alive(r) continue;
                     // Exact-cell filter (buckets can mix cells via hash collisions).
                     if r.grid_cx != cx || r.grid_cy != cy continue;
-                    if length_squared(r.entity.world_position - cam_pos) > cull_sq continue;
+                    if length_squared(r.entity.world_position.xy - cam_pos) > cull_sq continue;
                     r.apply_for_viewer_floor(viewer_floor);
                 }
             }
@@ -117,7 +117,7 @@ draw_floor_shadow :: proc(player: Player) {
     if !#alive(player.entity) return;
     if player.current_floor <= 0 return;
 
-    pos := player.entity.world_position;
+    pos := player.entity.world_position.xy;
     rect := Rect{pos, pos}.grow(FLOOR_SHADOW_GROW, FLOOR_SHADOW_GROW, FLOOR_SHADOW_GROW, FLOOR_SHADOW_GROW);
 
     UI.push_world_draw_context();

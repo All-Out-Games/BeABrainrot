@@ -41,7 +41,7 @@ Hit_Knockback_Effect :: class : Effect_Base {
         decay := 1.0 - t;
         decay = decay * decay;
         step := HIT_KNOCKBACK_FORCE * decay * dt;
-        player.entity.set_world_position(player.entity.world_position + knockback_dir * step);
+        player.entity.set_world_position(player.entity.world_position.xy + knockback_dir * step);
 
         // One full spin over the duration.
         player.entity.set_local_rotation(saved_rotation + t * 360.0);

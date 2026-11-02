@@ -71,16 +71,16 @@ Premium_Brainrot_Stand :: class : Interactable {
         // height offset above this entity's origin.
         pos: v2;
         if #alive(label_anchor) {
-            pos = label_anchor.world_position;
+            pos = label_anchor.world_position.xy;
         } else {
             h := label_height;
             if h <= 0 h = 1.85;
-            pos = entity.world_position + v2{0, h};
+            pos = entity.world_position.xy + v2{0, h};
         }
 
         // Camera-rect cull — skip the labels (and box) when off-screen.
         if local.camera.size > 0 {
-            diff := pos - local.camera.position;
+            diff := pos - local.camera.position.xy;
             cull := local.camera.size * 1.5;
             if length_squared(diff) > cull * cull return;
         }

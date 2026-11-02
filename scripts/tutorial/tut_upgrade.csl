@@ -12,7 +12,7 @@ draw_tut_upgrade :: proc(player: Player) {
     // Otherwise walk them to the nearest placed brainrot in their room.
     room := player.my_room;
     if room == null return;
-    pp := player.entity.world_position;
+    pp := player.entity.world_position.xy;
     best: LivingEntity;
     best_d := 999999.0;
     for ped: room.pedestals {
@@ -20,12 +20,12 @@ draw_tut_upgrade :: proc(player: Player) {
         if ped.placed_brainrot == null continue;
         if !#alive(ped.placed_brainrot.entity) continue;
         if ped.floor_renderer != null && ped.floor_renderer.floor != player.current_floor continue;
-        d := length_squared(ped.placed_brainrot.entity.world_position - pp);
+        d := length_squared(ped.placed_brainrot.entity.world_position.xy - pp);
         if d < best_d {
             best_d = d;
             best = ped.placed_brainrot;
         }
     }
     if best == null return;
-    draw_tutorial_dotted_line(pp, best.entity.world_position, TUT_LINE_COLOR);
+    draw_tutorial_dotted_line(pp, best.entity.world_position.xy, TUT_LINE_COLOR);
 }

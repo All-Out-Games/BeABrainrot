@@ -3,7 +3,7 @@
 // point at the nearest brainrot on the player's floor. Completed in
 // do_steal_secure.
 draw_tut_steal :: proc(player: Player) {
-    pp := player.entity.world_position;
+    pp := player.entity.world_position.xy;
 
     // Already grabbed one? Point back to the line so they run it out to secure it.
     _, carrying := get_effect(player.entity, Carry_Brainrot_Stealing_Npc_Effect);
@@ -11,7 +11,7 @@ draw_tut_steal :: proc(player: Player) {
         gm := get_game_manager();
         if gm == null return;
         if gm.npc_line == null || !#alive(gm.npc_line) return;
-        draw_tutorial_dotted_line(pp, gm.npc_line.world_position, TUT_LINE_COLOR);
+        draw_tutorial_dotted_line(pp, gm.npc_line.world_position.xy, TUT_LINE_COLOR);
         return;
     }
 
@@ -27,12 +27,12 @@ draw_tut_steal :: proc(player: Player) {
         if le == null continue;
         if !#alive(le.entity) continue;
         if le.carried_by != null continue;   // not already being carried off
-        d := length_squared(le.entity.world_position - pp);
+        d := length_squared(le.entity.world_position.xy - pp);
         if d < best_d {
             best_d = d;
             best = le;
         }
     }
     if best == null return;
-    draw_tutorial_dotted_line(pp, best.entity.world_position, TUT_LINE_COLOR);
+    draw_tutorial_dotted_line(pp, best.entity.world_position.xy, TUT_LINE_COLOR);
 }

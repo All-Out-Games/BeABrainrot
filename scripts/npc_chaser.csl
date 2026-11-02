@@ -36,7 +36,7 @@ Npc_Chaser :: class : Component {
     last_world_pos:         v2;             // world position last frame — used to detect actual movement for the anim picker
 
     ao_start :: method() {
-        home_position = entity.world_position;
+        home_position = entity.world_position.xy;
         last_world_pos = home_position;
         if speed_stat <= 0 speed_stat = 30;
         append(ref g_npc_chasers, this);
@@ -106,7 +106,7 @@ Npc_Chaser :: class : Component {
 
             kb := new(Hit_Knockback_Effect);
             kb.chaser = this;
-            diff := assigned_player.entity.world_position - entity.world_position;
+            diff := assigned_player.entity.world_position.xy - entity.world_position.xy;
             if length_squared(diff) > 0 {
                 kb.knockback_dir = normalize(diff);
             } else {
@@ -145,7 +145,7 @@ face_along_x :: proc(e: Entity, world_dx: float) {
         local_dx = transform_delta_2d(parent.inverse_model_matrix(), v2{world_dx, 0}).x;
     }
     if abs(local_dx) < 0.0001 return;
-    s := e.local_scale;
+    s := e.local_scale.xy;
     abs_x := abs(s.x);
     target_x := abs_x;
     if local_dx < 0 target_x = -abs_x;
@@ -207,7 +207,7 @@ start_chase :: proc(c: Npc_Chaser, is_re_chase: bool) {
 
 update_chaser_spine_anim :: proc(c: Npc_Chaser, dt: float) {
     if c.spine == null return;
-    pos := c.entity.world_position;
+    pos := c.entity.world_position.xy;
     delta := pos - c.last_world_pos;
     c.last_world_pos = pos;
 
@@ -253,11 +253,11 @@ chaser_distance :: proc(player: Player, c: Npc_Chaser) -> float {
     if c == null return 999999.0;
     if !#alive(c.entity) return 999999.0;
     if c.state != Npc_Chaser_State.CHASING return 999999.0;
-    return length(c.entity.world_position - player.entity.world_position);
+    return length(c.entity.world_position.xy - player.entity.world_position.xy);
 }
 
 tick_chaser_idle :: proc(c: Npc_Chaser, dt: float) {
-    my_world := c.entity.world_position;
+    my_world := c.entity.world_position.xy;
     diff := c.home_position - my_world;
     if length_squared(diff) < NPC_HOME_RADIUS_SQ return;
     step := chaser_speed_wu_per_sec(c.speed_stat) * dt;
@@ -311,8 +311,8 @@ tick_chaser_chasing :: proc(c: Npc_Chaser, dt: float) {
         c.chase_windup_remaining -= dt;
     }
 
-    player_pos := c.assigned_player.entity.world_position;
-    my_world := c.entity.world_position;
+    player_pos := c.assigned_player.entity.world_position.xy;
+    my_world := c.entity.world_position.xy;
     diff := player_pos - my_world;
     step := effective_speed * dt;
 
@@ -345,9 +345,9 @@ tick_chaser_escorting :: proc(c: Npc_Chaser, dt: float) {
 
     p0 := c.home_room.pedestals[0];
     if p0 == null || p0.brainrot_pedestal == null { c.state = Npc_Chaser_State.IDLE; return; }
-    target := p0.brainrot_pedestal.world_position;
+    target := p0.brainrot_pedestal.world_position.xy;
 
-    my_world := c.entity.world_position;
+    my_world := c.entity.world_position.xy;
     diff := target - my_world;
     step := chaser_speed_wu_per_sec(c.speed_stat) * dt;
 
@@ -371,7 +371,7 @@ tick_chaser_escorting :: proc(c: Npc_Chaser, dt: float) {
     n := normalize(diff);
     world_step := n * step;
     c.entity.set_world_position(my_world + world_step);
-    c.assigned_player.entity.set_world_position(c.assigned_player.entity.world_position + world_step);
+    c.assigned_player.entity.set_world_position(c.assigned_player.entity.world_position.xy + world_step);
 }
 
 collect_chasers_recursive :: proc(r: Room_Npc, e: Entity) {
@@ -599,7 +599,7 @@ npc_punish_player :: proc(c: Npc_Chaser) {
 
     // Teleport player back to their own base.
     if c.assigned_player.my_room != null && #alive(c.assigned_player.my_room.entity) {
-        c.assigned_player.entity.set_world_position(c.assigned_player.my_room.entity.world_position);
+        c.assigned_player.entity.set_world_position(c.assigned_player.my_room.entity.world_position.xy);
     }
 
     // Clear effects and unfreeze.

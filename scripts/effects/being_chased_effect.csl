@@ -56,7 +56,7 @@ Being_Chased_Effect :: class : Effect_Base {
         t := get_time();
         ox := (sin(t * 11.0) * 0.6 + sin(t * 17.3 + 1.7) * 0.4) * amp;
         oy := (cos(t * 13.0) * 0.6 + sin(t * 19.7 + 0.6) * 0.4) * amp;
-        player.camera.position = player.camera.position + v2{ox, oy};
+        player.camera.position.xy = player.camera.position.xy + v2{ox, oy};
 
         // Proximity vignette (its own, wider range).
         vprox := 1.0 - (d - VIGNETTE_NEAR_DIST) / (VIGNETTE_FAR_DIST - VIGNETTE_NEAR_DIST);

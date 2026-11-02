@@ -177,7 +177,7 @@ Leaderboard :: class : Component {
         UI.push_interpolation_anchor(entity);
         defer UI.pop_interpolation_anchor();
 
-        pos := entity.world_position;
+        pos := entity.world_position.xy;
 
         UI.push_z(pos.y + z_pivot_offset);
         defer UI.pop_z();

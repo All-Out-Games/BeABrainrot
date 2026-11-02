@@ -70,7 +70,7 @@ Pedestal :: class : Interactable {
             br.owner = player;
             br.state = Brainrot_State.CLAIMED_IN_BASE;
             if brainrot_pedestal != null {
-                br.entity.set_local_position(brainrot_pedestal.world_position);
+                br.entity.set_local_position(brainrot_pedestal.world_position.xy);
                 br.entity.mark_teleported();
             }
             placed_brainrot = br;
@@ -124,7 +124,7 @@ Pedestal :: class : Interactable {
         if !room.owner.is_local_or_server() return;
         if floor_renderer != null && room.owner.current_floor != floor_renderer.floor return;
 
-        diff := room.owner.entity.world_position - money_entity.world_position;
+        diff := room.owner.entity.world_position.xy - money_entity.world_position.xy;
         if length_squared(diff) < COLLECT_RANGE_SQ {
             collect_pedestal_gold(room.owner, accumulated_gold);
             accumulated_gold = 0;
@@ -156,11 +156,11 @@ Pedestal :: class : Interactable {
         // Don't draw the money label if the viewer isn't on the same floor.
         if floor_renderer != null && local.current_floor != floor_renderer.floor return;
 
-        pos := entity.world_position + v2{0, -0.7};
+        pos := entity.world_position.xy + v2{0, -0.7};
 
         // Camera-rect culling — skip the money label when off-screen.
         if local.camera.size > 0 {
-            cam_pos := local.camera.position;
+            cam_pos := local.camera.position.xy;
             cull_radius := local.camera.size * 1.5;
             diff := pos - cam_pos;
             if length_squared(diff) > cull_radius * cull_radius return;
@@ -210,14 +210,14 @@ Room :: class : Component {
         if !#alive(trigger.corner_a) return;
         if !#alive(trigger.corner_b) return;
 
-        a := trigger.corner_a.world_position;
-        b := trigger.corner_b.world_position;
+        a := trigger.corner_a.world_position.xy;
+        b := trigger.corner_b.world_position.xy;
         x_min := min(a.x, b.x);
         x_max := max(a.x, b.x);
         y_min := min(a.y, b.y);
         y_max := max(a.y, b.y);
 
-        pos := player.entity.world_position;
+        pos := player.entity.world_position.xy;
         clamped := v2{clamp(pos.x, x_min, x_max), clamp(pos.y, y_min, y_max)};
         if clamped.x != pos.x || clamped.y != pos.y {
             player.entity.set_local_position(clamped);
@@ -231,7 +231,7 @@ Room :: class : Component {
         if player != null {
             player.my_room = this;
             if #alive(player.entity) {
-                player.teleport(entity.world_position);
+                player.teleport(entity.world_position.xy);
             }
         }
         apply_pedestal_unlocks(this, player);
@@ -355,14 +355,14 @@ Room_Npc :: class : Room {
         if trigger == null return;
         if !#alive(trigger.corner_a) || !#alive(trigger.corner_b) return;
 
-        a := trigger.corner_a.world_position;
-        b := trigger.corner_b.world_position;
+        a := trigger.corner_a.world_position.xy;
+        b := trigger.corner_b.world_position.xy;
         x_min := min(a.x, b.x);
         x_max := max(a.x, b.x);
         y_min := min(a.y, b.y);
         y_max := max(a.y, b.y);
 
-        pos := player.entity.world_position;
+        pos := player.entity.world_position.xy;
         if pos.x <= x_min || pos.x >= x_max return; // already outside on X
         if pos.y <= y_min || pos.y >= y_max return; // already outside on Y
 
@@ -423,13 +423,13 @@ npc_room_visible_to_local :: proc(r: Room_Npc) -> bool {
     if local.camera.size <= 0 return true;
 
     if r.trigger != null && #alive(r.trigger.corner_a) && #alive(r.trigger.corner_b) {
-        a := r.trigger.corner_a.world_position;
-        b := r.trigger.corner_b.world_position;
+        a := r.trigger.corner_a.world_position.xy;
+        b := r.trigger.corner_b.world_position.xy;
         center := v2{(a.x + b.x) * 0.5, (a.y + b.y) * 0.5};
         apron := max(abs(a.x - b.x), abs(a.y - b.y)) * 0.5 + 2.0;
         return Camera.is_visible(center, apron);
     }
-    if #alive(r.entity) return Camera.is_visible(r.entity.world_position, 8.0);
+    if #alive(r.entity) return Camera.is_visible(r.entity.world_position.xy, 8.0);
     return false;
 }
 
@@ -471,7 +471,7 @@ draw_npc_room_name :: proc(r: Room_Npc) {
     anchor := first.get_next_sibling(); // child index 1
     if anchor == null || !#alive(anchor) return;
 
-    pos := anchor.world_position;
+    pos := anchor.world_position.xy;
 
     UI.begin_world_space_ui(anchor);
     defer UI.end_world_space_ui();
@@ -629,7 +629,7 @@ spawn_npc_brainrot_on_pedestal :: proc(pedestal: Pedestal, config: Brainrot_Conf
         log_info("spawn_npc_brainrot_on_pedestal: prefab not found at '%'.", {BRAINROT_NPC_PREFAB_PATH});
         return null;
     }
-    pos := pedestal.brainrot_pedestal.world_position;
+    pos := pedestal.brainrot_pedestal.world_position.xy;
     e := Scene.instantiate(prefab, pos);
     if e == null return null;
     le := e.get_component(LivingEntity_Npc);
@@ -664,7 +664,7 @@ draw_npc_pedestal_timers :: proc(r: Room_Npc, local: Player) {
         base_pos := get_sprite_bottom_center(le.sprite, anchor) - v2{0, LABEL_TOP_PADDING};
 
         if local.camera.size > 0 {
-            cam_pos := local.camera.position;
+            cam_pos := local.camera.position.xy;
             cull_radius := local.camera.size * 1.5;
             diff := base_pos - cam_pos;
             if length_squared(diff) > cull_radius * cull_radius continue;
@@ -704,7 +704,7 @@ get_closest_placed_brainrot :: proc(player: Player) -> LivingEntity {
         if !#alive(p.placed_brainrot.entity) continue;
         // Skip pedestals on a different floor than the viewer.
         if p.floor_renderer != null && player.current_floor != p.floor_renderer.floor continue;
-        diff := p.placed_brainrot.entity.world_position - player.entity.world_position;
+        diff := p.placed_brainrot.entity.world_position.xy - player.entity.world_position.xy;
         d := length_squared(diff);
         if d < closest_dist_sq {
             closest_dist_sq = d;
@@ -894,7 +894,7 @@ spawn_brainrot_on_pedestal :: proc(pedestal: Pedestal, config: Brainrot_Config) 
         return null;
     }
 
-    pos := pedestal.brainrot_pedestal.world_position;
+    pos := pedestal.brainrot_pedestal.world_position.xy;
     e := Scene.instantiate(prefab, pos);
     if e == null return null;
 
@@ -951,22 +951,22 @@ swap_placed_brainrots :: proc(pa: Pedestal, pb: Pedestal) {
     if a != null && #alive(a.entity) {
         a.pedestal = pb;
         if pb.brainrot_pedestal != null {
-            a.entity.set_world_position(pb.brainrot_pedestal.world_position);
+            a.entity.set_world_position(pb.brainrot_pedestal.world_position.xy);
             a.entity.mark_teleported();
         }
         // Update the jump rest position too — a brainrot mid-jump (e.g. from
         // the equip-best cash-out) would otherwise snap back to its OLD spot,
         // landing on top of whatever was moved here.
-        a.jump_rest_pos = a.entity.local_position;
+        a.jump_rest_pos = a.entity.local_position.xy;
         sync_brainrot_floor_to_pedestal(a, pb);
     }
     if b != null && #alive(b.entity) {
         b.pedestal = pa;
         if pa.brainrot_pedestal != null {
-            b.entity.set_world_position(pa.brainrot_pedestal.world_position);
+            b.entity.set_world_position(pa.brainrot_pedestal.world_position.xy);
             b.entity.mark_teleported();
         }
-        b.jump_rest_pos = b.entity.local_position;
+        b.jump_rest_pos = b.entity.local_position.xy;
         sync_brainrot_floor_to_pedestal(b, pa);
     }
 }
@@ -1117,6 +1117,6 @@ perf_spawn_full_load :: proc(player: Player) {
         p.claim_cooldown = 0;
     }
 
-    player.teleport(room.entity.world_position);
+    player.teleport(room.entity.world_position.xy);
     player.current_floor = 0;
 } @chat_command

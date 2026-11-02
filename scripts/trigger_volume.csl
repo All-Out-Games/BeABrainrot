@@ -54,8 +54,8 @@ Trigger_Volume :: class : Component {
         if !#alive(corner_b) return;
         if listener == null && on_enter_proc == null && on_exit_proc == null return;
 
-        a := corner_a.world_position;
-        b := corner_b.world_position;
+        a := corner_a.world_position.xy;
+        b := corner_b.world_position.xy;
         if !bounds_cached || a.x != last_a.x || a.y != last_a.y || b.x != last_b.x || b.y != last_b.y {
             x_min = min(a.x, b.x);
             x_max = max(a.x, b.x);
@@ -71,7 +71,7 @@ Trigger_Volume :: class : Component {
             if p == null continue;
             if !#alive(p) continue;
             if !#alive(p.entity) continue;
-            pos := p.entity.world_position;
+            pos := p.entity.world_position.xy;
             if pos.x < x_min continue;
             if pos.x > x_max continue;
             if pos.y < y_min continue;

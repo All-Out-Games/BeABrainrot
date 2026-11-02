@@ -50,7 +50,7 @@ Event_Display :: class : Component {
         ts.outline_thickness = 4.0;
         ts.outline_color = v4{0, 0, 0, 1};
 
-        pos := entity.world_position;
+        pos := entity.world_position.xy;
         rect := Rect{pos, pos}.grow(0.5, 3.0, 0.5, 3.0);
         UI.text(rect, ts, format_string("% in %", {event_name, timer}));
     }

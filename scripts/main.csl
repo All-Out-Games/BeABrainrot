@@ -227,7 +227,7 @@ srb :: proc(player: Player) {
     if mut_idx == 3 mut = Mutation.RAINBOW;
     if mut_idx == 4 mut = Mutation.CANDY;
 
-    pos := player.entity.world_position;
+    pos := player.entity.world_position.xy;
     le := spawn_brainrot(config.id, pos);
     if le == null {
         show_notification(player, "Spawn failed (check Brainrot.prefab).");
@@ -361,7 +361,7 @@ srbm :: proc(player: Player) {
     if mut_idx == 3 mut = Mutation.RAINBOW;
     if mut_idx == 4 mut = Mutation.CANDY;
 
-    pos := player.entity.world_position;
+    pos := player.entity.world_position.xy;
     le := spawn_brainrot(config.id, pos);
     if le == null {
         show_notification(player, "Spawn failed (check Brainrot.prefab).");
@@ -407,7 +407,7 @@ draw_player_hud :: proc(player: Player) {
     }
 
     speed_desc := UIK.text_title();
-    #unsafe UIK.text_set_halign(&speed_desc, .LEFT);
+    speed_desc.set_halign(.LEFT);
     UIK.text(format_string("Speed: %", {player.speed}), speed_desc);
 
     if player.purchased_speed > 0 {
@@ -419,8 +419,8 @@ draw_player_hud :: proc(player: Player) {
     }
 
     cash_desc := UIK.text_title();
-    #unsafe UIK.text_set_halign(&cash_desc, .LEFT);
-    #unsafe UIK.text_set_color(&cash_desc, {0.2, 0.9, 0.2, 1});
+    cash_desc.set_halign(.LEFT);
+    cash_desc.set_color({0.2, 0.9, 0.2, 1});
     UIK.text(format_cash(player.displayed_cash), cash_desc);
 
     for i: 0..player.cash_popups.count - 1 {
@@ -722,7 +722,7 @@ Player :: class : Player_Base {
             for lb: component_iterator(Leaderboard) {
                 if lb == null continue;
                 if !#alive(lb.entity) continue;
-                if !Camera.is_visible(lb.entity.world_position, 3.5) continue;
+                if !Camera.is_visible(lb.entity.world_position.xy, 3.5) continue;
                 lb.draw();
             }
 
@@ -807,7 +807,7 @@ Player :: class : Player_Base {
                 if ed == null continue;
                 if !#alive(ed) continue;
                 if !#alive(ed.entity) continue;
-                if !Camera.is_visible(ed.entity.world_position, 3.0) continue;
+                if !Camera.is_visible(ed.entity.world_position.xy, 3.0) continue;
                 ed.draw();
             }
 

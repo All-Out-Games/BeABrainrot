@@ -19,5 +19,5 @@ draw_tut_base_button :: proc(player: Player) {
     ped := room.pedestals[0];
     if ped == null return;
     if ped.brainrot_pedestal == null || !#alive(ped.brainrot_pedestal) return;
-    draw_tutorial_dotted_line(player.entity.world_position, ped.brainrot_pedestal.world_position, TUT_LINE_COLOR);
+    draw_tutorial_dotted_line(player.entity.world_position.xy, ped.brainrot_pedestal.world_position.xy, TUT_LINE_COLOR);
 }

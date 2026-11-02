@@ -24,7 +24,7 @@ floor_grid_bucket :: proc(cx: s64, cy: s64) -> s64 {
 floor_renderer_update_grid :: proc(r: Floor_Renderer) {
     if r == null return;
     if !#alive(r.entity) return;
-    pos := r.entity.world_position;
+    pos := r.entity.world_position.xy;
     cx  := floor_grid_cell(pos.x);
     cy  := floor_grid_cell(pos.y);
     if r.grid_registered && r.grid_cx == cx && r.grid_cy == cy return; // unchanged

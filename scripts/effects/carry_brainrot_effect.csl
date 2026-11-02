@@ -35,11 +35,11 @@ Carry_Brainrot_Effect :: class : Effect_Base {
         }
         if saved_id.count == 0 return;
 
-        held_pos := player.entity.world_position + v2{0, CARRY_Y_OFFSET};
+        held_pos := player.entity.world_position.xy + v2{0, CARRY_Y_OFFSET};
         if player.animator != null {
             local_bone := player.animator.get_bone_local_position("held_item");
             if local_bone.x != 0 || local_bone.y != 0 {
-                held_pos = player.entity.world_position + local_bone;
+                held_pos = player.entity.world_position.xy + local_bone;
             }
         }
 

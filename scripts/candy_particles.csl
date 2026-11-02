@@ -138,7 +138,7 @@ draw_candy_pop :: proc(le: LivingEntity) {
     opts := candy_pop_options();
     if local_t < 0 return;
     if local_t > opts.duration + opts.stagger return; // burst finished
-    center := le.entity.world_position;
+    center := le.entity.world_position.xy;
     if !Camera.is_visible(center, 5.0) return;
     if g_candy_scratch == null g_candy_scratch = new(Particle_System);
 

@@ -45,7 +45,7 @@ Re_Chase_Alarm_Effect :: class : Effect_Base {
         shake_mag := RE_CHASE_SHAKE_MAGNITUDE * (1.0 - t);
         sx := rng_range_float(ref rng, -1, 1) * shake_mag;
         sy := rng_range_float(ref rng, -1, 1) * shake_mag;
-        player.camera.position = player.camera.position + v2{sx, sy};
+        player.camera.position.xy = player.camera.position.xy + v2{sx, sy};
 
         // Red alarm flash.
         pulse := abs(sin(get_elapsed_time() * PI * 2.0 * RE_CHASE_PULSE_HZ));

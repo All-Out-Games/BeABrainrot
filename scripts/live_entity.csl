@@ -66,11 +66,11 @@ draw_debug_living_entity :: proc(player: Player) {
 
     closest: LivingEntity;
     closest_dist_sq: float = 99999999.0;
-    pos := player.entity.world_position;
+    pos := player.entity.world_position.xy;
     for le: component_iterator(LivingEntity) {
         if le == null continue;
         if !#alive(le.entity) continue;
-        diff := le.entity.world_position - pos;
+        diff := le.entity.world_position.xy - pos;
         d := length_squared(diff);
         if d < closest_dist_sq {
             closest_dist_sq = d;
@@ -98,7 +98,7 @@ draw_debug_living_entity :: proc(player: Player) {
 
     line :: proc(s: string) {
         d := UIK.text_body();
-        #unsafe UIK.text_set_halign(&d, .LEFT);
+        d.set_halign(.LEFT);
         UIK.text(s, d);
     }
 
@@ -254,10 +254,10 @@ get_sprite_top_center :: proc(sprite: Sprite_Renderer, fallback_anchor: Entity) 
             return transform_point_2d(sprite.entity.model_matrix, top_local);
         }
         size := sprite.get_world_size();
-        return sprite.entity.calculate_visual_position() + v2{0, size.y * 0.5};
+        return sprite.entity.calculate_visual_position().xy + v2{0, size.y * 0.5};
     }
     if fallback_anchor != null && #alive(fallback_anchor) {
-        return fallback_anchor.calculate_visual_position();
+        return fallback_anchor.calculate_visual_position().xy;
     }
     return v2{0, 0};
 }
@@ -274,10 +274,10 @@ get_sprite_bottom_center :: proc(sprite: Sprite_Renderer, fallback_anchor: Entit
             return transform_point_2d(sprite.entity.model_matrix, bottom_local);
         }
         size := sprite.get_world_size();
-        return sprite.entity.calculate_visual_position() - v2{0, size.y * 0.5};
+        return sprite.entity.calculate_visual_position().xy - v2{0, size.y * 0.5};
     }
     if fallback_anchor != null && #alive(fallback_anchor) {
-        return fallback_anchor.calculate_visual_position();
+        return fallback_anchor.calculate_visual_position().xy;
     }
     return v2{0, 0};
 }
@@ -348,7 +348,7 @@ LivingEntity :: class : Interactable {
 
     start_jump :: method() {
         if jump_t <= 0 {
-            jump_rest_pos = entity.local_position;
+            jump_rest_pos = entity.local_position.xy;
         }
         jump_t = JUMP_DURATION;
     }
@@ -540,14 +540,14 @@ LivingEntity :: class : Interactable {
             // off the spine's known head height instead.
             // TODO(engine): switch to a spine get_world_size() once the engine
             // exposes runtime spine bounds; until then use this fixed offset.
-            base_pos = anchor.world_position + v2{0, spine_label_height};
+            base_pos = anchor.world_position.xy + v2{0, spine_label_height};
         } else {
             base_pos = get_sprite_top_center(sprite, anchor);
         }
 
         // Camera-rect culling — skip the whole label stack when off-screen.
         if local.camera.size > 0 {
-            cam_pos := local.camera.position;
+            cam_pos := local.camera.position.xy;
             cull_radius := local.camera.size * 1.5;
             diff := base_pos - cam_pos;
             if length_squared(diff) > cull_radius * cull_radius return;

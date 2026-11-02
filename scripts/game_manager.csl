@@ -74,7 +74,7 @@ gm_on_npc_line_enter :: proc(self: Collider, other: Collider) {
     // they steal would fit. Teleport back to base and skip the auto-walk.
     if is_default_inventory_full(player) {
         if player.my_room != null && #alive(player.my_room.entity) {
-            player.teleport(player.my_room.entity.world_position);
+            player.teleport(player.my_room.entity.world_position.xy);
         }
         show_notification(player, "Inventory full!");
         return;
@@ -83,7 +83,7 @@ gm_on_npc_line_enter :: proc(self: Collider, other: Collider) {
     gm := get_game_manager();
     if gm == null return;
     if gm.teleport_pos != null && #alive(gm.teleport_pos) {
-        tp := gm.teleport_pos.world_position;
+        tp := gm.teleport_pos.world_position.xy;
         tp.y = 8.493;
         player.teleport(tp);
     }
@@ -136,7 +136,7 @@ snap_player_to_navmesh :: proc(player: Player) {
     if gm.navmesh == null return;
     if !#alive(gm.navmesh.entity) return;
 
-    pos := player.entity.world_position;
+    pos := player.entity.world_position.xy;
     snapped: v2;
     hint: s64 = 0;
     if gm.navmesh.try_find_closest_point_on_navmesh(pos, ref snapped, ref hint) {

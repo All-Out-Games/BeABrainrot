@@ -231,8 +231,15 @@ stamp_offline_disconnect :: proc(player: Player) {
 schedule_offline_income_reminder :: proc(player: Player) {
     if !Game.is_server() || Game.is_launched_from_editor() || player == null return;
     if player.my_room == null || player_total_gps(player) <= 0 return;
-    ready_at := utc_now_seconds() + (OFFLINE_EARNINGS_CAP_HOURS * 3600.0).(f64);
-    Push_Notifications.schedule(player.get_user_id(), "offline_income_ready", ready_at.(s64));
+    now := utc_now_seconds();
+    // stamp_offline_disconnect preserves the old start while a payout is unclaimed.
+    // Honor that saved window instead of restarting another two-hour wait.
+    last_seen := Save.get_f64(player, OFFLINE_LAST_SEEN_KEY, 0.0);
+    if last_seen <= 0 return;
+    cap_at := last_seen + (OFFLINE_EARNINGS_CAP_HOURS * 3600.0).(f64);
+    ready_at := max(now + 1800.0, cap_at);
+    if ready_at > now + 29.0 * 86400.0 return;
+    Push_Notifications.schedule(player.get_user_id(), "offline_income_ready", ceil(ready_at).(s64));
 }
 
 play_offline_claim_sfx :: proc(player: Player) {

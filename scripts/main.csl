@@ -823,6 +823,7 @@ Player :: class : Player_Base {
         // but only if there's no unresolved Welcome Back popup (else keep the
         // old last-seen so the unclaimed window survives the disconnect).
         stamp_offline_disconnect(this);
+        schedule_offline_income_reminder(this);
 
         for i: 0..g_players.count - 1 {
             if g_players[i] == this {

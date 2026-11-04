@@ -227,6 +227,14 @@ stamp_offline_disconnect :: proc(player: Player) {
     log_info("[offline] DISCONNECT WRITE last_seen=%", {dc});
 }
 
+// Departure-only external side effect; gameplay and save prediction stay unchanged.
+schedule_offline_income_reminder :: proc(player: Player) {
+    if !Game.is_server() || Game.is_launched_from_editor() || player == null return;
+    if player.my_room == null || player_total_gps(player) <= 0 return;
+    ready_at := utc_now_seconds() + (OFFLINE_EARNINGS_CAP_HOURS * 3600.0).(f64);
+    Push_Notifications.schedule(player.get_user_id(), "offline_income_ready", ready_at.(s64));
+}
+
 play_offline_claim_sfx :: proc(player: Player) {
     sfx := get_asset(SFX_Asset, "SFX/Collect_Money.wav");
     if sfx == null return;

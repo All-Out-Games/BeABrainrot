@@ -1,0 +1,12 @@
+{
+  "gameId": "69fa4ade615b3f2dc656c9e2",
+  "canonicalGameId": "69fa4ade615b3f2dc656c9e2",
+  "notificationId": "offline_income_ready",
+  "title": "Your base has earned offline cash",
+  "body": "Your two-hour offline earning window is full. Return to Steal From Brainrots Bases to collect.",
+  "titleSlug": "b79720968717a7f5",
+  "bodySlug": "de1e23a0d1b2893a",
+  "cancelOnReturn": true,
+  "trigger": "On departure with an allocated base producing positive gold per second; after the 2-hour offline cap.",
+  "gamePushNotificationsEnabled": true
+}

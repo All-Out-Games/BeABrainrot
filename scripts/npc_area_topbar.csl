@@ -89,7 +89,7 @@ room_npc_center_y :: proc(r: Room_Npc) -> float {
 // "glued" segments — one per Room_Npc, in sorted order. If the player is
 // inside a base's Y range, the bubble interpolates inside that base's slot;
 // if they're in a gap between bases, snap to the nearer slot edge.
-player_t_along_bar :: proc(rooms: [..]Room_Npc, py: float) -> float, bool {
+player_t_along_bar :: proc(rooms: [..]Room_Npc, py: float) -> (float, bool) {
     if rooms.count <= 0 return 0, false;
     N := rooms.count.(float);
 

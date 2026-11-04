@@ -360,7 +360,7 @@ add_recurring :: proc(id: string, period_seconds: s64, duration_seconds: s64) {
     append(ref g_recurring, rc);
 }
 
-find_recurring :: proc(id: string) -> Recurring_Config, bool {
+find_recurring :: proc(id: string) -> (Recurring_Config, bool) {
     for i: 0..g_recurring.count - 1 {
         if g_recurring[i].id == id return g_recurring[i], true;
     }
@@ -432,7 +432,7 @@ evt_recurring_anchor :: proc(id: string) -> s64 {
     return v;
 }
 
-find_event_def :: proc(id: string) -> Event_Def, bool {
+find_event_def :: proc(id: string) -> (Event_Def, bool) {
     for i: 0..g_event_defs.count - 1 {
         if g_event_defs[i].id == id return g_event_defs[i], true;
     }
@@ -681,7 +681,7 @@ evt_csv_remove :: proc(csv: string, id: string) -> string {
     return out;
 }
 
-evt_csv_get_end :: proc(csv: string, id: string) -> s64, bool {
+evt_csv_get_end :: proc(csv: string, id: string) -> (s64, bool) {
     parts := string_split(csv, ";");
     for i: 0..parts.count - 1 {
         kv := string_split(parts[i], "=");

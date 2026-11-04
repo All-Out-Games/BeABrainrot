@@ -65,7 +65,7 @@ try_give_brainrot_item :: proc(player: Player, config_id: string, level: s64, mu
 
 // Same as try_give_brainrot_item but returns the created item so the caller can
 // keep a handle on it (e.g. to apply a modifier next). null/false if it didn't fit.
-try_give_brainrot_item_ret :: proc(player: Player, config_id: string, level: s64, mutation: Mutation) -> Brainrot_Item, bool {
+try_give_brainrot_item_ret :: proc(player: Player, config_id: string, level: s64, mutation: Mutation) -> (Brainrot_Item, bool) {
     if player == null return null, false;
     defn := find_brainrot_definition(config_id);
     if defn == null return null, false;

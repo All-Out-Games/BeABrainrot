@@ -42,7 +42,7 @@ add_env_palette :: proc(name: string, cliff: v4, grass: v4) {
     append(ref g_env_palettes, p);
 }
 
-find_env_palette :: proc(name: string) -> Env_Palette, bool {
+find_env_palette :: proc(name: string) -> (Env_Palette, bool) {
     for i: 0..g_env_palettes.count - 1 {
         if g_env_palettes[i].name == name return g_env_palettes[i], true;
     }

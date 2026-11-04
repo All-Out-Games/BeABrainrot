@@ -447,7 +447,7 @@ is_local_active_steal_room :: proc(r: Room_Npc) -> bool {
 // reach and catch them. Returns false until that room has initialized.
 LAST_ROOM_CEILING_INSET :: 0.0; // world units above the room's bottom edge
 
-get_last_npc_room_ceiling_y :: proc() -> float, bool {
+get_last_npc_room_ceiling_y :: proc() -> (float, bool) {
     r := g_last_npc_room;
     if r == null return 0, false;
     if r.trigger == null return 0, false;

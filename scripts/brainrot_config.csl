@@ -170,7 +170,7 @@ get_brainrot_configs :: proc() -> [..]Brainrot_Config {
     return list;
 }
 
-get_brainrot_config :: proc(id: string) -> Brainrot_Config, bool {
+get_brainrot_config :: proc(id: string) -> (Brainrot_Config, bool) {
     configs := get_brainrot_configs();
     for c: configs {
         if c.id == id return c, true;

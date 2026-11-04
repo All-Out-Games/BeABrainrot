@@ -163,7 +163,7 @@ has_prime :: proc(player: Player) -> bool {
 
 // Returns (price, original, on_sale). `original`/`on_sale` are only meaningful
 // when the description is a number greater than the current price.
-product_pricing :: proc(id: string) -> s64, s64, bool {
+product_pricing :: proc(id: string) -> (s64, s64, bool) {
     prod := Purchasing.get_product(id);
     orig, ok := parse_uint_string(prod.description);
     on_sale := ok && orig > prod.price;
